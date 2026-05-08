@@ -117,11 +117,11 @@ function DraggablePlayer({ player, onClick, isSubstitute = false }: { player: Pl
   }));
   
   return (
-    <div ref={drag} onClick={onClick} className={`bg-slate-900/50 border border-white/5 rounded-xl p-3 cursor-pointer hover:border-blue-500/50 hover:bg-slate-800 transition-all flex items-center gap-3 ${isDragging ? 'opacity-50' : ''}`}>
+    <div ref={drag} onClick={onClick} className={`bg-surface border border-border rounded-xl p-3 cursor-pointer hover:border-blue-500/50 hover:bg-surface-hover transition-all flex items-center gap-3 ${isDragging ? 'opacity-50' : ''}`}>
         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg ${isSubstitute ? 'bg-slate-600' : 'bg-blue-600'}`}>{player.jerseyNumber}</div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-slate-200 truncate">{player.firstName} {player.lastName}</p>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide">{player.position}</p>
+          <p className="text-sm font-bold text-foreground truncate">{player.firstName} {player.lastName}</p>
+          <p className="text-[10px] text-muted uppercase tracking-wide">{player.position}</p>
         </div>
     </div>
   );
@@ -138,8 +138,8 @@ function PositionSlotComponent({ slot, player, onDrop, onRemove, onClick, isMatc
     <div ref={drop} style={{ left: `${slot.x}%`, top: `${slot.y}%` }} className="absolute -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-110">
       {player ? (
         <div onClick={onClick} className="relative group cursor-pointer">
-          <div className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-[0_0_15px_rgba(37,99,235,0.5)] border-2 border-blue-400"><span className="text-lg font-bold">{player.jerseyNumber}</span></div>
-          <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-center whitespace-nowrap"><p className="text-[10px] font-bold text-white bg-slate-900/80 px-2 py-0.5 rounded border border-white/10">{player.firstName}</p></div>
+          <div className="w-14 h-14 bg-primary rounded-full flex items-center justify-center text-white shadow-[0_0_15px_rgba(37,99,235,0.5)] border-2 border-primary/40"><span className="text-lg font-bold">{player.jerseyNumber}</span></div>
+          <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-center whitespace-nowrap"><p className="text-[10px] font-bold text-foreground bg-surface/80 px-2 py-0.5 rounded border border-border">{player.firstName}</p></div>
           {!isMatchPast && <button onClick={(e) => { e.stopPropagation(); onRemove(slot.id); }} className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"><X className="w-3 h-3" /></button>}
         </div>
       ) : (
@@ -459,13 +459,13 @@ useEffect(() => {
 
   return (
     <DndProvider backend={HTML5Backend}> 
-    <div className="p-6 sm:p-8 max-w-[1600px] mx-auto space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="h-full w-full flex flex-col p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto space-y-6 overflow-y-auto custom-scrollbar relative">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 flex-shrink-0">
         <div className="flex items-center gap-3">
             <div className="w-1 h-10 rounded-full bg-rose-500 flex-shrink-0" />
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white">Match & Lineup</h1>
-              <p className="text-sm text-slate-400 mt-0.5">Tactical setup for matchday</p>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">Match & Lineup</h1>
+              <p className="text-sm text-muted mt-0.5">Tactical setup for matchday</p>
             </div>
         </div>
         <div className="flex gap-3">
@@ -474,112 +474,112 @@ useEffect(() => {
         </div>
       </div>
 
-      <Card className="p-6">
+      <Card className="p-6 flex-shrink-0">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             {matchDetails ? (
                 <>
                     <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-2xl font-bold text-white flex items-center gap-3"><span className="text-slate-500 text-lg">VS</span> {matchDetails.opponent}</h3>
+                        <h3 className="text-2xl font-bold text-foreground flex items-center gap-3"><span className="text-muted text-lg">VS</span> {matchDetails.opponent}</h3>
                         {isMatchPast ? (
                             <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20 uppercase tracking-widest">Past Match</span>
                         ) : (
-                            <button onClick={handleOpenEdit} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/10 transition-colors"><Edit2 size={16} /></button>
+                            <button onClick={handleOpenEdit} className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-surface-hover transition-colors"><Edit2 size={16} /></button>
                         )}
                     </div>
-                    <div className="flex flex-wrap gap-6 text-sm text-slate-400 font-medium">
+                    <div className="flex flex-wrap gap-6 text-sm text-muted font-medium">
                         <span className="flex items-center gap-2"><Calendar size={14} className="text-blue-500" /> {formatDate(matchDetails.date)}</span>
                         <span className="flex items-center gap-2"><Users size={14} className="text-blue-500" /> {matchDetails.time || 'TBD'}</span>
                         <span className="flex items-center gap-2"><MapPin size={14} className="text-blue-500" /> {matchDetails.location || 'Home'}</span>
                     </div>
                 </>
             ) : (
-                <div className="text-slate-500 flex items-center gap-3">
+                <div className="text-muted flex items-center gap-3">
                     <Trophy size={24} className="opacity-50"/>
-                    <div><h3 className="text-lg font-bold text-slate-400">No Upcoming Match</h3><p className="text-sm">Click "Create Match" to schedule.</p></div>
+                    <div><h3 className="text-lg font-bold text-muted">No Upcoming Match</h3><p className="text-sm">Click "Create Match" to schedule.</p></div>
                 </div>
             )}
           </div>
-          <div className="border-l border-white/5 pl-6">
-            <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Formation</p>
+          <div className="border-l border-border pl-6">
+            <p className="text-[10px] uppercase tracking-widest text-muted font-bold mb-1">Formation</p>
             <div className="flex items-center gap-2">
               <span className="text-3xl font-bold text-emerald-400 font-mono tracking-tight">{currentFormation}</span>
               {!isMatchPast && (
+                  <button
+                    ref={formationBtnRef}
+                    onClick={handleToggleFormationPicker}
+                    className={`p-1.5 rounded-lg border transition-colors ${
+                      showFormationPicker
+                        ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400'
+                        : 'border-border text-muted hover:text-foreground hover:border-border'
+                    }`}
+                  >
+                    <ChevronDown size={14} className={`transition-transform duration-200 ${showFormationPicker ? 'rotate-180' : ''}`} />
+                  </button>
+                )}
+              </div>
+              <p className="text-[10px] text-muted mt-0.5">{formationSource}</p>
+            </div>
+          </div>
+        </Card>
+  
+        <div className="grid grid-cols-12 gap-6 flex-shrink-0">
+          <div className="col-span-12 lg:col-span-3 space-y-6">
+            <Card className="p-4 flex flex-col h-[250px]">
+              <div className="flex gap-2 mb-4">
                 <button
-                  ref={formationBtnRef}
-                  onClick={handleToggleFormationPicker}
-                  className={`p-1.5 rounded-lg border transition-colors ${
-                    showFormationPicker
-                      ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400'
-                      : 'border-white/10 text-slate-500 hover:text-white hover:border-white/30'
+                  onClick={() => { setShowPastMatches(false); if (upcomingMatches.length > 0) setMatchDetails(upcomingMatches[0]); }}
+                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors ${
+                    !showPastMatches
+                      ? 'bg-blue-600/20 text-blue-400 border border-blue-500/50'
+                      : 'bg-surface text-muted border border-border'
                   }`}
                 >
-                  <ChevronDown size={14} className={`transition-transform duration-200 ${showFormationPicker ? 'rotate-180' : ''}`} />
+                  Upcoming ({upcomingMatches.length})
                 </button>
-              )}
-            </div>
-            <p className="text-[10px] text-slate-600 mt-0.5">{formationSource}</p>
-          </div>
-        </div>
-      </Card>
-
-      <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-12 lg:col-span-3 space-y-6">
-          <Card className="p-4 flex flex-col h-[250px]">
-            <div className="flex gap-2 mb-4">
-              <button
-                onClick={() => { setShowPastMatches(false); if (upcomingMatches.length > 0) setMatchDetails(upcomingMatches[0]); }}
-                className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors ${
-                  !showPastMatches
-                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/50'
-                    : 'bg-slate-900/50 text-slate-400 border border-white/5'
-                }`}
-              >
-                Upcoming ({upcomingMatches.length})
-              </button>
-              <button
-                onClick={() => { setShowPastMatches(true); if (pastMatches.length > 0) setMatchDetails(pastMatches[0]); }}
-                className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors ${
-                  showPastMatches
-                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/50'
-                    : 'bg-slate-900/50 text-slate-400 border border-white/5'
-                }`}
-              >
-                Past ({pastMatches.length})
-              </button>
-            </div>
-            <div className="space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-2">
-                {(!showPastMatches ? upcomingMatches : pastMatches).length > 0 ? (
-                  (!showPastMatches ? upcomingMatches : pastMatches).map(match => (
-                    <div key={match.id} onClick={() => setMatchDetails(match)} className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between group ${matchDetails?.id === match.id ? 'bg-blue-600/10 border-blue-500/50' : 'bg-slate-900/50 border-white/5 hover:border-white/20'}`}>
-                        <div>
-                          <p className={`text-sm font-bold ${matchDetails?.id === match.id ? 'text-blue-400' : 'text-slate-200'}`}>vs {match.opponent}</p>
-                          <p className="text-[10px] text-slate-500">{formatDate(match.date)}</p>
-                        </div>
-                        {matchDetails?.id === match.id && <ChevronRight size={14} className="text-blue-400" />}
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-slate-500 italic text-center mt-10">No {showPastMatches ? 'past' : 'upcoming'} matches</p>
-                )}
-            </div>
-          </Card>
+                <button
+                  onClick={() => { setShowPastMatches(true); if (pastMatches.length > 0) setMatchDetails(pastMatches[0]); }}
+                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors ${
+                    showPastMatches
+                      ? 'bg-blue-600/20 text-blue-400 border border-blue-500/50'
+                      : 'bg-surface text-muted border border-border'
+                  }`}
+                >
+                  Past ({pastMatches.length})
+                </button>
+              </div>
+              <div className="space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-2">
+                  {(!showPastMatches ? upcomingMatches : pastMatches).length > 0 ? (
+                    (!showPastMatches ? upcomingMatches : pastMatches).map(match => (
+                      <div key={match.id} onClick={() => setMatchDetails(match)} className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between group ${matchDetails?.id === match.id ? 'bg-blue-600/10 border-blue-500/50' : 'bg-surface border-border hover:border-border'}`}>
+                          <div>
+                            <p className={`text-sm font-bold ${matchDetails?.id === match.id ? 'text-blue-400' : 'text-foreground'}`}>vs {match.opponent}</p>
+                            <p className="text-[10px] text-muted">{formatDate(match.date)}</p>
+                          </div>
+                          {matchDetails?.id === match.id && <ChevronRight size={14} className="text-blue-400" />}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted italic text-center mt-10">No {showPastMatches ? 'past' : 'upcoming'} matches</p>
+                  )}
+              </div>
+            </Card>
 
           <Card className="p-4 h-[350px] flex flex-col">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Available Players</h3>
+              <h3 className="text-sm font-bold text-muted uppercase tracking-widest">Available Players</h3>
               {isMatchPast && <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">View Only</span>}
             </div>
             <div className={`space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-2 ${isMatchPast ? 'opacity-60 pointer-events-none' : ''}`}>
               {availablePlayers.length > 0 ? availablePlayers.map(player => 
                 <DraggablePlayer key={player.id} player={player} onClick={() => !isMatchPast && handleAddSubstitute(player)} />
-              ) : <p className="text-xs text-slate-500 italic text-center mt-10">No active players available</p>}
+              ) : <p className="text-xs text-muted italic text-center mt-10">No active players available</p>}
             </div>
           </Card>
 
           <Card className="p-4 h-[200px] flex flex-col">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Substitutes</h3>
+              <h3 className="text-sm font-bold text-muted uppercase tracking-widest">Substitutes</h3>
               {isMatchPast && <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">View Only</span>}
             </div>
             <div className={`space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-2 ${isMatchPast ? 'opacity-60' : ''}`}>
@@ -591,7 +591,7 @@ useEffect(() => {
         </div>
 
         <div className="col-span-12 lg:col-span-9">
-          <Card className="p-8 bg-gradient-to-br from-emerald-900 to-emerald-950 border-emerald-900/50 relative overflow-hidden" style={{ minHeight: '848px' }}>
+          <Card className="p-8 bg-gradient-to-br from-emerald-900 to-emerald-950 border-emerald-900/50 relative overflow-y-auto lg:overflow-hidden" style={{ minHeight: '848px' }}>
             <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 49px, #fff 50px)' }}></div>
             <div className="absolute inset-8 border-2 border-emerald-400/20 rounded-lg pointer-events-none">
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-24 border-2 border-emerald-400/20 border-t-0 rounded-b-lg"></div>
@@ -602,9 +602,9 @@ useEffect(() => {
             <div className="absolute inset-8">
               {activeSlots.map((slot) => <PositionSlotComponent key={slot.id} slot={slot} player={lineup.get(slot.id) || null} onDrop={handleDropToField} onRemove={handleRemoveFromField} onClick={() => { const p = lineup.get(slot.id); if (p) { setSelectedPlayer(p); setSelectedPlayerPerformance(p.performance || 0); } }} isMatchPast={isMatchPast} />)}
             </div>
-            <div className="absolute top-6 right-6 bg-black/40 backdrop-blur-md rounded-lg px-4 py-2 border border-white/5">
-              <p className="text-[10px] text-slate-400 uppercase tracking-widest">Starters</p>
-              <p className="text-xl font-bold text-white">{lineup.size} / 11</p>
+            <div className="absolute top-6 right-6 bg-surface/40 backdrop-blur-md rounded-lg px-4 py-2 border border-border">
+              <p className="text-[10px] text-muted uppercase tracking-widest">Starters</p>
+              <p className="text-xl font-bold text-foreground">{lineup.size} / 11</p>
             </div>
           </Card>
         </div>
@@ -614,15 +614,15 @@ useEffect(() => {
         {selectedPlayer && (
             <div className="text-center space-y-6">
                 <div>
-                  <div className="w-24 h-24 bg-blue-600 rounded-full mx-auto mb-4 flex items-center justify-center text-white text-3xl font-bold shadow-xl shadow-blue-500/30 border-4 border-slate-900">{selectedPlayer.jerseyNumber}</div>
-                  <h3 className="text-2xl font-bold text-white mb-1">{selectedPlayer.firstName} {selectedPlayer.lastName}</h3>
-                  <p className="text-blue-400 font-medium">{selectedPlayer.position}</p>
+                  <div className="w-24 h-24 bg-primary rounded-full mx-auto mb-4 flex items-center justify-center text-white text-3xl font-bold shadow-xl shadow-primary/30 border-4 border-surface-raised">{selectedPlayer.jerseyNumber}</div>
+                  <h3 className="text-2xl font-bold text-foreground mb-1">{selectedPlayer.firstName} {selectedPlayer.lastName}</h3>
+                  <p className="text-primary font-medium">{selectedPlayer.position}</p>
                 </div>
                 
                 <div className="w-full space-y-4">
                     {isMatchPast ? (
-                      <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-xl border border-white/5">
-                        <p className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-4">Match Performance</p>
+                      <div className="bg-surface-raised/50 p-6 rounded-xl border border-border">
+                        <p className="text-xs text-muted uppercase tracking-widest font-bold mb-4">Match Performance</p>
                         <div className="space-y-3">
                           <input
                             type="range"
@@ -704,14 +704,14 @@ useEffect(() => {
                       </div>
                     )}
                     
-                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-xl border border-white/5">
-                      <p className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-2">Status</p>
+                    <div className="bg-surface-raised/50 p-6 rounded-xl border border-border">
+                      <p className="text-xs text-muted uppercase tracking-widest font-bold mb-2">Status</p>
                       <p className={`text-lg font-bold mt-2 ${
                         selectedPlayer.status === 'Active' 
                           ? 'text-emerald-400' 
                           : selectedPlayer.status === 'Injured'
                           ? 'text-red-400'
-                          : 'text-slate-400'
+                          : 'text-muted'
                       }`}>
                         {selectedPlayer.status}
                       </p>
@@ -758,9 +758,9 @@ useEffect(() => {
       <Modal isOpen={showSaveModal} onClose={() => setShowSaveModal(false)} title="Confirm Lineup" maxWidth="max-w-sm" 
         footer={<div className="flex gap-3"><Button variant="ghost" onClick={() => setShowSaveModal(false)} className="flex-1">Cancel</Button><Button onClick={handleSaveLineup} className="flex-1">Confirm</Button></div>}>
         <div className="space-y-4">
-            <div className="bg-slate-900/50 p-4 rounded-xl border border-white/5 space-y-2">
-                <div className="flex justify-between text-sm"><span className="text-slate-400">Match</span><span className="text-white font-bold">{matchDetails?.opponent || 'Unscheduled'}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-slate-400">Formation</span><span className="text-emerald-400 font-bold font-mono">{currentFormation}</span></div>
+            <div className="bg-surface-raised/50 p-4 rounded-xl border border-border space-y-2">
+                <div className="flex justify-between text-sm"><span className="text-muted">Match</span><span className="text-foreground font-bold">{matchDetails?.opponent || 'Unscheduled'}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-muted">Formation</span><span className="text-emerald-400 font-bold font-mono">{currentFormation}</span></div>
             </div>
             <p className="text-sm text-slate-400 text-center">Save this lineup for {matchDetails ? matchDetails.opponent : 'the upcoming match'}?</p>
         </div>
@@ -771,7 +771,7 @@ useEffect(() => {
         <div
           ref={formationPickerRef}
           style={{ position: 'fixed', top: pickerPos.top, right: pickerPos.right, zIndex: 9999 }}
-          className="w-64 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl shadow-black/60 p-3 space-y-3"
+          className="w-64 bg-surface border border-border rounded-2xl shadow-2xl shadow-black/60 p-3 space-y-3"
         >
           {FORMATION_GROUPS.map(group => (
             <div key={group.label}>
@@ -784,7 +784,7 @@ useEffect(() => {
                     className={`px-2.5 py-1 rounded-lg font-mono font-bold text-xs transition-all border ${
                       currentFormation === f
                         ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-400'
-                        : 'border-white/10 text-slate-400 bg-slate-800 hover:border-emerald-500/40 hover:text-emerald-300'
+                        : 'border-border text-muted bg-surface-raised hover:border-emerald-500/40 hover:text-emerald-300'
                     }`}
                   >
                     {f}

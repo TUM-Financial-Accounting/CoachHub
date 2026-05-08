@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
@@ -8,21 +9,27 @@ export default {
         mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
       colors: {
-        // The Dark Background
-        background: "#0b0f19",
-        // The Glass Card Background
-        surface: "rgba(15, 23, 42, 0.6)", 
-        // Your Brand Blue
+        background: "var(--background)",
+        foreground: "var(--foreground)",
+        surface: {
+          DEFAULT: "var(--surface)",
+          hover: "var(--surface-hover)",
+          raised: "var(--surface-raised)",
+        },
         primary: {
-          DEFAULT: "#2563eb", // blue-600
-          hover: "#1d4ed8",   // blue-700
+          DEFAULT: "var(--primary)",
+          hover: "var(--primary-hover)",
           foreground: "#ffffff",
         },
-        // Borders
-        border: "rgba(255, 255, 255, 0.1)",
+        border: "var(--border)",
+        "border-subtle": "var(--border-subtle)",
+        muted: "var(--text-muted)",
+        dimmed: "var(--text-dimmed)",
+        overlay: "var(--overlay)",
+        ring: "var(--ring)",
       },
       borderRadius: {
-        lg: "1rem", // Centralized radius
+        lg: "1rem",
         xl: "1.25rem",
       }
     },

@@ -48,7 +48,7 @@ export default function SessionSlideOver({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+                        className="fixed inset-0 z-40 bg-overlay backdrop-blur-sm"
                         onClick={onClose}
                     />
 
@@ -59,7 +59,7 @@ export default function SessionSlideOver({
                         animate={{ x: 0 }}
                         exit={{ x: '100%' }}
                         transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-                        className="fixed inset-y-0 right-0 z-50 w-full max-w-lg flex flex-col bg-[#0d1117] border-l border-white/5 shadow-2xl overflow-hidden"
+                        className="fixed inset-y-0 right-0 z-50 w-full max-w-lg flex flex-col bg-background border-l border-border-subtle shadow-2xl overflow-hidden"
                     >
                         {/* Gradient header */}
                         <div className="flex-shrink-0 relative">
@@ -67,24 +67,24 @@ export default function SessionSlideOver({
 
                             <button
                                 onClick={onClose}
-                                className="absolute top-4 right-4 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                                className="absolute top-4 right-4 p-2 rounded-xl bg-surface-hover hover:bg-surface-hover text-muted hover:text-foreground transition-colors"
                             >
                                 <X size={18} />
                             </button>
 
                             <div className="absolute bottom-0 left-0 right-0 px-6 pb-4 flex items-end gap-4">
                                 <div className={`w-14 h-14 rounded-2xl p-[2px] shadow-xl flex-shrink-0 ${isPast ? 'bg-gradient-to-br from-slate-500 to-slate-700 shadow-slate-500/10' : 'bg-gradient-to-br from-cyan-500 to-blue-600 shadow-cyan-500/20'}`}>
-                                    <div className="w-full h-full rounded-[14px] bg-slate-900 flex items-center justify-center">
-                                        <Activity size={22} className={isPast ? 'text-slate-400' : 'text-cyan-400'} />
+                                    <div className="w-full h-full rounded-[14px] bg-surface flex items-center justify-center">
+                                        <Activity size={22} className={isPast ? 'text-muted' : 'text-cyan-400'} />
                                     </div>
                                 </div>
                                 <div className="pb-1 min-w-0">
-                                    <h2 className="text-xl font-bold text-white truncate">{session.focus}</h2>
+                                    <h2 className="text-xl font-bold text-foreground truncate">{session.focus}</h2>
                                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${style.badge}`}>
                                             {session.intensity}
                                         </span>
-                                        <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                                        <span className="flex items-center gap-1 text-[11px] text-muted">
                                             <Calendar size={10} /> {formatDate(session.date)}
                                         </span>
                                     </div>
@@ -98,10 +98,10 @@ export default function SessionSlideOver({
                             {/* Intensity bar */}
                             <div>
                                 <div className="flex items-center justify-between mb-1.5">
-                                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5"><Zap size={10} /> Intensity</span>
+                                    <span className="text-[10px] font-semibold text-muted uppercase tracking-wider flex items-center gap-1.5"><Zap size={10} /> Intensity</span>
                                     <span className={`text-xs font-bold ${style.badge.split(' ').find(c => c.startsWith('text-'))}`}>{session.intensity}</span>
                                 </div>
-                                <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                <div className="h-1.5 bg-surface-raised rounded-full overflow-hidden">
                                     <motion.div
                                         initial={{ width: 0 }}
                                         animate={{ width: style.width }}
@@ -118,7 +118,7 @@ export default function SessionSlideOver({
                                     { icon: <Users size={13} />, label: 'Players', value: String(players.length), color: 'text-indigo-400' },
                                     { icon: <Dumbbell size={13} />, label: 'Drills', value: String(exercises.length), color: 'text-amber-400' },
                                 ].map(stat => (
-                                    <div key={stat.label} className="bg-white/[0.03] border border-white/5 rounded-xl p-3 text-center">
+                                    <div key={stat.label} className="bg-surface-hover border border-border-subtle rounded-xl p-3 text-center">
                                         <div className={`flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wider mb-1.5 ${stat.color}`}>
                                             {stat.icon} {stat.label}
                                         </div>
@@ -128,18 +128,18 @@ export default function SessionSlideOver({
                             </div>
 
                             {/* Time */}
-                            <div className="flex items-center gap-3 px-4 py-3 bg-white/[0.03] border border-white/5 rounded-xl">
-                                <Clock size={15} className="text-slate-500 flex-shrink-0" />
+                            <div className="flex items-center gap-3 px-4 py-3 bg-surface-hover border border-border-subtle rounded-xl">
+                                <Clock size={15} className="text-muted flex-shrink-0" />
                                 <div>
-                                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Session Time</p>
-                                    <p className="text-sm font-semibold text-slate-200 font-mono">{session.startTime} – {session.endTime}</p>
+                                    <p className="text-[10px] font-semibold text-muted uppercase tracking-wider">Session Time</p>
+                                    <p className="text-sm font-semibold text-foreground font-mono">{session.startTime} – {session.endTime}</p>
                                 </div>
                             </div>
 
                             {/* Exercise sequence */}
                             {exercises.length > 0 && (
                                 <div>
-                                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                    <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-3 flex items-center gap-1.5">
                                         <Dumbbell size={10} /> Drill Sequence
                                         <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[9px]">{exercises.length}</span>
                                     </p>
@@ -147,33 +147,33 @@ export default function SessionSlideOver({
                                         {exercises.map((ex, i) => {
                                             const mediaType = getMediaType(ex.mediaUrl);
                                             return (
-                                                <div key={ex.id} className="bg-white/[0.03] border border-white/5 rounded-xl overflow-hidden">
+                                                <div key={ex.id} className="bg-surface-hover border border-border-subtle rounded-xl overflow-hidden">
                                                     <div className="flex gap-3 p-3">
                                                         {/* Thumbnail */}
-                                                        <div className="w-12 h-12 rounded-lg bg-slate-800 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                                                        <div className="w-12 h-12 rounded-lg bg-surface-raised flex-shrink-0 overflow-hidden flex items-center justify-center">
                                                             {mediaType === 'image' && ex.mediaUrl
                                                                 ? <img src={ex.mediaUrl} className="w-full h-full object-cover" alt={ex.name} />
-                                                                : <ImageIcon size={18} className="text-slate-600" />}
+                                                                : <ImageIcon size={18} className="text-dimmed" />}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex items-center gap-2 mb-0.5">
                                                                 <span className="w-5 h-5 rounded-full bg-amber-500/15 text-amber-400 text-[10px] flex items-center justify-center font-bold flex-shrink-0">{i + 1}</span>
-                                                                <p className="text-sm font-semibold text-white truncate">{ex.name}</p>
+                                                                <p className="text-sm font-semibold text-foreground truncate">{ex.name}</p>
                                                             </div>
                                                             {ex.intensity && (
-                                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase ${intensityStyles[ex.intensity]?.badge ?? 'text-slate-400 border-slate-700'}`}>
+                                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase ${intensityStyles[ex.intensity]?.badge ?? 'text-muted border-border'}`}>
                                                                     {ex.intensity}
                                                                 </span>
                                                             )}
                                                             {ex.equipment && ex.equipment.length > 0 && ex.equipment[0] !== '' && (
-                                                                <p className="text-[10px] text-slate-600 mt-1 truncate">{ex.equipment.slice(0, 3).join(', ')}</p>
+                                                                <p className="text-[10px] text-dimmed mt-1 truncate">{ex.equipment.slice(0, 3).join(', ')}</p>
                                                             )}
                                                         </div>
                                                     </div>
                                                     {/* Description if present */}
                                                     {ex.description && (
-                                                        <div className="px-3 pb-3 border-t border-white/5 pt-2">
-                                                            <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-2">{ex.description}</p>
+                                                        <div className="px-3 pb-3 border-t border-border-subtle pt-2">
+                                                            <p className="text-[11px] text-muted leading-relaxed line-clamp-2">{ex.description}</p>
                                                         </div>
                                                     )}
                                                     {/* Linked tags */}
@@ -200,13 +200,13 @@ export default function SessionSlideOver({
                             {/* Players */}
                             {players.length > 0 && (
                                 <div>
-                                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                    <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-3 flex items-center gap-1.5">
                                         <Users size={10} /> Attending Players
                                         <span className="ml-1 px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[9px]">{players.length}</span>
                                     </p>
                                     <div className="flex flex-wrap gap-2">
                                         {players.map(p => (
-                                            <span key={p.id} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white/[0.03] border border-white/5 text-slate-300">
+                                            <span key={p.id} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-surface-hover border border-border-subtle text-foreground">
                                                 {p.firstName} {p.lastName}
                                             </span>
                                         ))}
@@ -216,7 +216,7 @@ export default function SessionSlideOver({
                         </div>
 
                         {/* Footer */}
-                        <div className="flex-shrink-0 px-6 py-4 border-t border-white/5 bg-slate-950/50 flex gap-2">
+                        <div className="flex-shrink-0 px-6 py-4 border-t border-border-subtle bg-overlay flex gap-2">
                             <button
                                 onClick={() => onEdit(session)}
                                 className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-semibold transition-colors shadow-lg shadow-cyan-500/20"
@@ -225,14 +225,14 @@ export default function SessionSlideOver({
                             </button>
                             <button
                                 onClick={() => onExportPDF(session)}
-                                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5 text-sm font-semibold transition-all"
+                                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-hover hover:bg-surface-hover text-foreground border border-border-subtle text-sm font-semibold transition-all"
                                 title="Export PDF"
                             >
                                 <Download size={15} />
                             </button>
                             <button
                                 onClick={() => onDelete(session.id)}
-                                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 border border-white/5 hover:border-rose-500/20 text-sm font-semibold transition-all"
+                                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-hover hover:bg-rose-500/10 text-muted hover:text-rose-400 border border-border-subtle hover:border-rose-500/20 text-sm font-semibold transition-all"
                                 title="Delete"
                             >
                                 <Trash2 size={15} />

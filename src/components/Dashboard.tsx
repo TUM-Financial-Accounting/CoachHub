@@ -163,14 +163,14 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const attendanceTrend = lastMonthAvg > 0 ? Math.round(thisMonthAvg - lastMonthAvg) : null;
 
   return (
-    <div className="p-6 sm:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="h-full w-full flex flex-col p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto overflow-y-auto custom-scrollbar gap-6">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-1 h-10 rounded-full bg-blue-500 flex-shrink-0" />
+          <div className="w-1 h-10 rounded-full bg-primary flex-shrink-0" />
           <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Dashboard</h1>
-            <p className="text-sm text-slate-400 mt-0.5">Welcome back, Coach</p>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
+            <p className="text-sm text-muted mt-0.5">Welcome back, Coach</p>
           </div>
         </div>
         
@@ -178,7 +178,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           <Button 
             onClick={() => onNavigate('session-planner')} 
             icon={<Plus size={16} />}
-            className="bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20"
+            className="shadow-lg shadow-primary/20"
           >
             Session
           </Button>
@@ -187,7 +187,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             variant="secondary" 
             onClick={() => onNavigate('team')} 
             icon={<Plus size={16} />}
-            className="bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700"
           >
             Player
           </Button>
@@ -211,24 +210,24 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           >
             <div className="flex items-center justify-between mb-4">
               <div className="bg-blue-500/10 p-3 rounded-xl group-hover:bg-blue-500/20 transition-colors">
-                <Calendar className="w-6 h-6 text-blue-400" />
+                <Calendar className="w-6 h-6 text-blue-500" />
               </div>
-              <span className="text-[10px] font-bold px-2 py-1 bg-slate-800 text-slate-400 rounded border border-slate-700 uppercase tracking-wider">
+              <span className="text-[10px] font-bold px-2 py-1 bg-surface-hover text-muted rounded border border-border uppercase tracking-wider">
                 {nextSession ? 'Scheduled' : 'None'}
               </span>
             </div>
-            <h3 className="text-lg font-bold text-white mb-1">Next Session</h3>
-            <p className="text-sm text-slate-400 mb-4 line-clamp-1">
+            <h3 className="text-lg font-bold text-foreground mb-1">Next Session</h3>
+            <p className="text-sm text-muted mb-4 line-clamp-1">
               {nextSession ? nextSession.focus : 'No sessions scheduled'}
             </p>
-            <div className="flex flex-col gap-2 text-xs font-medium text-slate-400">
+            <div className="flex flex-col gap-2 text-xs font-medium text-muted">
               {nextSession && (
                 <>
                   <span className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-slate-500" /> {nextSession.startTime} - {nextSession.endTime}
+                    <Clock className="w-3.5 h-3.5 text-muted/60" /> {nextSession.startTime} - {nextSession.endTime}
                   </span>
                   <span className="flex items-center gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-slate-500" /> {formatDate(nextSession.date)}
+                    <MapPin className="w-3.5 h-3.5 text-muted/60" /> {formatDate(nextSession.date)}
                   </span>
                 </>
               )}
@@ -244,24 +243,24 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           >
             <div className="flex items-center justify-between mb-4">
               <div className="bg-emerald-500/10 p-3 rounded-xl group-hover:bg-emerald-500/20 transition-colors">
-                <Users className="w-6 h-6 text-emerald-400" />
+                <Users className="w-6 h-6 text-emerald-500" />
               </div>
-              <span className="text-[10px] font-bold px-2 py-1 bg-slate-800 text-slate-400 rounded border border-slate-700 uppercase tracking-wider">
+              <span className="text-[10px] font-bold px-2 py-1 bg-surface-hover text-muted rounded border border-border uppercase tracking-wider">
                 {nextMatch ? 'Upcoming' : 'None'}
               </span>
             </div>
-            <h3 className="text-lg font-bold text-white mb-1">Upcoming Match</h3>
-            <p className="text-sm text-slate-400 mb-4">
+            <h3 className="text-lg font-bold text-foreground mb-1">Upcoming Match</h3>
+            <p className="text-sm text-muted mb-4">
               {nextMatch ? `vs. ${nextMatch.opponent}` : 'No matches scheduled'}
             </p>
-            <div className="flex flex-col gap-2 text-xs font-medium text-slate-400">
+            <div className="flex flex-col gap-2 text-xs font-medium text-muted">
               {nextMatch && (
                 <>
                   <span className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-slate-500" /> {nextMatch.time} Kickoff
+                    <Clock className="w-3.5 h-3.5 text-muted/60" /> {nextMatch.time} Kickoff
                   </span>
                   <span className="flex items-center gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-slate-500" /> {nextMatch.location}
+                    <MapPin className="w-3.5 h-3.5 text-muted/60" /> {nextMatch.location}
                   </span>
                 </>
               )}
@@ -277,22 +276,22 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           >
             <div className="flex items-center justify-between mb-4">
               <div className="bg-purple-500/10 p-3 rounded-xl group-hover:bg-purple-500/20 transition-colors">
-                <TrendingUp className="w-6 h-6 text-purple-400" />
+                <TrendingUp className="w-6 h-6 text-purple-500" />
               </div>
               <span className={`text-[10px] font-bold px-2 py-1 rounded border uppercase tracking-wider ${
                 attendanceTrend === null
-                  ? 'text-slate-400 bg-slate-800 border-slate-700'
+                  ? 'text-muted bg-surface-hover border-border'
                   : attendanceTrend >= 0
-                  ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
-                  : 'text-rose-400 bg-rose-500/10 border-rose-500/20'
+                  ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
+                  : 'text-rose-500 bg-rose-500/10 border-rose-500/20'
               }`}>
                 {attendanceTrend === null ? 'No trend data' : `${attendanceTrend >= 0 ? '+' : ''}${attendanceTrend}% vs Last Month`}
               </span>
             </div>
-            <h3 className="text-lg font-bold text-white mb-1">Attendance Rate</h3>
+            <h3 className="text-lg font-bold text-foreground mb-1">Attendance Rate</h3>
             <div className="flex items-baseline gap-2">
-              <p className="text-3xl font-bold text-white"><CountUp value={calculatedAttendance} suffix="%" /></p>
-              <p className="text-xs text-slate-500">Based on training</p>
+              <p className="text-3xl font-bold text-foreground"><CountUp value={calculatedAttendance} suffix="%" /></p>
+              <p className="text-xs text-muted">Based on training</p>
             </div>
           </Card>
         </div>
@@ -300,7 +299,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         {/* Analytics Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card animate delay={0.3} className="p-6 md:p-8">
-            <h3 className="text-lg font-bold text-white mb-6">Attendance Overview</h3>
+            <h3 className="text-lg font-bold text-foreground mb-6">Attendance Overview</h3>
             {attendanceData.length > 0 ? (
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
@@ -311,29 +310,31 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       <stop offset="95%" stopColor="#6366f1" stopOpacity={0.8}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255, 0.05)" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-border/30" />
                   <XAxis 
                     dataKey="month" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fill: '#94a3b8', fontSize: 12 }} 
+                    tick={{ fill: 'currentColor', fontSize: 12 }} 
+                    className="text-muted"
                     dy={10}
                   />
                   <YAxis 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fill: '#94a3b8', fontSize: 12 }} 
+                    tick={{ fill: 'currentColor', fontSize: 12 }} 
+                    className="text-muted"
                   />
                   <Tooltip 
-                    cursor={{fill: 'rgba(255,255,255, 0.05)'}}
+                    cursor={{fill: 'currentColor', className: 'text-surface-hover'}}
                     contentStyle={{ 
-                      backgroundColor: '#0f172a', 
-                      borderColor: 'rgba(255,255,255,0.1)',
-                      color: '#f8fafc',
+                      backgroundColor: 'var(--surface)', 
+                      borderColor: 'var(--border)',
+                      color: 'var(--foreground)',
                       borderRadius: '12px',
-                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
                     }}
-                    itemStyle={{ color: '#e2e8f0' }}
+                    itemStyle={{ color: 'var(--foreground)' }}
                   />
                   <Bar 
                     dataKey="attendance" 
@@ -345,29 +346,29 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               </ResponsiveContainer>
             </div>
             ) : (
-              <div className="h-[300px] flex flex-col items-center justify-center text-slate-600 border-2 border-dashed border-slate-800 rounded-xl">
+              <div className="h-[300px] flex flex-col items-center justify-center text-muted border-2 border-dashed border-border rounded-xl bg-surface-hover/20">
                 <Activity size={32} className="mb-3 opacity-40" />
                 <p className="text-sm font-medium">No session data yet</p>
-                <p className="text-xs text-slate-700 mt-1">Create training sessions to see attendance trends</p>
+                <p className="text-xs text-muted/60 mt-1">Create training sessions to see attendance trends</p>
               </div>
             )}
           </Card>
 
           <Card animate delay={0.4} className="p-6 md:p-8">
-            <h3 className="text-lg font-bold text-white mb-6">Team Statistics</h3>
+            <h3 className="text-lg font-bold text-foreground mb-6">Team Statistics</h3>
             <div className="space-y-8">
               {/* Stat 1 */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-slate-400">Training Sessions</span>
-                  <span className="text-sm font-bold text-white">{sessions.length} total</span>
+                  <span className="text-sm font-medium text-muted">Training Sessions</span>
+                  <span className="text-sm font-bold text-foreground">{sessions.length} total</span>
                 </div>
-                <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-surface-hover rounded-full h-2 overflow-hidden">
                   <motion.div 
                     initial={{ width: 0 }}
                     animate={{ width: `${Math.min((sessions.length / Math.max(sessions.length, 1)) * 100, 100)}%` }}
                     transition={{ duration: 1, delay: 0.5 }}
-                    className="bg-gradient-to-r from-blue-500 to-blue-600 h-full rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]" 
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 h-full rounded-full shadow-[0_0_10px_rgba(59,130,246,0.3)]" 
                   />
                 </div>
               </div>
@@ -375,15 +376,15 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               {/* Stat 2 */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-slate-400">Upcoming Matches</span>
-                  <span className="text-sm font-bold text-white">{upcomingMatches.length} scheduled</span>
+                  <span className="text-sm font-medium text-muted">Upcoming Matches</span>
+                  <span className="text-sm font-bold text-foreground">{upcomingMatches.length} scheduled</span>
                 </div>
-                <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-surface-hover rounded-full h-2 overflow-hidden">
                   <motion.div 
                      initial={{ width: 0 }}
                      animate={{ width: `${Math.min((upcomingMatches.length / Math.max(upcomingMatches.length, 1)) * 100, 100)}%` }}
                      transition={{ duration: 1, delay: 0.7 }}
-                     className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-full rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" 
+                     className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-full rounded-full shadow-[0_0_10px_rgba(16,185,129,0.3)]" 
                   />
                 </div>
               </div>
@@ -391,32 +392,32 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               {/* Stat 3 */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-slate-400">Squad Availability</span>
-                  <span className="text-sm font-bold text-white">{players.filter(p => p.status === 'Active').length} / {players.length}</span>
+                  <span className="text-sm font-medium text-muted">Squad Availability</span>
+                  <span className="text-sm font-bold text-foreground">{players.filter(p => p.status === 'Active').length} / {players.length}</span>
                 </div>
-                <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-surface-hover rounded-full h-2 overflow-hidden">
                   <motion.div 
                      initial={{ width: 0 }}
                      animate={{ width: `${players.length > 0 ? (players.filter(p => p.status === 'Active').length / players.length) * 100 : 0}%` }}
                      transition={{ duration: 1, delay: 0.9 }}
-                     className="bg-gradient-to-r from-purple-500 to-purple-600 h-full rounded-full shadow-[0_0_10px_rgba(147,51,234,0.5)]" 
+                     className="bg-gradient-to-r from-purple-500 to-purple-600 h-full rounded-full shadow-[0_0_10px_rgba(147,51,234,0.3)]" 
                   />
                 </div>
               </div>
 
-              <div className="pt-6 mt-2 border-t border-white/5">
+              <div className="pt-6 mt-2 border-t border-border">
                 <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="p-3 rounded-xl bg-slate-900/50 border border-white/5 hover:bg-slate-800 transition-colors">
+                  <div className="p-3 rounded-xl bg-surface-hover/50 border border-border hover:bg-surface-hover transition-colors">
                     <p className="text-2xl font-bold text-emerald-500"><CountUp value={players.filter(p => p.status === 'Active').length} /></p>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Active</p>
+                    <p className="text-[10px] font-bold text-muted uppercase tracking-wider">Active</p>
                   </div>
-                  <div className="p-3 rounded-xl bg-slate-900/50 border border-white/5 hover:bg-slate-800 transition-colors">
-                    <p className="text-2xl font-bold text-slate-300"><CountUp value={players.filter(p => p.status === 'Injured').length} /></p>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Injured</p>
+                  <div className="p-3 rounded-xl bg-surface-hover/50 border border-border hover:bg-surface-hover transition-colors">
+                    <p className="text-2xl font-bold text-muted"><CountUp value={players.filter(p => p.status === 'Injured').length} /></p>
+                    <p className="text-[10px] font-bold text-muted uppercase tracking-wider">Injured</p>
                   </div>
-                  <div className="p-3 rounded-xl bg-slate-900/50 border border-white/5 hover:bg-slate-800 transition-colors">
-                    <p className="text-2xl font-bold text-white"><CountUp value={players.length} /></p>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total</p>
+                  <div className="p-3 rounded-xl bg-surface-hover/50 border border-border hover:bg-surface-hover transition-colors">
+                    <p className="text-2xl font-bold text-foreground"><CountUp value={players.length} /></p>
+                    <p className="text-[10px] font-bold text-muted uppercase tracking-wider">Total</p>
                   </div>
                 </div>
               </div>
@@ -428,32 +429,32 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         {upcomingSessions.length > 0 && (
           <Card animate delay={0.5} className="p-6 md:p-8">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-bold text-white">Upcoming Schedule</h3>
-              <button onClick={() => onNavigate('session-planner')} className="text-xs text-blue-400 hover:text-blue-300 transition-colors font-semibold">
+              <h3 className="text-lg font-bold text-foreground">Upcoming Schedule</h3>
+              <button onClick={() => onNavigate('session-planner')} className="text-xs text-primary hover:text-primary-hover transition-colors font-semibold">
                 View All →
               </button>
             </div>
             <div className="space-y-2">
               {upcomingSessions.slice(0, 5).map((s) => (
-                <div key={s.id} className="flex items-center gap-4 p-3 rounded-xl bg-slate-900/50 border border-white/5 hover:border-white/10 transition-colors group">
+                <div key={s.id} className="flex items-center gap-4 p-3 rounded-xl bg-surface-hover/50 border border-border hover:border-primary/30 transition-colors group">
                   <div className="w-11 h-11 rounded-lg bg-blue-500/10 border border-blue-500/20 flex flex-col items-center justify-center shrink-0">
-                    <span className="text-[9px] font-bold text-blue-400 uppercase leading-none">
+                    <span className="text-[9px] font-bold text-blue-500 uppercase leading-none">
                       {new Date(s.date + 'T12:00:00').toLocaleDateString('en-GB', { month: 'short' })}
                     </span>
-                    <span className="text-base font-bold text-white leading-tight">{s.date.slice(8, 10)}</span>
+                    <span className="text-base font-bold text-foreground leading-tight">{s.date.slice(8, 10)}</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white truncate group-hover:text-blue-400 transition-colors">{s.focus}</p>
-                    <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                    <p className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">{s.focus}</p>
+                    <p className="text-xs text-muted flex items-center gap-1.5 mt-0.5">
                       <Clock size={11} /> {s.startTime} – {s.endTime}
-                      <span className="text-slate-700">·</span>
+                      <span className="text-muted/30">·</span>
                       <Shield size={11} /> {s.selectedPlayers.split(',').filter(id => id.trim()).length} players
                     </p>
                   </div>
                   <span className={`text-[10px] font-bold px-2 py-1 rounded border uppercase tracking-wider shrink-0 ${
-                    s.intensity === 'High'   ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' :
-                    s.intensity === 'Low'    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-                                              'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                    s.intensity === 'High'   ? 'bg-rose-500/10 border-rose-500/20 text-rose-500' :
+                    s.intensity === 'Low'    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' :
+                                              'bg-amber-500/10 border-amber-500/20 text-amber-500'
                   }`}>{s.intensity}</span>
                 </div>
               ))}

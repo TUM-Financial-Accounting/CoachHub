@@ -11,7 +11,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="space-y-2 w-full">
         {label && (
-          <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">
+          <label className="text-[11px] font-bold text-muted uppercase tracking-widest ml-1">
             {label}
           </label>
         )}
@@ -23,7 +23,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
         >
           {icon && (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors z-10">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-primary transition-colors z-10">
               {icon}
             </div>
           )}
@@ -40,10 +40,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               onBlur?.(e);
             }}
             className={cn(
-              "w-full bg-slate-900/50 border border-white/5 text-white rounded-xl px-4 py-3.5 text-sm outline-none transition-all",
-              "placeholder:text-slate-600",
-              "focus:bg-slate-900 focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10",
-              "hover:border-white/10",
+              "w-full bg-surface-hover border border-border text-foreground rounded-xl px-4 py-3.5 text-sm outline-none transition-all",
+              "placeholder:text-muted/60",
+              "focus:bg-surface focus:border-primary/50 focus:ring-4 focus:ring-primary/10",
+              "hover:border-border",
               type === 'number' && "no-spinner", 
               icon && "pl-10",
               rightElement && "pr-12",
@@ -54,12 +54,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           />
           
           {rightElement && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-medium bg-white/5 px-2 py-1 rounded-md border border-white/5 pointer-events-none">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted text-xs font-medium bg-surface px-2 py-1 rounded-md border border-border pointer-events-none">
               {rightElement}
             </div>
           )}
         </motion.div>
-        {error && <p className="text-xs text-red-400 font-medium ml-1">{error}</p>}
+        {error && <p className="text-xs text-red-500 font-medium ml-1">{error}</p>}
       </div>
     );
   }

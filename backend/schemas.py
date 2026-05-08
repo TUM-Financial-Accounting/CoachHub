@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from pydantic import BaseModel
 from typing import Optional
 
@@ -136,6 +136,34 @@ class Match(MatchCreate):
         orm_mode = True
 
 
+
+# ==========================
+#         VISION
+# ==========================
+class VisionCreate(BaseModel):
+    title: str
+    filename: str
+
+class Vision(VisionCreate):
+    id: str
+    uploaded_at: datetime
+    class Config:
+        orm_mode = True
+
+# ==========================
+#        PLAYBOOK
+# ==========================
+class PlaybookExport(BaseModel):
+    basics: list[Basic]
+    principles: list[Principle]
+    tactics: list[Tactic]
+    exercises: list[Exercise]
+
+class PlaybookImport(BaseModel):
+    basics: list[BasicCreate]
+    principles: list[PrincipleCreate]
+    tactics: list[TacticCreate]
+    exercises: list[ExerciseCreate]
 
 # --- AUTH ---
 class UserCreate(BaseModel):

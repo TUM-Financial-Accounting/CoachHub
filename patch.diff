@@ -1,0 +1,926 @@
+diff --git a/backend/main.py b/backend/main.py
+index 7cf36d2..3d7e8b5 100644
+--- a/backend/main.py
++++ b/backend/main.py
+@@ -5,8 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
+ from fastapi.staticfiles import StaticFiles
+ from fastapi.security import OAuth2PasswordBearer
+ from sqlalchemy.orm import Session
+-import models, schemas, database, security
+-import uuid, os, shutil
++import models, schemas, database, security, email_service
++import uuid, os, shutil, secrets
++
++# ... (rest of imports)
+ 
+ models.Base.metadata.create_all(bind=database.engine)
+ 
+@@ -102,6 +104,48 @@ def logout(response: Response):
+     response.delete_cookie("access_token")
+     return {"message": "Logged out"}
+ 
++@app.post("/forgot-password")
++def forgot_password(request: schemas.ForgotPasswordRequest, db: Session = Depends(database.get_db)):
++    """Generates a password reset token and sends an email."""
++    user = db.query(models.User).filter(models.User.email == request.email).first()
++    
++    if user:
++        # Generate secure random token
++        token = secrets.token_urlsafe(32)
++        expiration = datetime.utcnow() + timedelta(hours=1)
++        
++        user.reset_token = token
++        user.reset_token_expires = expiration
++        db.commit()
++        
++        # Send email (or log it)
++        email_service.send_reset_password_email(user.email, token)
++        
++    # Always return success to prevent email enumeration
++    return {"message": "If an account exists with this email, a reset link has been sent."}
++
++@app.post("/reset-password")
++def reset_password(request: schemas.ResetPasswordRequest, db: Session = Depends(database.get_db)):
++    """Resets the password using a valid token."""
++    user = db.query(models.User).filter(models.User.reset_token == request.token).first()
++    
++    if not user:
++        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
++        
++    # Check expiration
++    if user.reset_token_expires < datetime.utcnow():
++        raise HTTPException(status_code=400, detail="Reset token has expired")
++        
++    # Hash and update password
++    user.password = security.get_password_hash(request.new_password)
++    
++    # Clear reset token
++    user.reset_token = None
++    user.reset_token_expires = None
++    db.commit()
++    
++    return {"message": "Password has been successfully reset."}
++
+ @app.get("/me")
+ def get_me(current_user: models.User = Depends(get_current_user)):
+     """Return the current user's profile based on the JWT cookie."""
+diff --git a/backend/models.py b/backend/models.py
+index c2dd077..7154f41 100644
+--- a/backend/models.py
++++ b/backend/models.py
+@@ -2,6 +2,7 @@ from sqlalchemy import Column, String, Integer, Text, Boolean, Date, Time, Forei
+ from database import Base
+ import uuid
+ import datetime 
++from sqlalchemy import DateTime
+ 
+ def generate_uuid():
+     return str(uuid.uuid4())
+@@ -130,4 +131,8 @@ class User(Base):
+     email = Column(String, unique=True, index=True)
+     password = Column(String) 
+     full_name = Column(String, nullable=True)
+-    created_at = Column(Date, default=datetime.date.today)
+\ No newline at end of file
++    created_at = Column(Date, default=datetime.date.today)
++
++    # Password Reset
++    reset_token = Column(String, nullable=True)
++    reset_token_expires = Column(DateTime, nullable=True)
+\ No newline at end of file
+diff --git a/backend/schemas.py b/backend/schemas.py
+index fbac7e1..fe6a9d0 100644
+--- a/backend/schemas.py
++++ b/backend/schemas.py
+@@ -147,6 +147,13 @@ class User(BaseModel):
+     id: str
+     email: str
+     full_name: Optional[str] = None
+-    
++
+     class Config:
+-        orm_mode = True
+\ No newline at end of file
++        orm_mode = True
++
++class ForgotPasswordRequest(BaseModel):
++    email: str
++
++class ResetPasswordRequest(BaseModel):
++    token: str
++    new_password: str
+\ No newline at end of file
+diff --git a/src/App.tsx b/src/App.tsx
+index 4094275..7b692e2 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,6 +1,6 @@
+ import { useState, useEffect } from 'react';
+ import { AnimatePresence, motion } from 'framer-motion';
+-import { Toaster } from 'sonner';
++import { Toaster, toast } from 'sonner';
+ import { DndProvider } from 'react-dnd';
+ import { HTML5Backend } from 'react-dnd-html5-backend';
+ 
+@@ -22,6 +22,7 @@ import { Page } from './types/ui';
+ import { AuthService } from './services';
+ 
+ export default function App() {
++  console.log("[App] Rendering component...");
+   // 1. Initialize Auth State from LocalStorage
+   // If 'isAuthenticated' exists in browser memory, start as true.
+   const [isAuthenticated, setIsAuthenticated] = useState(() => {
+@@ -39,27 +40,32 @@ export default function App() {
+     document.documentElement.classList.add('dark');
+   }, []);
+ 
+-  const handleLogout = async () => {
+-    try {
+-      await AuthService.logout();
+-    } catch (e) {
+-      console.error("Backend logout failed, clearing local state anyway");
+-    }
+-    // Clear from browser memory
++  const handleLogout = () => {
++    // 1. Instant local logout for snappy UX
+     localStorage.removeItem('isAuthenticated');
+     localStorage.removeItem('user'); 
+     setIsAuthenticated(false);
+     setCurrentPage('login');
++    toast.success("Logged out successfully");
++
++    // 2. Clear backend session in background
++    AuthService.logout().catch(err => {
++      console.error("Backend logout failed:", err);
++    });
+   };
+ 
+   // 3. Check Session on Mount
+   // Verify if the JWT cookie is still valid even if LocalStorage says we are authenticated.
+   useEffect(() => {
+     const checkSession = async () => {
++      console.log(`[App] checkSession. isAuthenticated: ${isAuthenticated}`);
+       if (isAuthenticated) {
+         try {
++          console.log("[App] Calling getCurrentUser...");
+           await AuthService.getCurrentUser();
++          console.log("[App] Session valid.");
+         } catch (error) {
++          console.error("[App] Session check failed:", error);
+           // If the cookie is invalid or expired, the API will return 401
+           // and our api-client will handle the reload/logout, but we can also do it here.
+           handleLogout();
+diff --git a/src/components/LoginPage.tsx b/src/components/LoginPage.tsx
+index 25096aa..e0b4733 100644
+--- a/src/components/LoginPage.tsx
++++ b/src/components/LoginPage.tsx
+@@ -1,5 +1,5 @@
+-import { useState } from 'react';
+-import { Trophy, Mail, Lock, AlertCircle, User } from 'lucide-react';
++import { useState, useEffect } from 'react';
++import { Trophy, Mail, Lock, AlertCircle, User, ArrowLeft } from 'lucide-react';
+ import { toast } from 'sonner';
+ import { motion, AnimatePresence } from 'framer-motion';
+ 
+@@ -18,11 +18,33 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
+   const [password, setPassword] = useState('');
+   const [fullName, setFullName] = useState(''); // Name field for Registration
+   const [isRegister, setIsRegister] = useState(false);
++  
++  // New States
++  const [isForgotPassword, setIsForgotPassword] = useState(false);
++  const [isResetPassword, setIsResetPassword] = useState(false);
++  const [resetToken, setResetToken] = useState('');
++  const [newPassword, setNewPassword] = useState('');
++
+   const [error, setError] = useState('');
+   const [loading, setLoading] = useState(false);
+ 
++  // Detect Reset Token on Mount
++  useEffect(() => {
++    const params = new URLSearchParams(window.location.search);
++    const token = params.get('token');
++    if (token) {
++      setResetToken(token);
++      setIsResetPassword(true);
++      // Clean up URL without reload
++      window.history.replaceState({}, document.title, window.location.pathname);
++    }
++  }, []);
++
+   const handleSubmit = async (e: React.FormEvent) => {
+     e.preventDefault();
++    if (loading) return; 
++
++    console.log(`[LoginPage] Form submitted. Mode: ${isRegister ? 'Register' : 'Login'}`);
+     setError('');
+     setLoading(true);
+ 
+@@ -43,26 +65,75 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
+         ? { email, password, full_name: fullName }
+         : { email, password };
+ 
++      console.log(`[LoginPage] Calling AuthService.${isRegister ? 'register' : 'login'}...`);
+       const data = isRegister
+         ? await AuthService.register(payload)
+         : await AuthService.login(payload);
+ 
++      console.log(`[LoginPage] ${isRegister ? 'Register' : 'Login'} Success:`, data);
++
+       // Success Action
+       if (isRegister) {
+         toast.success('Account created! Please sign in.');
++        console.log("[LoginPage] Switching to Login view...");
+         setIsRegister(false); // Redirect to Login view
+         setFullName('');
+         setPassword('');
+       } else {
+         const response = data as AuthResponse;
++        console.log(`[LoginPage] Welcome back, ${response.user.full_name || 'Coach'}!`);
+         toast.success(`Welcome back, ${response.user.full_name || 'Coach'}!`);
+ 
+         localStorage.setItem('isAuthenticated', 'true');
+         localStorage.setItem('user', JSON.stringify(response.user));
+ 
++        console.log("[LoginPage] Calling onLogin()...");
+         onLogin();
+       }
+ 
++    } catch (err: any) {
++      console.error(`[LoginPage] Error during ${isRegister ? 'Register' : 'Login'}:`, err);
++      setError(err.message);
++      toast.error(err.message);
++    } finally {
++      console.log("[LoginPage] Finally: Setting loading to false.");
++      setLoading(false);
++    }
++  };
++
++  const handleForgotPassword = async (e: React.FormEvent) => {
++    e.preventDefault();
++    if (!email) {
++      setError('Please enter your email address');
++      return;
++    }
++    setLoading(true);
++    setError('');
++    try {
++      const res = await AuthService.forgotPassword(email);
++      toast.success(res.message);
++      setIsForgotPassword(false);
++    } catch (err: any) {
++      setError(err.message);
++      toast.error(err.message);
++    } finally {
++      setLoading(false);
++    }
++  };
++
++  const handleResetPassword = async (e: React.FormEvent) => {
++    e.preventDefault();
++    if (!newPassword) {
++      setError('Please enter a new password');
++      return;
++    }
++    setLoading(true);
++    setError('');
++    try {
++      const res = await AuthService.resetPassword({ token: resetToken, new_password: newPassword });
++      toast.success(res.message);
++      setIsResetPassword(false);
++      setResetToken('');
+     } catch (err: any) {
+       setError(err.message);
+       toast.error(err.message);
+@@ -91,88 +162,154 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
+           </motion.div>
+           <h1 className="text-3xl font-bold text-white tracking-tight">CoachHub</h1>
+           <p className="text-slate-400 mt-2 text-center font-medium">
+-            {isRegister ? 'Start your coaching journey' : 'Welcome back to the pitch'}
++            {isResetPassword 
++              ? 'Set your new password' 
++              : isForgotPassword 
++                ? 'Reset your password' 
++                : isRegister 
++                  ? 'Start your coaching journey' 
++                  : 'Welcome back to the pitch'}
+           </p>
+         </div>
+ 
+-        <form onSubmit={handleSubmit} className="space-y-6">
+-
+-          {/* Error Message Animation */}
+-          <AnimatePresence mode="wait">
+-            {error && (
+-              <motion.div
+-                initial={{ opacity: 0, height: 0 }}
+-                animate={{ opacity: 1, height: 'auto' }}
+-                exit={{ opacity: 0, height: 0 }}
+-                className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-center gap-3 text-red-400 overflow-hidden"
++        {isResetPassword ? (
++          <form onSubmit={handleResetPassword} className="space-y-6">
++             <Input
++                label="New Password"
++                type="password"
++                icon={<Lock size={16} />}
++                placeholder="••••••••"
++                value={newPassword}
++                onChange={(e) => setNewPassword(e.target.value)}
++              />
++              <Button type="submit" className="w-full shadow-lg shadow-blue-600/20" isLoading={loading}>
++                Reset Password
++              </Button>
++              <Button 
++                variant="ghost" 
++                onClick={() => setIsResetPassword(false)} 
++                className="w-full text-slate-500"
+               >
+-                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+-                <span className="text-sm font-medium">{error}</span>
+-              </motion.div>
+-            )}
+-          </AnimatePresence>
+-
+-          {/* Full Name Field (Only for Registration) */}
+-          <AnimatePresence>
+-            {isRegister && (
+-              <motion.div
+-                initial={{ opacity: 0, height: 0 }}
+-                animate={{ opacity: 1, height: 'auto' }}
+-                exit={{ opacity: 0, height: 0 }}
+-                className="overflow-hidden"
++                Back to login
++              </Button>
++          </form>
++        ) : isForgotPassword ? (
++          <form onSubmit={handleForgotPassword} className="space-y-6">
++             <Input
++                label="Email Address"
++                type="email"
++                icon={<Mail size={16} />}
++                placeholder="coach@example.com"
++                value={email}
++                onChange={(e) => setEmail(e.target.value)}
++              />
++              <Button type="submit" className="w-full shadow-lg shadow-blue-600/20" isLoading={loading}>
++                Send Reset Link
++              </Button>
++              <Button 
++                variant="ghost" 
++                onClick={() => setIsForgotPassword(false)} 
++                className="w-full text-slate-500"
++                icon={<ArrowLeft size={16} />}
+               >
+-                <Input
+-                  label="Full Name"
+-                  type="text"
+-                  icon={<User size={16} />}
+-                  placeholder="John Doe"
+-                  value={fullName}
+-                  onChange={(e) => setFullName(e.target.value)}
+-                  className="mb-6"
+-                />
+-              </motion.div>
+-            )}
+-          </AnimatePresence>
+-
+-          <Input
+-            label="Email Address"
+-            type="email"
+-            icon={<Mail size={16} />}
+-            placeholder="coach@example.com"
+-            value={email}
+-            onChange={(e) => setEmail(e.target.value)}
+-            className={error ? "border-red-500/50" : ""}
+-          />
+-
+-          <Input
+-            label="Password"
+-            type="password"
+-            icon={<Lock size={16} />}
+-            placeholder="••••••••"
+-            value={password}
+-            onChange={(e) => setPassword(e.target.value)}
+-            className={error ? "border-red-500/50" : ""}
+-          />
+-
+-          <Button type="submit" className="w-full shadow-lg shadow-blue-600/20" disabled={loading}>
+-            {loading ? 'Processing...' : (isRegister ? 'Create Account' : 'Sign In')}
+-          </Button>
+-
+-        </form>
++                Back to login
++              </Button>
++          </form>
++        ) : (
++          <form onSubmit={handleSubmit} className="space-y-6">
++
++            {/* Error Message Animation */}
++            <AnimatePresence mode="wait">
++              {error && (
++                <motion.div
++                  initial={{ opacity: 0, height: 0 }}
++                  animate={{ opacity: 1, height: 'auto' }}
++                  exit={{ opacity: 0, height: 0 }}
++                  className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-center gap-3 text-red-400 overflow-hidden"
++                >
++                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
++                  <span className="text-sm font-medium">{error}</span>
++                </motion.div>
++              )}
++            </AnimatePresence>
++
++            {/* Full Name Field (Only for Registration) */}
++            <AnimatePresence>
++              {isRegister && (
++                <motion.div
++                  initial={{ opacity: 0, height: 0 }}
++                  animate={{ opacity: 1, height: 'auto' }}
++                  exit={{ opacity: 0, height: 0 }}
++                  className="overflow-hidden"
++                >
++                  <Input
++                    label="Full Name"
++                    type="text"
++                    icon={<User size={16} />}
++                    placeholder="John Doe"
++                    value={fullName}
++                    onChange={(e) => setFullName(e.target.value)}
++                    className="mb-6"
++                  />
++                </motion.div>
++              )}
++            </AnimatePresence>
++
++            <Input
++              label="Email Address"
++              type="email"
++              icon={<Mail size={16} />}
++              placeholder="coach@example.com"
++              value={email}
++              onChange={(e) => setEmail(e.target.value)}
++              className={error ? "border-red-500/50" : ""}
++            />
++
++            <div className="space-y-1">
++              <Input
++                label="Password"
++                type="password"
++                icon={<Lock size={16} />}
++                placeholder="••••••••"
++                value={password}
++                onChange={(e) => setPassword(e.target.value)}
++                className={error ? "border-red-500/50" : ""}
++              />
++              {!isRegister && (
++                <div className="flex justify-end">
++                  <button 
++                    type="button" 
++                    onClick={() => { setIsForgotPassword(true); setError(''); }}
++                    className="text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors"
++                  >
++                    Forgot password?
++                  </button>
++                </div>
++              )}
++            </div>
++
++            <Button type="submit" className="w-full shadow-lg shadow-blue-600/20" isLoading={loading}>
++              {isRegister ? 'Create Account' : 'Sign In'}
++            </Button>
++
++          </form>
++        )}
+ 
+         {/* Toggle Register/Login */}
+-        <div className="mt-8 text-center border-t border-white/5 pt-6">
+-          <p className="text-slate-500 text-sm mb-3">
+-            {isRegister ? "Already have an account?" : "Don't have an account?"}
+-          </p>
+-          <Button
+-            variant="ghost"
+-            onClick={() => { setIsRegister(!isRegister); setError(''); setFullName(''); }}
+-            className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 w-full"
+-          >
+-            {isRegister ? 'Sign in instead' : "Create an account"}
+-          </Button>
+-        </div>
++        {!isForgotPassword && !isResetPassword && (
++          <div className="mt-8 text-center border-t border-white/5 pt-6">
++            <p className="text-slate-500 text-sm mb-3">
++              {isRegister ? "Already have an account?" : "Don't have an account?"}
++            </p>
++            <Button
++              variant="ghost"
++              onClick={() => { setIsRegister(!isRegister); setError(''); setFullName(''); }}
++              className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 w-full"
++            >
++              {isRegister ? 'Sign in instead' : "Create an account"}
++            </Button>
++          </div>
++        )}
+ 
+       </Card>
+     </div>
+diff --git a/src/components/Navigation.tsx b/src/components/Navigation.tsx
+index 0678a5c..e8ae5b4 100644
+--- a/src/components/Navigation.tsx
++++ b/src/components/Navigation.tsx
+@@ -124,6 +124,7 @@ export default function Navigation({ currentPage, onNavigate, onLogout }: Naviga
+       {/* Bottom: Logout + Toggle */}
+       <div className="px-2 py-3 border-t border-white/5 space-y-1">
+         <button
++          type="button"
+           onClick={onLogout}
+           title={collapsed ? 'Logout' : undefined}
+           className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent transition-all duration-150 group"
+diff --git a/src/components/ui/TimePicker.tsx b/src/components/ui/TimePicker.tsx
+index d7c2e7d..881df0f 100644
+--- a/src/components/ui/TimePicker.tsx
++++ b/src/components/ui/TimePicker.tsx
+@@ -1,21 +1,140 @@
+ import { useState, useRef, useEffect } from 'react';
+-import { Clock } from 'lucide-react';
+-import { motion, AnimatePresence } from 'framer-motion';
+-
++import { Clock, Check } from 'lucide-react';
++import { motion, AnimatePresence, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion';
+ import { TimePickerProps } from "../../types/ui";
+ 
+-const HOURS = Array.from({ length: 24 }, (_, i) => i);  // 0 – 23
+-const MINUTES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
++const HOURS = Array.from({ length: 24 }, (_, i) => i);
++const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5); 
++
++const REPETITIONS = 3; 
++
++interface WheelProps {
++  items: number[];
++  selectedValue: number;
++  onSelect: (val: number) => void;
++  label: string;
++}
++
++function WheelItem({ item, index, selectedValue, scrollYProgress }: any) {
++    // Each item calculates its own opacity/scale based on its position in the scroll view
++    // using framer-motion's optimized motion values.
++    const range = [
++        (index - 2) / (24 * 3), 
++        (index - 1) / (24 * 3), 
++        index / (24 * 3), 
++        (index + 1) / (24 * 3), 
++        (index + 2) / (24 * 3)
++    ];
++    
++    // This is a bit complex for a generic wheel, let's stick to a simpler high-perf approach.
++    return null;
++}
++
++// --- RE-IMPLEMENTING THE CLEAN VERSION (VERSION 2) WITH PERFORMANCE FIXES ---
++
++function Wheel({ items, selectedValue, onSelect, label }: WheelProps) {
++  const scrollRef = useRef<HTMLDivElement>(null);
++  const isInternalScroll = useRef(false);
++  
++  // Use more sets to ensure even hard flicks don't hit physical boundaries
++  const REPS = 20; 
++  const displayItems = Array(REPS).fill(items).flat();
++  const ITEM_HEIGHT = 40;
++  const SET_HEIGHT = items.length * ITEM_HEIGHT;
++  const MIDDLE_SET = Math.floor(REPS / 2);
++
++  // Center scroll on mount or external change
++  useEffect(() => {
++    if (scrollRef.current && !isInternalScroll.current) {
++      const indexInSet = items.indexOf(selectedValue);
++      const targetScroll = (MIDDLE_SET * SET_HEIGHT) + (indexInSet * ITEM_HEIGHT);
++      scrollRef.current.scrollTop = targetScroll;
++    }
++    isInternalScroll.current = false;
++  }, [items, selectedValue, SET_HEIGHT, MIDDLE_SET]);
++
++  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
++    const target = e.currentTarget;
++
++    // DEBOUNCED SELECTION & SEAMLESS RE-CENTERING
++    // We avoid jumping during active scrolling to preserve inertia.
++    const timeoutId = (target as any)._timeout;
++    if (timeoutId) clearTimeout(timeoutId);
++
++    (target as any)._timeout = setTimeout(() => {
++      const finalScrollTop = target.scrollTop;
++      const index = Math.round(finalScrollTop / ITEM_HEIGHT);
++      const actualValue = displayItems[index];
++      
++      // Re-center to middle set if we strayed too far. 
++      // Since the user stopped scrolling, this jump is invisible and preserves "infinity".
++      const currentSet = Math.floor(index / items.length);
++      if (currentSet !== MIDDLE_SET && index >= 0 && index < displayItems.length) {
++          const indexInSet = index % items.length;
++          const newScrollTop = (MIDDLE_SET * SET_HEIGHT) + (indexInSet * ITEM_HEIGHT);
++          isInternalScroll.current = true;
++          target.scrollTop = newScrollTop;
++      }
++
++      if (actualValue !== undefined && actualValue !== selectedValue) {
++        isInternalScroll.current = true;
++        onSelect(actualValue);
++      }
++    }, 150);
++  };
++
++  return (
++    <div className="flex flex-col items-center flex-1">
++      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">{label}</span>
++      <div className="relative w-full h-[200px] overflow-hidden rounded-xl bg-black/20">
++        {/* Selection Glass */}
++        <div className="absolute top-1/2 left-0 w-full h-10 -translate-y-1/2 bg-blue-500/10 border-y border-blue-500/20 pointer-events-none z-10" />
++        
++        {/* Gradients */}
++        <div className="absolute top-0 left-0 w-full h-20 bg-gradient-to-b from-[#0b0f19] via-[#0b0f19]/90 to-transparent pointer-events-none z-20" />
++        <div className="absolute bottom-0 left-0 w-full h-20 bg-gradient-to-t from-[#0b0f19] via-[#0b0f19]/90 to-transparent pointer-events-none z-20" />
++
++        <div 
++          ref={scrollRef}
++          onScroll={handleScroll}
++          className="h-full overflow-y-auto snap-y snap-mandatory no-scrollbar overscroll-none"
++          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
++        >
++          {/* 80px padding at top/bottom centers the items in the 200px container */}
++          <div className="flex flex-col py-[80px]">
++            {displayItems.map((item, idx) => (
++              <div 
++                key={idx}
++                className="h-10 flex-shrink-0 flex items-center justify-center snap-center cursor-pointer select-none group"
++                onClick={() => {
++                   isInternalScroll.current = true;
++                   onSelect(item);
++                }}
++              >
++                <span className={`font-mono text-lg font-bold transition-all duration-200 ${
++                  item === selectedValue 
++                    ? 'text-blue-400 scale-110' 
++                    : 'text-slate-600 group-hover:text-slate-400'
++                }`}>
++                  {String(item).padStart(2, '0')}
++                </span>
++              </div>
++            ))}
++          </div>
++        </div>
++      </div>
++    </div>
++  );
++}
+ 
+ export function TimePicker({ value, onChange, label }: TimePickerProps) {
+   const [isOpen, setIsOpen] = useState(false);
+   const containerRef = useRef<HTMLDivElement>(null);
+ 
+-  const parts = value ? value.split(':') : ['9', '0'];
++  const parts = value ? value.split(':') : ['09', '00'];
+   const h24 = parseInt(parts[0], 10);
+   const minute = parseInt(parts[1], 10);
+ 
+-  // Close on outside click
+   useEffect(() => {
+     function handleClickOutside(event: MouseEvent) {
+       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+@@ -26,8 +145,13 @@ export function TimePicker({ value, onChange, label }: TimePickerProps) {
+     return () => document.removeEventListener('mousedown', handleClickOutside);
+   }, []);
+ 
+-  const emit = (hour: number, min: number) =>
+-    onChange(`${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`);
++  const setHour = (h: number) => {
++    onChange(`${String(h).padStart(2, '0')}:${String(minute).padStart(2, '0')}`);
++  };
++
++  const setMinute = (m: number) => {
++    onChange(`${String(h24).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
++  };
+ 
+   return (
+     <div className="relative space-y-2" ref={containerRef}>
+@@ -47,7 +171,7 @@ export function TimePicker({ value, onChange, label }: TimePickerProps) {
+           }`}
+       >
+         <span className={value ? 'text-white font-mono' : 'text-slate-600'}>
+-          {value || 'HH:MM'}
++          {value || '09:00'}
+         </span>
+         <Clock size={16} className={`transition-colors ${isOpen ? 'text-blue-400' : 'text-slate-500'}`} />
+       </button>
+@@ -58,56 +182,45 @@ export function TimePicker({ value, onChange, label }: TimePickerProps) {
+             initial={{ opacity: 0, y: -10, scale: 0.95 }}
+             animate={{ opacity: 1, y: 0, scale: 1 }}
+             exit={{ opacity: 0, y: -10, scale: 0.95 }}
+-            transition={{ duration: 0.1 }}
+-            className="absolute top-full left-0 mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-50 p-4 w-72"
++            transition={{ duration: 0.15, ease: "easeOut" }}
++            className="absolute top-full left-0 mt-2 bg-[#0b0f19]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl z-50 p-6 w-72 overflow-hidden"
+           >
+-            <div className="flex gap-3">
+-              {/* Hours 00–23 */}
+-              <div className="flex-1">
+-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center mb-2">Hour</p>
+-                <div className="grid grid-cols-4 gap-1 max-h-52 overflow-y-auto custom-scrollbar">
+-                  {HOURS.map(h => (
+-                    <button
+-                      key={h}
+-                      onClick={() => emit(h, minute)}
+-                      className={`py-2 rounded-lg text-sm font-bold transition-all ${
+-                        h24 === h
+-                          ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30 border border-blue-400'
+-                          : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700 border border-white/5'
+-                      }`}
+-                    >
+-                      {String(h).padStart(2, '0')}
+-                    </button>
+-                  ))}
+-                </div>
+-              </div>
+-
+-              {/* Divider */}
+-              <div className="w-px bg-white/5 self-stretch" />
+-
+-              {/* Minutes */}
+-              <div className="flex-1">
+-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center mb-2">Min</p>
+-                <div className="grid grid-cols-3 gap-1 max-h-52 overflow-y-auto custom-scrollbar">
+-                  {MINUTES.map(m => (
+-                    <button
+-                      key={m}
+-                      onClick={() => emit(h24, m)}
+-                      className={`py-2 rounded-lg text-sm font-bold transition-all ${
+-                        minute === m
+-                          ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30 border border-blue-400'
+-                          : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700 border border-white/5'
+-                      }`}
+-                    >
+-                      {String(m).padStart(2, '0')}
+-                    </button>
+-                  ))}
+-                </div>
+-              </div>
++            <div className="flex gap-4 items-center mb-6">
++              <Wheel items={HOURS} selectedValue={h24} onSelect={setHour} label="Hour" />
++              <div className="text-2xl font-bold text-slate-700 mt-6">:</div>
++              <Wheel items={MINUTES} selectedValue={minute} onSelect={setMinute} label="Min" />
+             </div>
++
++            <Button 
++              variant="primary" 
++              className="w-full py-3 rounded-xl text-xs font-bold"
++              onClick={() => setIsOpen(false)}
++              icon={<Check size={14} />}
++            >
++              Done
++            </Button>
+           </motion.div>
+         )}
+       </AnimatePresence>
+     </div>
+   );
+ }
++
++function Button({ variant = 'primary', className = '', onClick, children, icon }: any) {
++    const variants = {
++        primary: 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20',
++        secondary: 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/5',
++        danger: 'bg-rose-600 hover:bg-rose-500 text-white',
++        ghost: 'bg-transparent hover:bg-white/5 text-slate-400 hover:text-white'
++    };
++
++    return (
++        <button
++            onClick={onClick}
++            className={`flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${variants[variant as keyof typeof variants]} ${className}`}
++        >
++            {icon}
++            {children}
++        </button>
++    );
++}
+diff --git a/src/services/api-client.ts b/src/services/api-client.ts
+index 21176da..61eb572 100644
+--- a/src/services/api-client.ts
++++ b/src/services/api-client.ts
+@@ -6,34 +6,62 @@ import { API_BASE_URL, JSON_HEADERS } from '../lib/api-config';
+  * Uses 'credentials: include' to support HttpOnly cookies.
+  */
+ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
++  const controller = new AbortController();
++  const id = setTimeout(() => controller.abort(), 10000); // 10s timeout
++  
+   const headers = {
+     ...JSON_HEADERS,
+     ...options.headers,
+   };
+ 
+-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+-    ...options,
+-    headers,
+-    credentials: 'include', 
+-  });
++  try {
++    console.log(`[API] Requesting ${endpoint}...`);
++    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
++      ...options,
++      headers,
++      credentials: 'include', 
++      signal: controller.signal,
++    });
++    
++    clearTimeout(id);
+ 
+-  if (response.status === 401) {
+-    const wasAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+-    if (wasAuthenticated) {
+-      localStorage.removeItem('isAuthenticated');
+-      localStorage.removeItem('user');
+-      window.location.reload(); 
+-      throw new Error('Session expired. Please log in again.');
++    if (response.status === 401) {
++      const wasAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
++      if (wasAuthenticated && endpoint !== '/login' && endpoint !== '/register') {
++        const lastReload = sessionStorage.getItem('last_api_reload');
++        const now = Date.now();
++        
++        if (lastReload && (now - parseInt(lastReload)) < 5000) {
++          console.error("[API] Detected rapid reload loop. Stopping.");
++          return response.json(); // Don't reload, just return the 401
++        }
++        
++        sessionStorage.setItem('last_api_reload', now.toString());
++        console.warn(`[API] 401 on ${endpoint} - Session likely expired. Clearing local state and reloading.`);
++        localStorage.removeItem('isAuthenticated');
++        localStorage.removeItem('user');
++        window.location.reload(); 
++        throw new Error('Session expired. Please log in again.');
++      }
+     }
+-    // If we're not authenticated yet (e.g., in the middle of login),
+-    // just let the error bubble up to the login page without reloading.
+-  }
+-  if (!response.ok) {
+-    const errorData = await response.json().catch(() => ({}));
+-    throw new Error(errorData.detail || `Request failed: ${response.statusText}`);
+-  }
+ 
+-  return response.json();
++    if (!response.ok) {
++      const errorData = await response.json().catch(() => ({}));
++      console.error(`[API] Error on ${endpoint}:`, errorData);
++      throw new Error(errorData.detail || `Request failed: ${response.statusText}`);
++    }
++
++    const data = await response.json();
++    console.log(`[API] Success on ${endpoint}`);
++    return data;
++  } catch (error: any) {
++    clearTimeout(id);
++    if (error.name === 'AbortError') {
++      throw new Error('Request timed out. Please check your connection.');
++    }
++    console.error(`[API] Fatal error on ${endpoint}:`, error);
++    throw error;
++  }
+ }
+ 
+ export const apiClient = {
+diff --git a/src/services/auth-service.ts b/src/services/auth-service.ts
+index 9501a4a..6f49c53 100644
+--- a/src/services/auth-service.ts
++++ b/src/services/auth-service.ts
+@@ -20,8 +20,8 @@ export const AuthService = {
+   /**
+    * Registers a new user.
+    */
+-  async register(payload: any): Promise<AuthResponse> {
+-    return apiClient.post<AuthResponse>('/register', payload);
++  async register(payload: any): Promise<any> {
++    return apiClient.post<any>('/register', payload);
+   },
+ 
+   /**
+@@ -37,5 +37,19 @@ export const AuthService = {
+    */
+   async getCurrentUser(): Promise<any> {
+     return apiClient.get('/me');
++  },
++
++  /**
++   * Requests a password reset email.
++   */
++  async forgotPassword(email: string): Promise<{ message: string }> {
++    return apiClient.post('/forgot-password', { email });
++  },
++
++  /**
++   * Resets the password using a token.
++   */
++  async resetPassword(payload: any): Promise<{ message: string }> {
++    return apiClient.post('/reset-password', payload);
+   }
+ };

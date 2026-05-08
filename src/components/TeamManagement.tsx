@@ -294,13 +294,13 @@ export default function TeamManagement() {
     });
 
     return (
-        <div className="p-6 sm:p-8 max-w-7xl mx-auto space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="h-full w-full flex flex-col p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto gap-6 overflow-y-auto lg:overflow-hidden">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 flex-shrink-0">
                 <div className="flex items-center gap-3">
                     <div className="w-1 h-10 rounded-full bg-indigo-500 flex-shrink-0" />
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-white">Squad Roster</h1>
-                        <p className="text-sm text-slate-400 mt-0.5">Manage player profiles and status</p>
+                        <h1 className="text-2xl font-bold tracking-tight text-foreground">Squad Roster</h1>
+                        <p className="text-sm text-muted mt-0.5">Manage player profiles and status</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -309,28 +309,30 @@ export default function TeamManagement() {
                 </div>
             </div>
 
-            <div className="flex items-center p-1 bg-slate-900/60 border border-white/5 rounded-2xl w-fit">
+            <div className="flex items-center p-1 bg-surface-hover border border-border rounded-2xl w-fit flex-shrink-0">
                 <button 
                     onClick={() => setViewMode('squad')}
-                    className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${viewMode === 'squad' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:text-white'}`}
+                    className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${viewMode === 'squad' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-muted hover:text-foreground'}`}
                 >
                     {activeTeam?.name || 'Current Squad'}
                 </button>
                 <button 
                     onClick={() => setViewMode('pool')}
-                    className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${viewMode === 'pool' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:text-white'}`}
+                    className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${viewMode === 'pool' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-muted hover:text-foreground'}`}
                 >
                     All Players
                 </button>
             </div>
 
-            <Input icon={<Search size={18} />} placeholder="Search by name..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            <div className="flex-shrink-0">
+                <Input icon={<Search size={18} />} placeholder="Search by name..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            </div>
 
-            <Card className="overflow-hidden border-white/5 bg-slate-900/40">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead className="sticky top-0 z-10 backdrop-blur-sm bg-slate-950/80">
-                            <tr className="border-b border-white/5 text-xs uppercase tracking-wider text-slate-500 font-semibold">
+            <Card className="border-border bg-surface flex-1 min-h-0 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-auto custom-scrollbar relative">
+                    <table className="w-full text-left border-collapse min-w-max">
+                        <thead className="sticky top-0 z-10 backdrop-blur-sm bg-surface">
+                            <tr className="border-b border-border text-xs uppercase tracking-wider text-muted font-semibold">
                                 {([
                                     { key: 'jerseyNumber', label: '#' },
                                     { key: 'firstName',    label: 'Player' },
@@ -342,14 +344,14 @@ export default function TeamManagement() {
                                     <th key={col.key} className="px-6 py-4">
                                         <button
                                             onClick={() => handleSort(col.key)}
-                                            className="flex items-center gap-1.5 hover:text-slate-300 transition-colors group"
+                                            className="flex items-center gap-1.5 hover:text-foreground transition-colors group"
                                         >
                                             {col.label}
-                                            <span className="text-slate-700 group-hover:text-slate-500">
+                                            <span className="text-muted/40 group-hover:text-muted">
                                                 {sortKey === col.key
                                                     ? sortDir === 'asc'
-                                                        ? <ChevronUp size={13} className="text-blue-400" />
-                                                        : <ChevronDown size={13} className="text-blue-400" />
+                                                        ? <ChevronUp size={13} className="text-blue-500" />
+                                                        : <ChevronDown size={13} className="text-blue-500" />
                                                     : <ChevronsUpDown size={13} />}
                                             </span>
                                         </button>
@@ -358,17 +360,17 @@ export default function TeamManagement() {
                                 <th className="px-6 py-4 text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody className="divide-y divide-border">
                             {loading && Array.from({ length: 5 }).map((_, i) => <PlayerRowSkeleton key={i} />)}
                             {!loading && filteredPlayers.length === 0 && (
                                 <tr>
                                     <td colSpan={7} className="px-6 py-20 text-center">
-                                        <div className="flex flex-col items-center gap-4 text-slate-500">
-                                            <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center">
-                                                <Users className="w-8 h-8 text-slate-600" />
+                                        <div className="flex flex-col items-center gap-4 text-muted">
+                                            <div className="w-16 h-16 rounded-2xl bg-surface-hover flex items-center justify-center">
+                                                <Users className="w-8 h-8 text-muted/60" />
                                             </div>
                                             <div>
-                                                <p className="font-semibold text-slate-400">
+                                                <p className="font-semibold text-muted">
                                                     {!activeTeam ? 'No active team' : searchQuery ? 'No players found' : 'No players yet'}
                                                 </p>
                                                 <p className="text-sm mt-1">
@@ -378,7 +380,7 @@ export default function TeamManagement() {
                                             {!searchQuery && (
                                                 <button 
                                                     onClick={!activeTeam ? () => window.dispatchEvent(new Event('open-create-team')) : openCreate} 
-                                                    className="mt-2 px-4 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-sm font-medium hover:bg-indigo-500/20 transition-colors"
+                                                    className="mt-2 px-4 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 text-sm font-medium hover:bg-indigo-500/20 transition-colors"
                                                 >
                                                     {!activeTeam ? 'Create Team' : 'Add Player'}
                                                 </button>
@@ -389,42 +391,42 @@ export default function TeamManagement() {
                             )}
                             <AnimatePresence>
                                 {!loading && sortedPlayers.map((player, idx) => (
-                                    <motion.tr initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} key={player.id} className="group hover:bg-white/[0.02] transition-colors">
-                                        <td className="px-6 py-4 font-mono text-slate-500">{player.jerseyNumber}</td>
+                                    <motion.tr initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} key={player.id} className="group hover:bg-surface-hover/50 transition-colors">
+                                        <td className="px-6 py-4 font-mono text-muted">{player.jerseyNumber}</td>
                                         <td className="px-6 py-4">
                                             <button
                                                 onClick={() => setSelectedPlayer(player)}
                                                 className="flex items-center gap-4 text-left group/name hover:opacity-80 transition-opacity"
                                             >
                                                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 p-[2px] shadow-lg shadow-blue-500/20">
-                                                    <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center overflow-hidden">
+                                                    <div className="w-full h-full rounded-full bg-surface flex items-center justify-center overflow-hidden">
                                                         {player.imageUrl ? <img src={player.imageUrl} className="w-full h-full object-cover" /> : <span className="font-bold text-blue-500">{player.firstName[0]}</span>}
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <p className="font-semibold text-white group-hover/name:text-blue-400 transition-colors">{player.firstName} {player.lastName}</p>
+                                                    <p className="font-semibold text-foreground group-hover/name:text-blue-500 transition-colors">{player.firstName} {player.lastName}</p>
                                                 </div>
                                             </button>
                                         </td>
-                                        <td className="px-6 py-4"><span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/50 text-slate-300 text-xs font-medium border border-white/5"><Shield size={12} /> {player.position}</span></td>
+                                        <td className="px-6 py-4"><span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-hover/50 text-foreground/80 text-xs font-medium border border-border"><Shield size={12} /> {player.position}</span></td>
                                         <td className="px-6 py-4">
                                             {viewMode === 'squad' ? (
                                                 <div className="flex items-center gap-3">
-                                                    <div className="flex-1 w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                                        <div className="h-full bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]" style={{ width: `${computedAttendance[player.id] ?? player.attendance}%` }}></div>
+                                                    <div className="flex-1 w-24 h-1.5 bg-surface-hover rounded-full overflow-hidden">
+                                                        <div className="h-full bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.3)]" style={{ width: `${computedAttendance[player.id] ?? player.attendance}%` }}></div>
                                                     </div>
-                                                    <span className="text-xs font-bold text-slate-400">{computedAttendance[player.id] ?? player.attendance}%</span>
+                                                    <span className="text-xs font-bold text-muted">{computedAttendance[player.id] ?? player.attendance}%</span>
                                                 </div>
                                             ) : (
                                                 <div className="flex flex-wrap gap-1 items-center">
                                                     {player.teams?.length ? player.teams.map((t: Team) => (
-                                                        <span key={t.id} className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 text-[10px] font-bold border border-indigo-500/20">
+                                                        <span key={t.id} className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-500 text-[10px] font-bold border border-indigo-500/20">
                                                             {t.name}
                                                         </span>
-                                                    )) : <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider italic">Unassigned</span>}
+                                                    )) : <span className="text-[10px] text-muted/60 font-bold uppercase tracking-wider italic">Unassigned</span>}
                                                     <button 
                                                         onClick={(e) => { e.stopPropagation(); setAssignmentPlayer(player); }}
-                                                        className="ml-1 p-1 rounded-md border border-dashed border-slate-700 text-slate-500 hover:border-indigo-500/50 hover:text-indigo-400 transition-colors shadow-sm"
+                                                        className="ml-1 p-1 rounded-md border border-dashed border-border text-muted/60 hover:border-indigo-500/50 hover:text-indigo-500 transition-colors shadow-sm"
                                                         title="Manage Team Assignments"
                                                     >
                                                         <Plus size={12} />
@@ -438,7 +440,7 @@ export default function TeamManagement() {
                                                     editingPerf === player.id ? (
                                                         <div className="flex items-center gap-3">
                                                             <div className="relative flex-1 w-24 flex items-center h-8">
-                                                                <div className="absolute inset-x-0 h-1.5 bg-slate-800 rounded-full overflow-hidden pointer-events-none">
+                                                                <div className="absolute inset-x-0 h-1.5 bg-surface-hover rounded-full overflow-hidden pointer-events-none">
                                                                     <div className={`h-full rounded-full transition-all duration-100 ease-out ${getPerfColor(perfDraft).bar}`} style={{ width: `${perfDraft * 10}%` }} />
                                                                 </div>
                                                                 <input
@@ -459,11 +461,11 @@ export default function TeamManagement() {
                                                             onClick={() => { setEditingPerf(player.id); setPerfDraft(player.performance); }}
                                                             title="Click to edit"
                                                         >
-                                                            <div className="flex-1 w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                                            <div className="flex-1 w-24 h-1.5 bg-surface-hover rounded-full overflow-hidden">
                                                                 <div className={`h-full rounded-full ${getPerfColor(player.performance).bar}`} style={{ width: `${player.performance * 10}%` }}></div>
                                                             </div>
                                                             <span className={`text-xs font-bold ${getPerfColor(player.performance).text}`}>{player.performance}</span>
-                                                            <TrendingUp size={12} className="text-slate-700 group-hover/perf:text-blue-400 transition-colors shrink-0" />
+                                                            <TrendingUp size={12} className="text-muted/40 group-hover/perf:text-blue-500 transition-colors shrink-0" />
                                                         </div>
                                                     )
                                                 ) : (
@@ -476,11 +478,11 @@ export default function TeamManagement() {
                                         )}
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
-                                                <button onClick={() => openEdit(player)} className="p-2 hover:bg-blue-500/10 text-slate-400 hover:text-blue-500 rounded-lg transition-colors" title="Edit Profile"><Edit2 size={16} /></button>
+                                                <button onClick={() => openEdit(player)} className="p-2 hover:bg-blue-500/10 text-muted/60 hover:text-blue-500 rounded-lg transition-colors" title="Edit Profile"><Edit2 size={16} /></button>
                                                 {viewMode === 'squad' ? (
-                                                    <button onClick={() => setConfirmRemoveId(player.id)} className="p-2 hover:bg-orange-500/10 text-slate-400 hover:text-orange-500 rounded-lg transition-colors" title="Remove from Squad"><Trash2 size={16} /></button>
+                                                    <button onClick={() => setConfirmRemoveId(player.id)} className="p-2 hover:bg-orange-500/10 text-muted/60 hover:text-orange-500 rounded-lg transition-colors" title="Remove from Squad"><Trash2 size={16} /></button>
                                                 ) : (
-                                                    <button onClick={() => setConfirmDeleteId(player.id)} className="p-2 hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 rounded-lg transition-colors" title="Delete Profile Everywhere"><Trash2 size={16} /></button>
+                                                    <button onClick={() => setConfirmDeleteId(player.id)} className="p-2 hover:bg-rose-500/10 text-muted/60 hover:text-rose-500 rounded-lg transition-colors" title="Delete Profile Everywhere"><Trash2 size={16} /></button>
                                                 )}
                                             </div>
                                         </td>
@@ -502,8 +504,8 @@ export default function TeamManagement() {
                         {editingId && (
                             <Button variant="danger" onClick={() => { setShowPlayerModal(false); setConfirmDeleteId(editingId); }} className="flex-1">Delete Profile</Button>
                         )}
-                        <Button variant="ghost" onClick={() => setShowPlayerModal(false)} className="flex-1 text-slate-400 hover:text-white hover:bg-white/5">Cancel</Button>
-                        <Button onClick={handleSave} className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:shadow-blue-500/25 hover:shadow-lg transition-all">{editingId ? 'Save Changes' : 'Create Profile'}</Button>
+                        <Button variant="ghost" onClick={() => setShowPlayerModal(false)} className="flex-1">Cancel</Button>
+                        <Button onClick={handleSave} className="flex-1 bg-primary">{editingId ? 'Save Changes' : 'Create Profile'}</Button>
                     </div>
                 }
             >
@@ -511,10 +513,10 @@ export default function TeamManagement() {
                     <div className="flex flex-col items-center py-4">
                         <div className="relative group cursor-pointer">
                             <div className="absolute inset-0 bg-blue-500 rounded-full blur-xl opacity-20 group-hover:opacity-40 transition-opacity" />
-                            <div className="relative w-32 h-32 rounded-full bg-slate-900 border-4 border-slate-800 shadow-2xl flex items-center justify-center overflow-hidden group-hover:border-blue-500/50 transition-colors">
-                                {imagePreview ? <img src={imagePreview} className="w-full h-full object-cover" /> : <Camera className="text-slate-600 w-12 h-12" />}
+                            <div className="relative w-32 h-32 rounded-full bg-surface-hover border-4 border-border shadow-2xl flex items-center justify-center overflow-hidden group-hover:border-blue-500/50 transition-colors">
+                                {imagePreview ? <img src={imagePreview} className="w-full h-full object-cover" /> : <Camera className="text-muted/60 w-12 h-12" />}
                             </div>
-                            <label className="absolute bottom-1 right-1 p-2.5 bg-blue-600 rounded-full text-white hover:bg-blue-500 cursor-pointer shadow-lg shadow-blue-600/50 border-4 border-slate-950 transition-transform hover:scale-110">
+                            <label className="absolute bottom-1 right-1 p-2.5 bg-primary rounded-full text-white hover:bg-primary-hover cursor-pointer shadow-lg shadow-primary/50 border-4 border-surface transition-transform hover:scale-110">
                                 <Camera size={16} />
                                 <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
                             </label>
@@ -569,17 +571,17 @@ export default function TeamManagement() {
                 icon={<TrendingUp size={20} />}
             >
                 <div className="space-y-4">
-                    <div className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/5 mb-4">
-                        <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-800 flex items-center justify-center">
-                            {assignmentPlayer?.imageUrl ? <img src={assignmentPlayer.imageUrl} className="w-full h-full object-cover" /> : <User className="text-slate-600" size={24} />}
+                    <div className="flex items-center gap-4 p-4 bg-surface-hover border border-border rounded-2xl mb-4">
+                        <div className="w-12 h-12 rounded-full overflow-hidden bg-surface flex items-center justify-center">
+                            {assignmentPlayer?.imageUrl ? <img src={assignmentPlayer.imageUrl} className="w-full h-full object-cover" /> : <User className="text-muted/60" size={24} />}
                         </div>
                         <div>
-                            <p className="font-bold text-white text-lg">{assignmentPlayer?.firstName} {assignmentPlayer?.lastName}</p>
-                            <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">{assignmentPlayer?.position}</p>
+                            <p className="font-bold text-foreground text-lg">{assignmentPlayer?.firstName} {assignmentPlayer?.lastName}</p>
+                            <p className="text-xs text-muted uppercase tracking-widest font-bold">{assignmentPlayer?.position}</p>
                         </div>
                     </div>
                     
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Select teams for this player</p>
+                    <p className="text-[10px] font-bold text-muted uppercase tracking-widest px-1">Select teams for this player</p>
                     <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-1">
                         {teams.map(team => {
                             const isAssigned = assignmentPlayer?.teams?.some(t => t.id === team.id);
@@ -597,22 +599,22 @@ export default function TeamManagement() {
                                             : [...(assignmentPlayer.teams || []), team];
                                         setAssignmentPlayer({ ...assignmentPlayer, teams: updatedTeams });
                                     }}
-                                    className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${isAssigned ? 'bg-indigo-500/10 border-indigo-500/30 text-white shadow-lg shadow-indigo-500/5' : 'bg-slate-900/40 border-white/5 text-slate-400 hover:border-white/10 hover:text-white'}`}
+                                    className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${isAssigned ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-500 shadow-lg shadow-indigo-500/5' : 'bg-surface-hover/40 border-border text-muted hover:border-indigo-500/50 hover:text-indigo-500'}`}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isAssigned ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-600'}`}>
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isAssigned ? 'bg-indigo-500 text-white' : 'bg-surface-hover text-muted/60'}`}>
                                             <Shield size={16} />
                                         </div>
                                         <span className="font-bold">{team.name}</span>
                                     </div>
-                                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isAssigned ? 'bg-indigo-500 border-indigo-500' : 'border-slate-800'}`}>
+                                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isAssigned ? 'bg-indigo-500 border-indigo-500' : 'border-border'}`}>
                                         {isAssigned && <Check size={14} className="text-white" />}
                                     </div>
                                 </button>
                             );
                         })}
                     </div>
-                    <div className="pt-4 border-t border-white/5">
+                    <div className="pt-4 border-t border-border">
                         <Button onClick={() => setAssignmentPlayer(null)} className="w-full">Done</Button>
                     </div>
                 </div>
@@ -651,24 +653,24 @@ export default function TeamManagement() {
                 icon={<Users size={20} />}
                 footer={
                     <div className="flex gap-3 w-full">
-                        <Button variant="ghost" onClick={handleCreateNewAnyway} className="flex-1 text-slate-400 hover:text-white">Create New anyway</Button>
+                        <Button variant="ghost" onClick={handleCreateNewAnyway} className="flex-1">Create New anyway</Button>
                         <Button onClick={handleReusePlayer} className="flex-1 bg-indigo-500 shadow-lg shadow-indigo-500/20">Reuse Existing Profile</Button>
                     </div>
                 }
             >
                 <div className="space-y-4">
-                    <p className="text-sm text-slate-400">A player named <span className="text-white font-bold">{duplicatePlayer?.firstName} {duplicatePlayer?.lastName}</span> already exists in your database. Do you want to use the existing profile for this team or create a completely new one?</p>
+                    <p className="text-sm text-muted">A player named <span className="text-foreground font-bold">{duplicatePlayer?.firstName} {duplicatePlayer?.lastName}</span> already exists in your database. Do you want to use the existing profile for this team or create a completely new one?</p>
                     
-                    <div className="p-4 bg-white/5 rounded-2xl border border-white/5 flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-full bg-slate-800 border-2 border-indigo-500/30 flex items-center justify-center overflow-hidden">
-                            {duplicatePlayer?.imageUrl ? <img src={duplicatePlayer.imageUrl} className="w-full h-full object-cover" /> : <User className="text-slate-600" size={28} />}
+                    <div className="p-4 bg-surface-hover border border-border rounded-2xl flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-full bg-surface border-2 border-indigo-500/30 flex items-center justify-center overflow-hidden">
+                            {duplicatePlayer?.imageUrl ? <img src={duplicatePlayer.imageUrl} className="w-full h-full object-cover" /> : <User className="text-muted/60" size={28} />}
                         </div>
                         <div>
-                            <p className="font-bold text-white">{duplicatePlayer?.firstName} {duplicatePlayer?.lastName}</p>
-                            <p className="text-xs text-slate-500">{duplicatePlayer?.position} • Joined {(duplicatePlayer?.teams || []).length} teams</p>
+                            <p className="font-bold text-foreground">{duplicatePlayer?.firstName} {duplicatePlayer?.lastName}</p>
+                            <p className="text-xs text-muted">{duplicatePlayer?.position} • Joined {(duplicatePlayer?.teams || []).length} teams</p>
                             <div className="flex flex-wrap gap-1 mt-1">
                                 {(duplicatePlayer?.teams || []).map(t => (
-                                    <span key={t.id} className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">{t.name}</span>
+                                    <span key={t.id} className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">{t.name}</span>
                                 ))}
                             </div>
                         </div>

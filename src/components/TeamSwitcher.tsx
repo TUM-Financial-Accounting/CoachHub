@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { useTeam } from '../contexts/TeamContext';
 import { Users } from 'lucide-react';
 import { Select } from './ui/Select';
@@ -6,7 +6,7 @@ import { Select } from './ui/Select';
 export default function TeamSwitcher({ collapsed }: { collapsed: boolean }) {
   const { teams, activeTeam, setActiveTeamId, loading } = useTeam();
 
-  if (loading) return <div className="h-10 animate-pulse bg-white/5 rounded-xl mx-2 my-2"></div>;
+  if (loading) return <div className="h-10 animate-pulse bg-surface-hover rounded-xl mx-2 my-2"></div>;
 
   if (collapsed) {
      return (
@@ -21,7 +21,7 @@ export default function TeamSwitcher({ collapsed }: { collapsed: boolean }) {
   options.push({ label: '+ Create Team', value: 'CREATE_NEW' });
 
   return (
-     <div className="px-3 py-2 border-b border-white/5">
+     <div className="px-3 py-2 border-b border-border">
         <Select 
            placeholder={teams.length === 0 ? "No teams yet" : "Select Team"}
            value={activeTeam?.id || ''}

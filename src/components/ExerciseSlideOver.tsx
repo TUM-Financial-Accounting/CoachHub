@@ -34,14 +34,14 @@ export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete 
             <video src={url} controls className="w-full h-full rounded-t-none" />
         );
         if (type === 'pdf') return (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
+            <div className="flex flex-col items-center justify-center h-full text-muted gap-2">
                 <FileText size={40} />
                 <span className="text-sm font-medium">PDF Document</span>
-                <a href={url} download="exercise.pdf" className="text-blue-400 text-xs hover:underline">Download</a>
+                <a href={url} download="exercise.pdf" className="text-primary text-xs hover:underline">Download</a>
             </div>
         );
         return (
-            <div className="flex flex-col items-center justify-center h-full text-slate-600 gap-2">
+            <div className="flex flex-col items-center justify-center h-full text-dimmed gap-2">
                 <VideoIcon size={32} />
                 <span className="text-xs">Unsupported media</span>
             </div>
@@ -69,7 +69,7 @@ export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete 
                         animate={{ x: 0 }}
                         exit={{ x: '100%' }}
                         transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-                        className="fixed inset-y-0 right-0 z-50 w-full max-w-lg flex flex-col bg-[#0d1117] border-l border-white/5 shadow-2xl overflow-hidden"
+                        className="fixed inset-y-0 right-0 z-50 w-full max-w-lg flex flex-col bg-surface border-l border-border shadow-2xl overflow-hidden"
                     >
                         {/* Header */}
                         <div className="flex-shrink-0 relative">
@@ -78,25 +78,25 @@ export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete 
 
                             <button
                                 onClick={onClose}
-                                className="absolute top-4 right-4 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                                className="absolute top-4 right-4 p-2 rounded-xl bg-surface-raised/50 hover:bg-surface-raised text-muted hover:text-foreground transition-colors"
                             >
                                 <X size={18} />
                             </button>
 
                             <div className="absolute bottom-0 left-0 right-0 px-6 pb-4 flex items-end gap-4">
                                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 p-[2px] shadow-xl shadow-amber-500/20 flex-shrink-0">
-                                    <div className="w-full h-full rounded-[14px] bg-slate-900 flex items-center justify-center">
+                                    <div className="w-full h-full rounded-[14px] bg-background flex items-center justify-center">
                                         <Dumbbell size={22} className="text-amber-400" />
                                     </div>
                                 </div>
                                 <div className="pb-1 min-w-0">
-                                    <h2 className="text-xl font-bold text-white truncate">{exercise.name}</h2>
+                                    <h2 className="text-xl font-bold text-foreground truncate">{exercise.name}</h2>
                                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${intensity?.badge}`}>
                                             {exercise.intensity} Intensity
                                         </span>
                                         {exercise.goalkeepers > 0 && (
-                                            <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-white/10 text-slate-400">
+                                            <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-border text-muted">
                                                 <Users size={9} /> {exercise.goalkeepers} GK
                                             </span>
                                         )}
@@ -111,12 +111,12 @@ export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete 
                             {/* Intensity bar */}
                             <div>
                                 <div className="flex items-center justify-between mb-1.5">
-                                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span className="text-[10px] font-semibold text-muted uppercase tracking-wider flex items-center gap-1.5">
                                         <Zap size={10} /> Intensity
                                     </span>
                                     <span className={`text-xs font-bold ${intensity?.badge.split(' ').find(c => c.startsWith('text-'))}`}>{exercise.intensity}</span>
                                 </div>
-                                <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                <div className="h-1.5 bg-surface-raised rounded-full overflow-hidden">
                                     <motion.div
                                         initial={{ width: 0 }}
                                         animate={{ width: intensity?.width ?? '0%' }}
@@ -128,7 +128,7 @@ export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete 
 
                             {/* Media */}
                             {exercise.mediaUrl && (
-                                <div className="w-full h-52 bg-slate-950 rounded-xl overflow-hidden border border-white/5 shadow-lg">
+                                <div className="w-full h-52 bg-background rounded-xl overflow-hidden border border-border shadow-lg">
                                     {renderMedia(exercise.mediaUrl)}
                                 </div>
                             )}
@@ -141,8 +141,8 @@ export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete 
                                 { label: 'Variations', value: exercise.variations },
                             ].filter(s => s.value).map(section => (
                                 <div key={section.label}>
-                                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">{section.label}</p>
-                                    <div className="bg-white/[0.03] border border-white/5 rounded-xl px-4 py-3 text-sm text-slate-300 leading-relaxed">
+                                    <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-2">{section.label}</p>
+                                    <div className="bg-surface-hover border border-border rounded-xl px-4 py-3 text-sm text-foreground/80 leading-relaxed">
                                         {section.value}
                                     </div>
                                 </div>
@@ -151,10 +151,10 @@ export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete 
                             {/* Equipment */}
                             {exercise.equipment.length > 0 && (
                                 <div>
-                                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Equipment</p>
+                                    <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-2">Equipment</p>
                                     <div className="flex flex-wrap gap-2">
                                         {exercise.equipment.map(item => (
-                                            <span key={item} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800/80 border border-white/5 text-slate-300">
+                                            <span key={item} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-surface-raised border border-border text-foreground/80">
                                                 {item}
                                             </span>
                                         ))}
@@ -169,7 +169,7 @@ export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete 
                                 { label: 'Related Tactics', items: exercise.linkedTactics, icon: <Target size={11} />, style: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' },
                             ].filter(s => s.items.length > 0).map(section => (
                                 <div key={section.label}>
-                                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                    <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
                                         {section.icon} {section.label}
                                     </p>
                                     <div className="flex flex-wrap gap-2">
@@ -183,7 +183,7 @@ export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete 
 
                         {/* Footer */}
                         {exercise.isCustom && (
-                            <div className="flex-shrink-0 px-6 py-4 border-t border-white/5 bg-slate-950/50 flex gap-3">
+                            <div className="flex-shrink-0 px-6 py-4 border-t border-border bg-surface-hover/50 flex gap-3">
                                 <button
                                     onClick={() => onEdit(exercise)}
                                     className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold transition-colors shadow-lg shadow-amber-500/20"
@@ -192,7 +192,7 @@ export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete 
                                 </button>
                                 <button
                                     onClick={() => onDelete(exercise.id)}
-                                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 border border-white/5 hover:border-rose-500/20 text-sm font-semibold transition-all"
+                                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-raised hover:bg-rose-500/10 text-muted hover:text-rose-400 border border-border hover:border-rose-500/20 text-sm font-semibold transition-all"
                                 >
                                     <Trash2 size={15} />
                                 </button>

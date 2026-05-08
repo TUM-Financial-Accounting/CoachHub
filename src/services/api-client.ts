@@ -9,13 +9,19 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), 10000); // 10s timeout
   
-  const headers = {
+  const token = localStorage.getItem('access_token');
+  
+  const headers: Record<string, string> = {
     ...JSON_HEADERS,
-    ...options.headers,
+    ...options.headers as Record<string, string>,
     'Cache-Control': 'no-cache, no-store, must-revalidate',
     'Pragma': 'no-cache',
     'Expires': '0',
   };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
   try {
     console.log(`[API] Requesting ${endpoint}...`);
@@ -43,6 +49,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
         console.warn(`[API] 401 on ${endpoint} - Session likely expired. Clearing local state and reloading.`);
         localStorage.removeItem('isAuthenticated');
         localStorage.removeItem('user');
+        localStorage.removeItem('access_token');
         window.location.reload(); 
         throw new Error('Session expired. Please log in again.');
       }

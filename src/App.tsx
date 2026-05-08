@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Menu, Trophy } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -18,11 +19,13 @@ import MatchLineup from './components/MatchLineup';
 import Navigation from './components/Navigation';
 import CommandPalette from './components/CommandPalette';
 import TeamFormModal from './components/TeamFormModal';
+import VisionLibrary from './components/VisionLibrary';
 import { Page } from './types/ui';
 
 // Services
 import { AuthService } from './services';
 import { useTeam } from './contexts/TeamContext';
+import { useTheme } from './contexts/ThemeContext';
 
 export default function App() {
   console.log("[App] Rendering component...");
@@ -38,15 +41,14 @@ export default function App() {
     return localStorage.getItem('isAuthenticated') === 'true' ? 'dashboard' : 'login';
   });
 
-  // Force Dark Mode 
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
-  }, []);
+  const { theme } = useTheme();
+  const toasterTheme = theme === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme;
 
   const handleLogout = () => {
     // 1. Instant local logout for snappy UX
     localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('user'); 
+    localStorage.removeItem('user');
+    localStorage.removeItem('access_token');
     setIsAuthenticated(false);
     setCurrentPage('login');
     toast.success("Logged out successfully");
@@ -89,10 +91,31 @@ export default function App() {
     setCurrentPage(page);
   };
 
+// If authenticated, show the Main App
+  if (!isAuthenticated) {
+    return (
+      <>
+        <LoginPage onLogin={handleLogin} />
+        <Toaster position="top-right" theme={toasterTheme} />
+      </>
+    );
+  }
+
+  return (
+    <TeamProvider isAuthenticated={isAuthenticated}>
+      <DndProvider backend={HTML5Backend}>
+        <AppLayout currentPage={currentPage} navigateToPage={navigateToPage} handleLogout={handleLogout} />
+        <Toaster position="top-right" theme={toasterTheme} />
+      </DndProvider>
+    </TeamProvider>
+  );
+}
+
 function AppLayout({ currentPage, navigateToPage, handleLogout }: { currentPage: Page, navigateToPage: (page: Page) => void, handleLogout: () => void }) {
   const { loading } = useTeam();
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleOpenTeamModal = () => setIsTeamModalOpen(true);
@@ -108,7 +131,14 @@ function AppLayout({ currentPage, navigateToPage, handleLogout }: { currentPage:
       }
     };
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+
+    const handleOpenSearch = () => setCmdOpen(true);
+    window.addEventListener('open-search', handleOpenSearch);
+
+    return () => {
+      window.removeEventListener('keydown', handler);
+      window.removeEventListener('open-search', handleOpenSearch);
+    };
   }, []);
 
   const pageContent: Record<Exclude<Page, 'login'>, React.ReactNode> = {
@@ -120,17 +150,36 @@ function AppLayout({ currentPage, navigateToPage, handleLogout }: { currentPage:
     principles:     <PrinciplesLibrary />,
     tactics:        <TacticsLibrary />,
     match:          <MatchLineup />,
+    vision:         <VisionLibrary />,
   };
 
   return (
-      <div className="flex h-screen bg-[#0b0f19] text-slate-200 selection:bg-blue-500/30 overflow-hidden">
+      <div className="flex h-[100dvh] bg-background text-foreground selection:bg-blue-500/30 overflow-hidden">
         <Navigation 
           currentPage={currentPage} 
           onNavigate={navigateToPage}
           onLogout={handleLogout}
+          isMobileOpen={isMobileMenuOpen}
+          onMobileClose={() => setIsMobileMenuOpen(false)}
         />
         
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+        <main className="flex-1 overflow-hidden h-full flex flex-col min-h-0">
+          {/* Mobile Header */}
+          <div className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-surface">
+            <div className="flex items-center gap-3">
+              <div className="flex-shrink-0 bg-primary p-1.5 rounded-lg shadow-sm shadow-primary/20 text-white">
+                <Trophy className="w-4 h-4" />
+              </div>
+              <span className="text-sm font-bold text-foreground tracking-tight">CoachHub</span>
+            </div>
+            <button 
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-2 -mr-2 text-muted hover:text-foreground hover:bg-surface-hover rounded-xl transition-colors"
+            >
+              <Menu size={20} />
+            </button>
+          </div>
+
           <AnimatePresence mode="wait">
             <motion.div
               key={currentPage}
@@ -138,7 +187,7 @@ function AppLayout({ currentPage, navigateToPage, handleLogout }: { currentPage:
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.18, ease: 'easeInOut' }}
-              className="min-h-full flex flex-col"
+              className="flex-1 flex flex-col min-h-0 overflow-hidden"
             >
               {loading ? (
                 <div className="flex-1 flex items-center justify-center min-h-[calc(100vh-100px)]">
@@ -163,25 +212,5 @@ function AppLayout({ currentPage, navigateToPage, handleLogout }: { currentPage:
           onNavigate={(page) => { navigateToPage(page as Page); }}
         />
       </div>
-  );
-}
-
-// If authenticated, show the Main App
-  if (!isAuthenticated) {
-    return (
-      <>
-        <LoginPage onLogin={handleLogin} />
-        <Toaster position="top-right" theme="dark" />
-      </>
-    );
-  }
-
-  return (
-    <TeamProvider isAuthenticated={isAuthenticated}>
-      <DndProvider backend={HTML5Backend}>
-        <AppLayout currentPage={currentPage} navigateToPage={navigateToPage} handleLogout={handleLogout} />
-        <Toaster position="top-right" theme="dark" />
-      </DndProvider>
-    </TeamProvider>
   );
 }

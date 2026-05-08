@@ -5,20 +5,52 @@
 @layer base {
   :root {
     --radius: 1rem;
+
+    /* Light Mode Variables */
+    --background: #f8fafc;
+    --foreground: #0f172a;
+    --surface: #ffffff;
+    --surface-hover: #f1f5f9;
+    --surface-raised: #e2e8f0;
+    --border: #e2e8f0;
+    --border-subtle: #f1f5f9;
+    --text-muted: #64748b;
+    --text-dimmed: #94a3b8;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --overlay: rgba(0, 0, 0, 0.4);
+    --ring: rgba(59, 130, 246, 0.3);
+  }
+
+  .dark {
+    /* Dark Mode Variables */
+    --background: #0b0f19;
+    --foreground: #f8fafc;
+    --surface: rgba(15, 23, 42, 0.6);
+    --surface-hover: rgba(30, 41, 59, 0.8);
+    --surface-raised: #1e293b;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-subtle: rgba(255, 255, 255, 0.05);
+    --text-muted: #94a3b8;
+    --text-dimmed: #475569;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --overlay: rgba(0, 0, 0, 0.6);
+    --ring: rgba(99, 102, 241, 0.3);
   }
 
   body {
-    /* Forced Dark Mode Background */
-    @apply bg-[#0b0f19] text-slate-100;
+    /* Dynamic Theme Background */
+    @apply bg-[var(--background)] text-[var(--foreground)];
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     
-    /* Dark Mode Mesh Gradient */
+    /* Mesh Gradient (Light/Dark Switch) */
     background-image: 
-      radial-gradient(at 0% 0%, hsla(222,47%,8%,1) 0, transparent 50%), 
-      radial-gradient(at 100% 100%, hsla(222,47%,8%,1) 0, transparent 50%);
+      radial-gradient(at 0% 0%, var(--background) 0, transparent 50%), 
+      radial-gradient(at 100% 100%, var(--background) 0, transparent 50%);
     min-height: 100vh;
   }
 }

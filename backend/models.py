@@ -149,6 +149,15 @@ class Match(Base):
 
 
 
+# --- 4. VISION ---
+class Vision(Base):
+    __tablename__ = "visions"
+    id = Column(String, primary_key=True, default=generate_uuid)
+    coach_id = Column(String, ForeignKey("users.id"), nullable=True)
+    title = Column(String)
+    filename = Column(String)
+    uploaded_at = Column(DateTime, default=datetime.datetime.now)
+
 # --- 1. AUTH & TEAMS --- 
 class User(Base):
     __tablename__ = "users"

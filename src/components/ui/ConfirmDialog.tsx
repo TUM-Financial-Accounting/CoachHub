@@ -23,7 +23,7 @@ export function ConfirmDialog({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 bg-overlay backdrop-blur-sm"
             onClick={onCancel}
           />
 
@@ -36,15 +36,15 @@ export function ConfirmDialog({
             transition={{ type: 'spring', stiffness: 380, damping: 30 }}
             className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm"
           >
-            <div className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl shadow-black/60 p-6">
+            <div className="bg-surface border border-border rounded-2xl shadow-2xl shadow-black/60 p-6">
               {/* Icon */}
               <div className="flex items-center gap-3 mb-4">
                 <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
                   <AlertTriangle className="w-5 h-5 text-rose-400" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">{title}</h3>
-                  <p className="text-sm text-slate-400 mt-0.5">{message}</p>
+                  <h3 className="text-base font-bold text-foreground">{title}</h3>
+                  <p className="text-sm text-muted mt-0.5">{message}</p>
                 </div>
               </div>
 
@@ -53,7 +53,7 @@ export function ConfirmDialog({
                 <Button
                   variant="ghost"
                   onClick={onCancel}
-                  className="flex-1 text-slate-400 hover:text-white hover:bg-white/5"
+                  className="flex-1 text-muted hover:text-foreground hover:bg-surface-hover"
                 >
                   Cancel
                 </Button>

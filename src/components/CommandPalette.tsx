@@ -171,20 +171,20 @@ export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandP
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.96, y: -12 }}
                             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                            className="w-full max-w-xl bg-[#0d1117] border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden pointer-events-auto"
+                            className="w-full max-w-xl bg-surface border border-border rounded-2xl shadow-2xl shadow-black/20 overflow-hidden pointer-events-auto"
                         >
                             {/* Search input */}
-                            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-white/5">
-                                <Search size={18} className="text-slate-500 flex-shrink-0" />
+                            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border">
+                                <Search size={18} className="text-muted flex-shrink-0" />
                                 <input
                                     ref={inputRef}
                                     type="text"
                                     placeholder="Search players, sessions, exercises..."
                                     value={query}
                                     onChange={e => setQuery(e.target.value)}
-                                    className="flex-1 bg-transparent text-slate-100 placeholder-slate-600 text-sm outline-none"
+                                    className="flex-1 bg-transparent text-foreground placeholder-muted text-sm outline-none"
                                 />
-                                <kbd className="hidden sm:flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/10 text-[10px] font-semibold text-slate-600">
+                                <kbd className="hidden sm:flex items-center gap-1 px-1.5 py-0.5 rounded border border-border text-[10px] font-semibold text-muted">
                                     ESC
                                 </kbd>
                             </div>
@@ -193,19 +193,19 @@ export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandP
                             <div ref={listRef} className="max-h-80 overflow-y-auto py-2 custom-scrollbar">
                                 {loading && (
                                     <div className="space-y-1 px-3 py-2">
-                                        {[1,2,3].map(i => <div key={i} className="h-10 rounded-xl bg-white/[0.03] animate-pulse" />)}
+                                        {[1,2,3].map(i => <div key={i} className="h-10 rounded-xl bg-surface-hover animate-pulse" />)}
                                     </div>
                                 )}
 
                                 {!loading && displayItems.length === 0 && query.trim() && (
-                                    <div className="px-4 py-10 text-center text-slate-600 text-sm">
+                                    <div className="px-4 py-10 text-center text-muted text-sm">
                                         No results for "{query}"
                                     </div>
                                 )}
 
                                 {!loading && !query.trim() && (
                                     <div className="px-3 pt-1 pb-1">
-                                        <p className="px-2 pb-2 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Quick navigation</p>
+                                        <p className="px-2 pb-2 text-[10px] font-semibold text-muted uppercase tracking-wider">Quick navigation</p>
                                         {QUICK_LINKS.map((link, i) => {
                                             const meta = CATEGORY_META[link.category];
                                             const isSelected = i === selectedIdx;
@@ -213,7 +213,7 @@ export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandP
                                                 <button
                                                     key={link.page}
                                                     onClick={() => handleSelect(link.page)}
-                                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${isSelected ? 'bg-white/[0.07] text-white' : 'hover:bg-white/[0.04] text-slate-300'}`}
+                                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-surface-hover text-foreground'}`}
                                                 >
                                                     <span className={`flex-shrink-0 ${meta.color}`}>{meta.icon}</span>
                                                     <span className="flex-1 text-sm font-medium">{link.label}</span>
@@ -237,20 +237,20 @@ export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandP
                                                         <button
                                                             key={item.id}
                                                             onClick={() => handleSelect(item.page)}
-                                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${isSelected ? 'bg-white/[0.07]' : 'hover:bg-white/[0.04]'}`}
+                                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${isSelected ? 'bg-primary/10' : 'hover:bg-surface-hover'}`}
                                                         >
                                                             <span className={`flex-shrink-0 ${meta.color}`}>{meta.icon}</span>
                                                             <div className="flex-1 min-w-0">
-                                                                <p className="text-sm font-medium text-slate-200 truncate">{item.label}</p>
-                                                                <p className="text-[10px] text-slate-600 truncate">{item.sub}</p>
+                                                                <p className={`text-sm font-medium truncate ${isSelected ? 'text-primary' : 'text-foreground'}`}>{item.label}</p>
+                                                                <p className="text-[10px] text-muted truncate">{item.sub}</p>
                                                             </div>
-                                                            <ChevronRight size={14} className={`flex-shrink-0 text-slate-600 transition-opacity ${isSelected ? 'opacity-60' : 'opacity-0'}`} />
+                                                            <ChevronRight size={14} className={`flex-shrink-0 transition-opacity ${isSelected ? 'opacity-60 text-primary' : 'opacity-0 text-muted'}`} />
                                                         </button>
                                                     );
                                                 });
                                                 return (
                                                     <div key={cat} className="pt-2">
-                                                        <p className="px-2 pb-1 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">{cat}</p>
+                                                        <p className="px-2 pb-1 text-[10px] font-semibold text-muted uppercase tracking-wider">{cat}</p>
                                                         {nodes}
                                                     </div>
                                                 );
@@ -261,11 +261,11 @@ export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandP
                             </div>
 
                             {/* Footer hint */}
-                            <div className="px-4 py-2.5 border-t border-white/5 flex items-center gap-4 text-[10px] text-slate-700 font-medium">
-                                <span className="flex items-center gap-1"><kbd className="border border-white/10 rounded px-1 py-0.5 text-[9px]">↑↓</kbd> navigate</span>
-                                <span className="flex items-center gap-1"><kbd className="border border-white/10 rounded px-1 py-0.5 text-[9px]">↵</kbd> select</span>
-                                <span className="flex items-center gap-1"><kbd className="border border-white/10 rounded px-1 py-0.5 text-[9px]">ESC</kbd> close</span>
-                                <span className="ml-auto flex items-center gap-1 text-slate-800">
+                            <div className="px-4 py-2.5 border-t border-border flex items-center gap-4 text-[10px] text-muted font-medium bg-surface/50">
+                                <span className="flex items-center gap-1"><kbd className="border border-border rounded px-1 py-0.5 text-[9px] bg-surface">↑↓</kbd> navigate</span>
+                                <span className="flex items-center gap-1"><kbd className="border border-border rounded px-1 py-0.5 text-[9px] bg-surface">↵</kbd> select</span>
+                                <span className="flex items-center gap-1"><kbd className="border border-border rounded px-1 py-0.5 text-[9px] bg-surface">ESC</kbd> close</span>
+                                <span className="ml-auto flex items-center gap-1 opacity-70">
                                     <Command size={10} /> K
                                 </span>
                             </div>

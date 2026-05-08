@@ -25,7 +25,7 @@ export function Select({ label, error, options, value, onChange, className, plac
   return (
     <div className="space-y-2 w-full" ref={containerRef}>
       {label && (
-        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">
+        <label className="text-[11px] font-bold text-muted uppercase tracking-widest ml-1">
           {label}
         </label>
       )}
@@ -35,22 +35,22 @@ export function Select({ label, error, options, value, onChange, className, plac
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           className={cn(
-            "w-full bg-slate-900/50 border border-white/5 text-left text-white rounded-xl px-4 py-3.5 text-sm outline-none transition-all flex items-center justify-between",
-            "focus:bg-slate-900 focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10",
-            "hover:border-white/10",
-            isOpen && "border-blue-500/50 bg-slate-900",
+            "w-full bg-surface-hover border border-border text-left text-foreground rounded-xl px-4 py-3.5 text-sm outline-none transition-all flex items-center justify-between",
+            "focus:bg-surface focus:border-primary/50 focus:ring-4 focus:ring-primary/10",
+            "hover:border-border",
+            isOpen && "border-primary/50 bg-surface",
             error && "border-red-500/50",
             className
           )}
         >
-          <span className={cn(!selectedLabel && "text-slate-600")}>
+          <span className={cn(!selectedLabel && "text-muted/60")}>
             {selectedLabel || placeholder}
           </span>
           <ChevronDown 
             size={16} 
             className={cn(
-              "text-slate-500 transition-transform duration-200", 
-              isOpen && "rotate-180 text-blue-400"
+              "text-muted transition-transform duration-200", 
+              isOpen && "rotate-180 text-primary"
             )} 
           />
         </button>
@@ -63,7 +63,7 @@ export function Select({ label, error, options, value, onChange, className, plac
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
               transition={{ duration: 0.1 }}
-              className="absolute z-50 w-full mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden"
+              className="absolute z-50 w-full mt-2 bg-surface backdrop-blur-xl border border-border rounded-xl shadow-2xl overflow-hidden"
             >
               <div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
                 {options.map((opt) => (
@@ -76,8 +76,8 @@ export function Select({ label, error, options, value, onChange, className, plac
                     className={cn(
                       "px-3 py-2.5 rounded-lg text-sm cursor-pointer flex items-center justify-between group transition-colors",
                       value === opt.value 
-                        ? "bg-blue-600 text-white" 
-                        : "text-slate-300 hover:bg-white/5 hover:text-white"
+                        ? "bg-primary text-white" 
+                        : "text-foreground/80 hover:bg-surface-hover hover:text-foreground"
                     )}
                   >
                     <span>{opt.label}</span>
@@ -89,7 +89,7 @@ export function Select({ label, error, options, value, onChange, className, plac
           )}
         </AnimatePresence>
       </div>
-      {error && <p className="text-xs text-red-400 font-medium ml-1">{error}</p>}
+      {error && <p className="text-xs text-red-500 font-medium ml-1">{error}</p>}
     </div>
   );
 }

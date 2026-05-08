@@ -85,6 +85,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         toast.success(`Welcome back, ${response.user.full_name || 'Coach'}!`);
 
         localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('access_token', response.access_token);
         localStorage.setItem('user', JSON.stringify(response.user));
 
         console.log("[LoginPage] Calling onLogin()...");
@@ -143,14 +144,14 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden bg-[#0b0f19]">
+    <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden bg-background">
 
       {/* Background Blobs */}
       <div className="fixed top-[-10%] left-[-5%] w-[500px] h-[500px] bg-blue-600/20 rounded-full blur-[120px] pointer-events-none" />
       <div className="fixed bottom-[-10%] right-[-5%] w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Glass Card Container */}
-      <Card animate delay={0.1} className="w-full max-w-md p-8 sm:p-10 z-10 border-white/10 bg-slate-900/60">
+      <Card animate delay={0.1} className="w-full max-w-md p-8 sm:p-10 z-10 border-border bg-surface">
 
         {/* Logo & Header */}
         <div className="flex flex-col items-center mb-8">
@@ -160,8 +161,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           >
             <Trophy className="w-8 h-8 text-white" />
           </motion.div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">CoachHub</h1>
-          <p className="text-slate-400 mt-2 text-center font-medium">
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">CoachHub</h1>
+          <p className="text-muted mt-2 text-center font-medium">
             {isResetPassword 
               ? 'Set your new password' 
               : isForgotPassword 
@@ -297,8 +298,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
         {/* Toggle Register/Login */}
         {!isForgotPassword && !isResetPassword && (
-          <div className="mt-8 text-center border-t border-white/5 pt-6">
-            <p className="text-slate-500 text-sm mb-3">
+          <div className="mt-8 text-center border-t border-border pt-6">
+            <p className="text-muted text-sm mb-3">
               {isRegister ? "Already have an account?" : "Don't have an account?"}
             </p>
             <Button

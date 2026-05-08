@@ -82,19 +82,19 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
 
   return (
     <div className="relative space-y-2" ref={containerRef}>
-      {label && <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">{label}</label>}
+      {label && <label className="text-[11px] font-bold text-muted uppercase tracking-widest ml-1">{label}</label>}
 
       <button
         type="button"
         onClick={() => { setIsOpen(!isOpen); setViewMode('calendar'); }}
-        className={`w-full px-4 py-3.5 bg-slate-900/50 border text-sm text-left rounded-xl flex items-center justify-between transition-all
+        className={`w-full px-4 py-3.5 bg-surface border text-sm text-left rounded-xl flex items-center justify-between transition-all
           ${isOpen
-            ? 'border-blue-500/50 bg-slate-900 ring-4 ring-blue-500/10'
-            : 'border-white/5 hover:border-white/10'
+            ? 'border-blue-500/50 bg-surface ring-4 ring-ring'
+            : 'border-border-subtle hover:border-border'
           }`}
       >
-        <span className={selectedDate ? 'text-white' : 'text-slate-600'}>{displayValue}</span>
-        <Calendar size={16} className={`transition-colors ${isOpen ? 'text-blue-400' : 'text-slate-500'}`} />
+        <span className={selectedDate ? 'text-foreground' : 'text-dimmed'}>{displayValue}</span>
+        <Calendar size={16} className={`transition-colors ${isOpen ? 'text-blue-400' : 'text-muted'}`} />
       </button>
 
       <AnimatePresence>
@@ -104,19 +104,19 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.1 }}
-            className="absolute top-full left-0 mt-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-50 p-4 w-80"
+            className="absolute top-full left-0 mt-2 bg-surface backdrop-blur-xl border border-border rounded-xl shadow-2xl z-50 p-4 w-80"
           >
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               {/* Left arrow: prev month (calendar) or back to year (month) */}
               {viewMode === 'calendar' && (
                 <button onClick={() => setDisplayMonth(new Date(displayMonth.getFullYear(), displayMonth.getMonth() - 1))} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
-                  <ChevronLeft size={18} className="text-slate-400" />
+                  <ChevronLeft size={18} className="text-muted" />
                 </button>
               )}
               {viewMode === 'month' && (
                 <button onClick={() => setViewMode('year')} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
-                  <ChevronLeft size={18} className="text-slate-400" />
+                  <ChevronLeft size={18} className="text-muted" />
                 </button>
               )}
               {viewMode === 'year' && <div className="w-8" />}
@@ -124,16 +124,16 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
               {/* Clickable header — cycles between views */}
               <button
                 onClick={() => setViewMode(v => v === 'calendar' ? 'year' : v === 'month' ? 'year' : 'calendar')}
-                className="text-sm font-bold text-white hover:text-blue-400 transition-colors px-2 py-1 rounded-lg hover:bg-white/5 flex items-center gap-1"
+                className="text-sm font-bold text-foreground hover:text-blue-400 transition-colors px-2 py-1 rounded-lg hover:bg-surface-hover flex items-center gap-1"
               >
                 {headerLabel}
-                <span className="text-[10px] text-slate-500 font-normal">{viewMode === 'year' ? '▴' : '▾'}</span>
+                <span className="text-[10px] text-muted font-normal">{viewMode === 'year' ? '▴' : '▾'}</span>
               </button>
 
               {/* Right arrow: next month (calendar only) */}
               {viewMode === 'calendar' && (
                 <button onClick={() => setDisplayMonth(new Date(displayMonth.getFullYear(), displayMonth.getMonth() + 1))} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
-                  <ChevronRight size={18} className="text-slate-400" />
+                  <ChevronRight size={18} className="text-muted" />
                 </button>
               )}
               {viewMode !== 'calendar' && <div className="w-8" />}
@@ -151,8 +151,8 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
                       displayMonth.getFullYear() === year
                         ? 'bg-blue-600 text-white'
                         : year === currentYear
-                        ? 'bg-slate-800 text-white border border-blue-500/30'
-                        : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700'
+                        ? 'bg-surface-raised text-foreground border border-blue-500/30'
+                        : 'bg-surface-raised text-foreground hover:bg-surface-hover'
                     }`}
                   >
                     {year}
@@ -172,8 +172,8 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
                       displayMonth.getMonth() === i
                         ? 'bg-blue-600 text-white'
                         : today.getMonth() === i && today.getFullYear() === displayMonth.getFullYear()
-                        ? 'bg-slate-800 text-white border border-blue-500/30'
-                        : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700'
+                        ? 'bg-surface-raised text-foreground border border-blue-500/30'
+                        : 'bg-surface-raised text-foreground hover:bg-surface-hover'
                     }`}
                   >
                     {month.slice(0, 3)}
@@ -187,7 +187,7 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
               <>
                 <div className="grid grid-cols-7 gap-1 mb-2">
                   {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
-                    <div key={day} className="text-center text-[10px] font-bold text-slate-500 uppercase py-2">{day}</div>
+                    <div key={day} className="text-center text-[10px] font-bold text-muted uppercase py-2">{day}</div>
                   ))}
                 </div>
                 <div className="grid grid-cols-7 gap-1">
@@ -207,8 +207,8 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
                           ${isSelected
                             ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 border border-blue-400'
                             : isToday
-                            ? 'bg-slate-800 text-white border border-blue-500/50'
-                            : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700 border border-white/5'
+                            ? 'bg-surface-raised text-foreground border border-blue-500/50'
+                            : 'bg-surface-raised text-foreground hover:bg-surface-hover border border-border-subtle'
                           }`}
                       >
                         {day}

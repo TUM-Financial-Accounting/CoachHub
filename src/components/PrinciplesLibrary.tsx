@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Edit2, Trash2, Upload, Video as VideoIcon, FileText, X, BookOpen, ChevronRight } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Upload, Video as VideoIcon, FileText, X, BookOpen, ChevronRight, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AnimatePresence, motion } from 'framer-motion';
 import { uploadFile } from '../lib/uploadFile';
@@ -9,6 +9,7 @@ import { Input } from "./ui/Input";
 import { Select } from "./ui/Select";
 import { Modal } from "./ui/Modal";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
+import { PlaybookManagementModal } from "./PlaybookManagementModal";
 
 import { Principle } from '../types/models';
 import { LibraryService } from '../services';
@@ -93,6 +94,7 @@ export default function PrinciplesLibrary() {
   const [activePhase, setActivePhase] = useState<string>('All');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showPlaybookModal, setShowPlaybookModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [viewMedia, setViewMedia] = useState<string | null>(null);
@@ -100,13 +102,17 @@ export default function PrinciplesLibrary() {
   const [formData, setFormData] = useState({ id: '', name: '', gamePhase: 'In Possession', description: '', coachingNotes: '', implementationTips: '', mediaUrl: '' });
 
   // --- Load Data ---
-  useEffect(() => {
+  const fetchPrinciples = () => {
     LibraryService.getPrinciples()
         .then(dbItems => {
             setPrinciples(dbItems);
-            if (dbItems.length > 0) setSelectedId(dbItems[0].id);
+            if (dbItems.length > 0 && !selectedId) setSelectedId(dbItems[0].id);
         })
         .catch(() => toast.error('Backend offline'));
+  };
+
+  useEffect(() => {
+    fetchPrinciples();
   }, []);
 
   const handleSave = async () => {
@@ -199,21 +205,24 @@ export default function PrinciplesLibrary() {
   const activePhasesCount = GAME_PHASES.filter(ph => phaseCounts[ph] > 0).length;
 
   return (
-    <div className="p-6 sm:p-8 max-w-[1600px] mx-auto space-y-6">
+    <div className="h-full w-full flex flex-col p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto gap-6 overflow-y-auto lg:overflow-hidden">
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-1 h-10 rounded-full bg-purple-500 flex-shrink-0" />
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">Principles Library</h1>
-            <p className="text-sm text-slate-500 mt-0.5">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Principles Library</h1>
+            <p className="text-sm text-muted mt-0.5">
               {principles.length} {principles.length === 1 ? 'principle' : 'principles'}
               {activePhasesCount > 0 && <> &middot; {activePhasesCount} phase{activePhasesCount > 1 ? 's' : ''}</>}
             </p>
           </div>
         </div>
-        <Button onClick={() => setShowCreateModal(true)} icon={<Plus size={18} />}>Add Principle</Button>
+        <div className="flex items-center gap-3">
+          <Button variant="secondary" onClick={() => setShowPlaybookModal(true)} icon={<Share2 size={18} />}>Manage Playbook</Button>
+          <Button onClick={() => setShowCreateModal(true)} icon={<Plus size={18} />}>Add Principle</Button>
+        </div>
       </div>
 
       {/* Phase Filter Tabs */}
@@ -222,8 +231,8 @@ export default function PrinciplesLibrary() {
           onClick={() => setActivePhase('All')}
           className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
             activePhase === 'All'
-              ? 'bg-white/10 border-white/30 text-white'
-              : 'bg-transparent border-white/10 text-slate-500 hover:text-white hover:border-white/20'
+              ? 'bg-surface-hover border-border text-foreground shadow-sm'
+              : 'bg-transparent border-border text-muted hover:text-foreground hover:bg-surface-hover'
           }`}
         >
           All <span className="ml-1 opacity-60">{principles.length}</span>
@@ -237,7 +246,7 @@ export default function PrinciplesLibrary() {
               key={phase}
               onClick={() => setActivePhase(phase)}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                isActive ? c.tabActive : `bg-transparent border-white/10 text-slate-500 ${c.tabHover}`
+                isActive ? c.tabActive : `bg-transparent border-border text-muted ${c.tabHover}`
               }`}
             >
               <span className="flex items-center gap-1.5">
@@ -251,24 +260,18 @@ export default function PrinciplesLibrary() {
       </div>
 
       {/* Master / Detail */}
-      <div className="grid grid-cols-12 gap-6" style={{ minHeight: '640px' }}>
+      <div className="grid grid-cols-12 gap-6 lg:flex-1 lg:min-h-0">
 
         {/* LEFT: List */}
         <div className="col-span-12 lg:col-span-4 flex flex-col gap-3">
-          <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-            <input
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search principles..."
-              className="w-full pl-9 pr-4 py-2.5 bg-slate-900/60 border border-white/5 rounded-xl text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/20 focus:bg-slate-900 transition-colors"
-            />
+          <div className="flex-shrink-0">
+            <Input icon={<Search size={15} />} placeholder="Search principles..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
           </div>
 
-          <div className="space-y-2 overflow-y-auto custom-scrollbar pr-1" style={{ maxHeight: '620px' }}>
+          <div className="space-y-2 lg:overflow-y-auto custom-scrollbar pr-1 lg:flex-1 lg:min-h-0">
             <AnimatePresence>
               {filtered.length === 0 && (
-                <div className="text-center py-16 text-slate-600">
+                <div className="text-center py-16 text-muted">
                   <BookOpen size={32} className="mx-auto mb-3 opacity-30" />
                   <p className="text-sm">No principles found</p>
                 </div>
@@ -287,26 +290,26 @@ export default function PrinciplesLibrary() {
                     className={`group relative rounded-xl border cursor-pointer transition-all p-4 ${
                       isSelected
                         ? `${c.bg} ${c.border}`
-                        : 'bg-slate-900/40 border-white/5 hover:border-white/15 hover:bg-slate-900/70'
+                        : 'bg-surface-hover/40 border-border hover:border-border hover:bg-surface-hover/70'
                     }`}
                   >
                     <div className={`absolute left-0 top-3 bottom-3 w-0.5 rounded-full ${c.dot} ${isSelected ? 'opacity-100' : 'opacity-20 group-hover:opacity-50'} transition-opacity`} />
                     <div className="pl-3 flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-bold truncate ${isSelected ? 'text-white' : 'text-slate-200'}`}>{p.name}</p>
+                        <p className={`text-sm font-bold truncate ${isSelected ? 'text-foreground' : 'text-foreground/90'}`}>{p.name}</p>
                         <span className={`text-[10px] font-bold uppercase tracking-widest mt-1 inline-block ${c.text}`}>{PHASE_SHORT[p.gamePhase]}</span>
-                        <p className="text-xs text-slate-500 mt-1.5 line-clamp-2 leading-relaxed">{p.description}</p>
+                        <p className="text-xs text-muted mt-1.5 line-clamp-2 leading-relaxed">{p.description}</p>
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         {isSelected && <ChevronRight size={14} className={`${c.text} mt-0.5`} />}
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-1">
                           <button
                             onClick={e => { e.stopPropagation(); openEdit(p); }}
-                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-white/5 transition-colors"
+                            className="p-1.5 rounded-lg bg-surface-hover hover:bg-surface text-muted hover:text-foreground border border-border transition-colors"
                           ><Edit2 size={11} /></button>
                           <button
                             onClick={e => { e.stopPropagation(); setConfirmDeleteId(p.id); }}
-                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-900/60 text-slate-400 hover:text-rose-400 border border-white/5 transition-colors"
+                            className="p-1.5 rounded-lg bg-surface-hover hover:bg-rose-500/10 text-muted hover:text-rose-500 border border-border transition-colors"
                           ><Trash2 size={11} /></button>
                         </div>
                       </div>
@@ -319,15 +322,14 @@ export default function PrinciplesLibrary() {
         </div>
 
         {/* RIGHT: Detail Panel */}
-        <div className="col-span-12 lg:col-span-8">
+        <div className="col-span-12 lg:col-span-8 lg:h-full lg:overflow-hidden">
           {selected && colors ? (
             <motion.div
               key={selected.id}
               initial={{ opacity: 0, x: 12 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.2 }}
-              className={`h-full rounded-2xl border bg-slate-900/40 overflow-y-auto custom-scrollbar ${colors.border}`}
-              style={{ maxHeight: '672px' }}
+              className={`lg:h-full rounded-2xl border bg-surface lg:overflow-y-auto custom-scrollbar flex flex-col ${colors.border}`}
             >
               {/* Detail Header */}
               <div className={`p-6 border-b ${colors.border} ${colors.bg}`}>
@@ -337,17 +339,17 @@ export default function PrinciplesLibrary() {
                       <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
                       {selected.gamePhase}
                     </span>
-                    <h2 className="text-2xl font-bold text-white tracking-tight">{selected.name}</h2>
+                    <h2 className="text-2xl font-bold text-foreground tracking-tight">{selected.name}</h2>
                   </div>
                   {selected.isCustom && (
                     <div className="flex gap-2 shrink-0">
                       <button
                         onClick={() => openEdit(selected)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold border border-white/10 transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-hover hover:bg-surface text-muted hover:text-foreground text-xs font-bold border border-border transition-colors"
                       ><Edit2 size={12} /> Edit</button>
                       <button
                         onClick={() => setConfirmDeleteId(selected.id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-900/50 text-slate-300 hover:text-rose-400 text-xs font-bold border border-white/10 transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-hover hover:bg-rose-500/10 text-muted hover:text-rose-500 text-xs font-bold border border-border transition-colors"
                       ><Trash2 size={12} /> Delete</button>
                     </div>
                   )}
@@ -356,25 +358,25 @@ export default function PrinciplesLibrary() {
 
               <div className="p-6 space-y-6">
                 <div>
-                  <h4 className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-2">Description</h4>
-                  <p className="text-slate-300 text-sm leading-relaxed">{selected.description}</p>
+                  <h4 className="text-[10px] uppercase tracking-widest text-muted font-bold mb-2">Description</h4>
+                  <p className="text-foreground/80 text-sm leading-relaxed">{selected.description}</p>
                 </div>
 
                 {selected.coachingNotes && (
-                  <div className="bg-yellow-500/5 border border-yellow-500/15 rounded-xl p-4">
-                    <h4 className="text-yellow-500 text-[10px] uppercase font-bold tracking-widest mb-2 flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" /> Coaching Notes
+                  <div className="bg-amber-500/5 border border-amber-500/15 rounded-xl p-4">
+                    <h4 className="text-amber-600 dark:text-amber-500 text-[10px] uppercase font-bold tracking-widest mb-2 flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Coaching Notes
                     </h4>
-                    <p className="text-yellow-100/80 text-sm leading-relaxed">{selected.coachingNotes}</p>
+                    <p className="text-foreground/80 text-sm leading-relaxed">{selected.coachingNotes}</p>
                   </div>
                 )}
 
                 {selected.implementationTips && (
                   <div>
-                    <h4 className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-3">Key Implementation Points</h4>
+                    <h4 className="text-[10px] uppercase tracking-widest text-muted font-bold mb-3">Key Implementation Points</h4>
                     <ul className="space-y-2.5">
                       {selected.implementationTips.split('\n').filter(t => t.trim()).map((tip, i) => (
-                        <li key={i} className="flex items-start gap-3 text-slate-300 text-sm">
+                        <li key={i} className="flex items-start gap-3 text-foreground/80 text-sm">
                           <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${colors.dot} ${colors.glow}`} />
                           <span className="leading-relaxed">{tip}</span>
                         </li>
@@ -387,23 +389,23 @@ export default function PrinciplesLibrary() {
                   const type = getMediaType(selected.mediaUrl);
                   if (type === 'image') return (
                     <div>
-                      <h4 className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-3">Media</h4>
-                      <img src={selected.mediaUrl} alt="Media" className="w-full max-h-72 object-cover rounded-xl border border-white/10 cursor-zoom-in hover:opacity-90 transition-opacity" onClick={() => setViewMedia(selected.mediaUrl!)} />
+                      <h4 className="text-[10px] uppercase tracking-widest text-muted font-bold mb-3">Media</h4>
+                      <img src={selected.mediaUrl} alt="Media" className="w-full max-h-72 object-cover rounded-xl border border-border cursor-zoom-in hover:opacity-90 transition-opacity" onClick={() => setViewMedia(selected.mediaUrl!)} />
                     </div>
                   );
                   if (type === 'video') return (
                     <div>
-                      <h4 className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-3">Media</h4>
-                      <div className="w-full h-40 bg-black rounded-xl border border-white/10 flex items-center justify-center group cursor-pointer hover:border-white/20 transition-colors" onClick={() => setViewMedia(selected.mediaUrl!)}>
-                        <div className="flex flex-col items-center gap-2 text-slate-500 group-hover:text-white transition-colors"><VideoIcon size={32} /><span className="text-xs font-bold uppercase tracking-widest">Play Video</span></div>
+                      <h4 className="text-[10px] uppercase tracking-widest text-muted font-bold mb-3">Media</h4>
+                      <div className="w-full h-40 bg-background rounded-xl border border-border flex items-center justify-center group cursor-pointer hover:border-border transition-colors" onClick={() => setViewMedia(selected.mediaUrl!)}>
+                        <div className="flex flex-col items-center gap-2 text-foreground/60 group-hover:text-foreground transition-colors"><VideoIcon size={32} /><span className="text-xs font-bold uppercase tracking-widest">Play Video</span></div>
                       </div>
                     </div>
                   );
                   if (type === 'pdf') return (
                     <div>
-                      <h4 className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-3">Media</h4>
-                      <div className="w-full h-40 bg-slate-800 rounded-xl border border-white/10 flex items-center justify-center group cursor-pointer hover:border-white/20 transition-colors" onClick={() => setViewMedia(selected.mediaUrl!)}>
-                        <div className="flex flex-col items-center gap-2 text-slate-500 group-hover:text-white transition-colors"><FileText size={32} /><span className="text-xs font-bold uppercase tracking-widest">Open PDF</span></div>
+                      <h4 className="text-[10px] uppercase tracking-widest text-muted font-bold mb-3">Media</h4>
+                      <div className="w-full h-40 bg-surface-hover rounded-xl border border-border flex items-center justify-center group cursor-pointer hover:border-border transition-colors" onClick={() => setViewMedia(selected.mediaUrl!)}>
+                        <div className="flex flex-col items-center gap-2 text-muted group-hover:text-foreground transition-colors"><FileText size={32} /><span className="text-xs font-bold uppercase tracking-widest">Open PDF</span></div>
                       </div>
                     </div>
                   );
@@ -412,7 +414,7 @@ export default function PrinciplesLibrary() {
               </div>
             </motion.div>
           ) : (
-            <div className="h-full min-h-[400px] rounded-2xl border border-white/5 bg-slate-900/20 flex flex-col items-center justify-center text-slate-600">
+            <div className="lg:h-full min-h-[400px] rounded-2xl border border-border bg-surface flex flex-col items-center justify-center text-muted">
               <BookOpen size={40} className="mb-3 opacity-30" />
               <p className="text-sm font-medium">Select a principle to view details</p>
             </div>
@@ -435,17 +437,17 @@ export default function PrinciplesLibrary() {
           <Input label="Name" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. High Press" />
           <Select label="Phase" value={formData.gamePhase} onChange={val => setFormData({ ...formData, gamePhase: val as string })} options={GAME_PHASES.map(p => ({ label: p, value: p }))} />
           <div>
-            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Media</label>
-            <div className="h-28 bg-slate-900/50 border-2 border-dashed border-slate-800 rounded-xl relative group hover:border-purple-500/30 transition-colors flex items-center justify-center overflow-hidden cursor-pointer">
+            <label className="text-[11px] font-bold text-muted uppercase tracking-widest ml-1 mb-2 block">Media</label>
+            <div className="h-28 bg-surface-hover border-2 border-dashed border-border rounded-xl relative group hover:border-primary/30 transition-colors flex items-center justify-center overflow-hidden cursor-pointer">
               {mediaPreview ? (
                 <>
                   {getMediaType(mediaPreview) === 'image' && <img src={mediaPreview} className="w-full h-full object-cover" />}
-                  {getMediaType(mediaPreview) === 'video' && <div className="text-purple-400 flex flex-col items-center gap-1"><VideoIcon size={28} /><span className="text-xs font-bold">Video Selected</span></div>}
-                  {getMediaType(mediaPreview) === 'pdf' && <div className="text-purple-400 flex flex-col items-center gap-1"><FileText size={28} /><span className="text-xs font-bold">PDF Selected</span></div>}
+                  {getMediaType(mediaPreview) === 'video' && <div className="text-primary flex flex-col items-center gap-1"><VideoIcon size={28} /><span className="text-xs font-bold">Video Selected</span></div>}
+                  {getMediaType(mediaPreview) === 'pdf' && <div className="text-primary flex flex-col items-center gap-1"><FileText size={28} /><span className="text-xs font-bold">PDF Selected</span></div>}
                   <button onClick={e => { e.stopPropagation(); setMediaPreview(null); setFormData({ ...formData, mediaUrl: '' }); }} className="absolute top-2 right-2 bg-black/60 p-1.5 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity z-10"><X size={14} /></button>
                 </>
               ) : (
-                <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center text-slate-500 hover:text-purple-400 transition-colors gap-1">
+                <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center text-muted hover:text-primary transition-colors gap-1">
                   <Upload size={22} />
                   <span className="text-[10px] uppercase font-bold tracking-wider">Upload File</span>
                   <input type="file" className="hidden" accept="image/*,video/*,application/pdf" onChange={handleFileUpload} />
@@ -454,16 +456,16 @@ export default function PrinciplesLibrary() {
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Description</label>
-            <textarea className="w-full bg-slate-900/50 border border-white/5 text-white rounded-xl px-4 py-3.5 text-sm outline-none placeholder:text-slate-600 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 resize-none h-24 custom-scrollbar transition-colors" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="Describe the principle..." />
+            <label className="text-[11px] font-bold text-muted uppercase tracking-widest ml-1">Description</label>
+            <textarea className="w-full bg-surface-hover border border-border text-foreground rounded-xl px-4 py-3.5 text-sm outline-none placeholder:text-muted focus:border-primary/50 focus:ring-4 focus:ring-primary/10 resize-none h-24 custom-scrollbar transition-colors" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="Describe the principle..." />
           </div>
           <div className="space-y-2">
             <label className="text-[11px] font-bold text-yellow-500/80 uppercase tracking-widest ml-1">Coaching Notes</label>
-            <textarea className="w-full bg-slate-900/50 border border-white/5 text-white rounded-xl px-4 py-3.5 text-sm outline-none placeholder:text-slate-600 focus:border-yellow-500/50 focus:ring-4 focus:ring-yellow-500/10 resize-none h-20 custom-scrollbar transition-colors" value={formData.coachingNotes} onChange={e => setFormData({ ...formData, coachingNotes: e.target.value })} placeholder="Key coaching details..." />
+            <textarea className="w-full bg-surface-hover border border-border text-foreground rounded-xl px-4 py-3.5 text-sm outline-none placeholder:text-muted focus:border-yellow-500/50 focus:ring-4 focus:ring-yellow-500/10 resize-none h-20 custom-scrollbar transition-colors" value={formData.coachingNotes} onChange={e => setFormData({ ...formData, coachingNotes: e.target.value })} placeholder="Key coaching details..." />
           </div>
           <div className="space-y-2">
-            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Implementation Tips <span className="normal-case text-slate-600 font-normal">(one per line)</span></label>
-            <textarea className="w-full bg-slate-900/50 border border-white/5 text-white rounded-xl px-4 py-3.5 text-sm outline-none placeholder:text-slate-600 focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 resize-none h-24 custom-scrollbar transition-colors" value={formData.implementationTips} onChange={e => setFormData({ ...formData, implementationTips: e.target.value })} placeholder={"Trigger press on back pass\nSecond striker supports"} />
+            <label className="text-[11px] font-bold text-muted uppercase tracking-widest ml-1">Implementation Tips <span className="normal-case text-muted font-normal">(one per line)</span></label>
+            <textarea className="w-full bg-surface-hover border border-border text-foreground rounded-xl px-4 py-3.5 text-sm outline-none placeholder:text-muted focus:border-primary/50 focus:ring-4 focus:ring-primary/10 resize-none h-24 custom-scrollbar transition-colors" value={formData.implementationTips} onChange={e => setFormData({ ...formData, implementationTips: e.target.value })} placeholder={"Trigger press on back pass\nSecond striker supports"} />
           </div>
         </div>
       </Modal>
@@ -481,8 +483,8 @@ export default function PrinciplesLibrary() {
               className="relative max-w-[95vw] max-h-[95vh] flex items-center justify-center"
               onClick={e => e.stopPropagation()}
             >
-              {getMediaType(viewMedia) === 'image' && <img src={viewMedia} className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl border border-white/10" />}
-              {getMediaType(viewMedia) === 'video' && <video src={viewMedia} controls autoPlay className="max-w-full max-h-[90vh] rounded-xl shadow-2xl border border-white/10" />}
+              {getMediaType(viewMedia) === 'image' && <img src={viewMedia} className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl border border-border" />}
+              {getMediaType(viewMedia) === 'video' && <video src={viewMedia} controls autoPlay className="max-w-full max-h-[90vh] rounded-xl shadow-2xl border border-border" />}
               {getMediaType(viewMedia) === 'pdf' && <iframe src={viewMedia} title="PDF" className="w-[80vw] h-[85vh] rounded-xl bg-white shadow-2xl" />}
               <button onClick={() => setViewMedia(null)} className="absolute top-3 right-3 bg-white/10 hover:bg-white/20 text-white p-2 rounded-full transition-colors border border-white/10"><X size={22} /></button>
             </motion.div>
@@ -497,6 +499,12 @@ export default function PrinciplesLibrary() {
         confirmLabel="Delete"
         onConfirm={() => { if (confirmDeleteId) handleDelete(confirmDeleteId); setConfirmDeleteId(null); }}
         onCancel={() => setConfirmDeleteId(null)}
+      />
+
+      <PlaybookManagementModal 
+          isOpen={showPlaybookModal} 
+          onClose={() => setShowPlaybookModal(false)}
+          onImportSuccess={fetchPrinciples}
       />
     </div>
   );

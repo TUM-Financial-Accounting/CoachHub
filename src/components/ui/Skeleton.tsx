@@ -3,14 +3,14 @@ import { SkeletonProps } from "../../types/ui";
 export function Skeleton({ className = '' }: SkeletonProps) {
   return (
     <div
-      className={`animate-pulse rounded-md bg-white/[0.05] ${className}`}
+      className={`animate-pulse rounded-md bg-surface-hover ${className}`}
     />
   );
 }
 
 export function PlayerRowSkeleton() {
   return (
-    <tr className="border-b border-white/5">
+    <tr className="border-b border-border-subtle">
       <td className="px-6 py-4"><Skeleton className="h-4 w-8" /></td>
       <td className="px-6 py-4">
         <div className="flex items-center gap-4">
@@ -37,7 +37,7 @@ export function PlayerRowSkeleton() {
 
 export function CardSkeleton({ lines = 3 }: { lines?: number }) {
   return (
-    <div className="rounded-2xl border border-white/5 bg-slate-900/40 p-6 space-y-3">
+    <div className="rounded-2xl border border-border-subtle bg-surface p-6 space-y-3">
       <Skeleton className="h-5 w-2/5" />
       {Array.from({ length: lines }).map((_, i) => (
         <Skeleton key={i} className={`h-3.5 ${i === lines - 1 ? 'w-3/5' : 'w-full'}`} />

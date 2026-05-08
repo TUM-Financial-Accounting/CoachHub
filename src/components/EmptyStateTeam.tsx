@@ -11,7 +11,7 @@ export default function EmptyStateTeam({ onCreateTeam }: EmptyStateTeamProps) {
       <motion.div
         initial={{ opacity: 0, y: 20, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="max-w-md w-full bg-slate-900 border border-white/5 rounded-2xl p-8 text-center shadow-2xl relative overflow-hidden group"
+        className="max-w-md w-full bg-surface border border-border rounded-2xl p-8 text-center shadow-2xl relative overflow-hidden group"
       >
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         
@@ -24,8 +24,8 @@ export default function EmptyStateTeam({ onCreateTeam }: EmptyStateTeamProps) {
           </div>
         </div>
 
-        <h2 className="text-2xl font-bold text-white mb-3">Welcome to CoachHub</h2>
-        <p className="text-slate-400 text-sm mb-8 leading-relaxed">
+        <h2 className="text-2xl font-bold text-foreground mb-3">Welcome to CoachHub</h2>
+        <p className="text-muted text-sm mb-8 leading-relaxed">
           You don't have any teams yet. Create your first team to start managing players, tracking performances, and designing training sessions.
         </p>
 
