@@ -20,8 +20,8 @@ export const AuthService = {
   /**
    * Registers a new user.
    */
-  async register(payload: any): Promise<AuthResponse> {
-    return apiClient.post<AuthResponse>('/register', payload);
+  async register(payload: any): Promise<any> {
+    return apiClient.post<any>('/register', payload);
   },
 
   /**
@@ -37,5 +37,19 @@ export const AuthService = {
    */
   async getCurrentUser(): Promise<any> {
     return apiClient.get('/me');
+  },
+
+  /**
+   * Requests a password reset email.
+   */
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    return apiClient.post('/forgot-password', { email });
+  },
+
+  /**
+   * Resets the password using a token.
+   */
+  async resetPassword(payload: any): Promise<{ message: string }> {
+    return apiClient.post('/reset-password', payload);
   }
 };

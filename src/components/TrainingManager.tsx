@@ -7,6 +7,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Player, TrainingSession, Exercise } from '../types/models';
 import { TrainingService, PlayerService, ExerciseService } from '../services';
+import { useTeam } from '../contexts/TeamContext';
 
 // UI Components
 import { Card } from "./ui/Card";
@@ -20,6 +21,7 @@ import { ConfirmDialog } from "./ui/ConfirmDialog";
 import SessionSlideOver from "./ui/SessionSlideOver";
 
 export default function TrainingManager() {
+    const { activeTeam } = useTeam();
     const [sessions, setSessions] = useState<TrainingSession[]>([]);
     const [allPlayers, setAllPlayers] = useState<Player[]>([]);
     const [allExercises, setAllExercises] = useState<Exercise[]>([]);
@@ -45,11 +47,17 @@ export default function TrainingManager() {
 
     // --- 1. LOAD DATA ---
     useEffect(() => {
+        if (!activeTeam) {
+             setSessions([]);
+             setAllPlayers([]);
+             ExerciseService.getAll().then(setAllExercises).catch();
+             return;
+        }
         const fetchData = async () => {
             try {
                 const [sessionsData, playersData, exercisesData] = await Promise.all([
-                    TrainingService.getAll(),
-                    PlayerService.getAll(),
+                    TrainingService.getAll(activeTeam.id),
+                    PlayerService.getAll(activeTeam.id),
                     ExerciseService.getAll()
                 ]);
                 setSessions(sessionsData);
@@ -58,7 +66,7 @@ export default function TrainingManager() {
             } catch (e) { toast.error("Failed to connect to server"); }
         };
         fetchData();
-    }, []);
+    }, [activeTeam]);
 
     // --- 2. HELPERS & ACTIONS ---
     useEffect(() => {
@@ -88,7 +96,7 @@ export default function TrainingManager() {
                 setSessions(prev => prev.map(s => s.id === saved.id ? saved : s));
                 toast.success("Session Updated");
             } else {
-                saved = await TrainingService.create(sessionToSave);
+                saved = await TrainingService.create(sessionToSave, activeTeam?.id);
                 setSessions(prev => [...prev, saved]);
                 toast.success("Session Created");
             }

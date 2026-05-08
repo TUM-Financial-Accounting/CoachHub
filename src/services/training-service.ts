@@ -10,16 +10,18 @@ export const TrainingService = {
   /**
    * Fetches all training sessions.
    */
-  async getAll(): Promise<TrainingSession[]> {
-    const data = await apiClient.get<any[]>('/training_sessions');
+  async getAll(teamId?: string): Promise<TrainingSession[]> {
+    const params = teamId ? `?team_id=${teamId}` : '';
+    const data = await apiClient.get<any[]>(`/training_sessions${params}`);
     return data.map(mapSessionFromApi);
   },
 
   /**
    * Creates a new training session.
    */
-  async create(session: Omit<TrainingSession, 'id'>): Promise<TrainingSession> {
-    const payload = mapSessionToApi(session as TrainingSession);
+  async create(session: Omit<TrainingSession, 'id'>, teamId?: string): Promise<TrainingSession> {
+    const payload = mapSessionToApi(session as TrainingSession) as any;
+    if (teamId) payload.team_id = teamId;
     const data = await apiClient.post<any>('/training_sessions', payload);
     return mapSessionFromApi(data);
   },

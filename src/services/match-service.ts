@@ -15,17 +15,19 @@ export const MatchService = {
   /**
    * Fetches all matches.
    */
-  async getAll(): Promise<MatchDetails[]> {
-    const data = await apiClient.get<any[]>('/matches');
+  async getAll(teamId?: string): Promise<MatchDetails[]> {
+    const params = teamId ? `?team_id=${teamId}` : '';
+    const data = await apiClient.get<any[]>(`/matches${params}`);
     return data.map(mapMatchDetailsFromApi);
   },
 
   /**
    * Fetches the latest (or upcoming) match.
    */
-  async getLatest(): Promise<Match | null> {
+  async getLatest(teamId?: string): Promise<Match | null> {
     try {
-      const data = await apiClient.get<any>('/matches/latest');
+      const params = teamId ? `?team_id=${teamId}` : '';
+      const data = await apiClient.get<any>(`/matches/latest${params}`);
       return data ? mapMatchFromApi(data) : null;
     } catch (e) {
       console.warn('Failed to fetch latest match', e);
@@ -36,8 +38,9 @@ export const MatchService = {
   /**
    * Creates a new match.
    */
-  async create(match: MatchDetails): Promise<MatchDetails> {
-    const payload = mapMatchDetailsToApi(match);
+  async create(match: MatchDetails, teamId?: string): Promise<MatchDetails> {
+    const payload = mapMatchDetailsToApi(match) as any;
+    if (teamId) payload.team_id = teamId;
     const data = await apiClient.post<any>('/matches', payload);
     return mapMatchDetailsFromApi(data);
   },
@@ -54,7 +57,8 @@ export const MatchService = {
   /**
    * Fetches a suggested formation based on recent training data.
    */
-  async getSuggestedFormation(): Promise<SuggestedFormation> {
-    return apiClient.get<SuggestedFormation>('/match/suggested-formation');
+  async getSuggestedFormation(teamId?: string): Promise<SuggestedFormation> {
+    const params = teamId ? `?team_id=${teamId}` : '';
+    return apiClient.get<SuggestedFormation>(`/match/suggested-formation${params}`);
   }
 };

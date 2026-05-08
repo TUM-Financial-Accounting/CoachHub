@@ -6,34 +6,65 @@ import { API_BASE_URL, JSON_HEADERS } from '../lib/api-config';
  * Uses 'credentials: include' to support HttpOnly cookies.
  */
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), 10000); // 10s timeout
+  
   const headers = {
     ...JSON_HEADERS,
     ...options.headers,
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
   };
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-    credentials: 'include', 
-  });
+  try {
+    console.log(`[API] Requesting ${endpoint}...`);
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+      credentials: 'include', 
+      signal: controller.signal,
+    });
+    
+    clearTimeout(id);
 
-  if (response.status === 401) {
-    const wasAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
-    if (wasAuthenticated) {
-      localStorage.removeItem('isAuthenticated');
-      localStorage.removeItem('user');
-      window.location.reload(); 
-      throw new Error('Session expired. Please log in again.');
+    if (response.status === 401) {
+      const wasAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+      if (wasAuthenticated && endpoint !== '/login' && endpoint !== '/register') {
+        const lastReload = sessionStorage.getItem('last_api_reload');
+        const now = Date.now();
+        
+        if (lastReload && (now - parseInt(lastReload)) < 5000) {
+          console.error("[API] Detected rapid reload loop. Stopping.");
+          return response.json(); // Don't reload, just return the 401
+        }
+        
+        sessionStorage.setItem('last_api_reload', now.toString());
+        console.warn(`[API] 401 on ${endpoint} - Session likely expired. Clearing local state and reloading.`);
+        localStorage.removeItem('isAuthenticated');
+        localStorage.removeItem('user');
+        window.location.reload(); 
+        throw new Error('Session expired. Please log in again.');
+      }
     }
-    // If we're not authenticated yet (e.g., in the middle of login),
-    // just let the error bubble up to the login page without reloading.
-  }
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || `Request failed: ${response.statusText}`);
-  }
 
-  return response.json();
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error(`[API] Error on ${endpoint}:`, errorData);
+      throw new Error(errorData.detail || `Request failed: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log(`[API] Success on ${endpoint}`);
+    return data;
+  } catch (error: any) {
+    clearTimeout(id);
+    if (error.name === 'AbortError') {
+      throw new Error('Request timed out. Please check your connection.');
+    }
+    console.error(`[API] Fatal error on ${endpoint}:`, error);
+    throw error;
+  }
 }
 
 export const apiClient = {

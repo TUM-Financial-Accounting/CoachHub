@@ -10,16 +10,18 @@ export const PlayerService = {
   /**
    * Fetches all players.
    */
-  async getAll(): Promise<Player[]> {
-    const data = await apiClient.get<any[]>('/players');
+  async getAll(teamId?: string): Promise<Player[]> {
+    const params = teamId ? `?team_id=${teamId}` : '';
+    const data = await apiClient.get<any[]>(`/players${params}`);
     return data.map(mapPlayerFromApi);
   },
 
   /**
    * Creates a new player.
    */
-  async create(player: Omit<Player, 'id'>): Promise<Player> {
-    const payload = mapPlayerToApi(player as Player);
+  async create(player: Omit<Player, 'id'>, teamId?: string): Promise<Player> {
+    const payload = mapPlayerToApi(player as Player) as any;
+    if (teamId) payload.team_id = teamId;
     const data = await apiClient.post<any>('/players', payload);
     return mapPlayerFromApi(data);
   },
@@ -34,9 +36,33 @@ export const PlayerService = {
   },
 
   /**
-   * Deletes a player by ID.
+   * Deletes a player by ID globally.
    */
   async delete(id: string): Promise<void> {
     await apiClient.delete(`/players/${id}`);
+  },
+
+  /**
+   * Assigns an existing player to a team.
+   */
+  async assignToTeam(playerId: string, teamId: string): Promise<void> {
+    await apiClient.post(`/players/${playerId}/teams/${teamId}`, {});
+  },
+
+  /**
+   * Removes a player from a specific team.
+   */
+  async removeFromTeam(playerId: string, teamId: string): Promise<void> {
+    await apiClient.delete(`/players/${playerId}/teams/${teamId}`);
+  },
+
+  /**
+   * Updates performance for a player, optionally specific to a team.
+   */
+  async updatePerformance(playerId: string, value: number, teamId?: string): Promise<void> {
+    await apiClient.put(`/players/${playerId}/performance`, {
+      performance: value,
+      team_id: teamId
+    });
   }
 };

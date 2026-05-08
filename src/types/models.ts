@@ -1,5 +1,11 @@
 // src/types/models.ts
 
+export interface Team {
+  id: string;
+  name: string;
+  formation: string;
+}
+
 export interface Player {
   id: string;
   firstName: string;
@@ -18,6 +24,7 @@ export interface Player {
   imageUrl: string;
   attendance: number;
   performance: number;
+  teams?: Team[];
 }
 
 export interface TrainingSession {

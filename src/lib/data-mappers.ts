@@ -25,6 +25,7 @@ export const mapPlayerFromApi = (p: any): Player => ({
   imageUrl: p.image_url || '',
   attendance: p.attendance || 0,
   performance: p.performance || 0,
+  teams: p.teams || [],
 });
 
 /**
@@ -160,7 +161,6 @@ export const mapPlayerToApi = (p: Player) => ({
   father_phone: p.fatherPhone,
   image_url: p.imageUrl,
   attendance: p.attendance,
-  performance: p.performance,
 });
 
 /**

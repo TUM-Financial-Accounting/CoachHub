@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Home, Users, Calendar, BookOpen, Lightbulb, Trophy, Target, LogOut, Clipboard, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Page, NavigationProps } from '../types/ui';
 import { motion, AnimatePresence } from 'framer-motion';
+import TeamSwitcher from './TeamSwitcher';
 
 const NAV_ITEMS: { id: Page; label: string; icon: React.ElementType; color: string; activeBar: string; activeBg: string }[] = [
   { id: 'dashboard',       label: 'Dashboard',    icon: Home,      color: 'text-blue-400',    activeBar: 'bg-blue-500',    activeBg: 'bg-blue-500/10' },
@@ -50,6 +51,9 @@ export default function Navigation({ currentPage, onNavigate, onLogout }: Naviga
           )}
         </AnimatePresence>
       </div>
+
+      {/* Team Switcher */}
+      <TeamSwitcher collapsed={collapsed} />
 
       {/* Nav Items */}
       <nav className="flex-1 flex flex-col gap-1 px-2 py-4 overflow-y-auto overflow-x-hidden custom-scrollbar">
@@ -124,6 +128,7 @@ export default function Navigation({ currentPage, onNavigate, onLogout }: Naviga
       {/* Bottom: Logout + Toggle */}
       <div className="px-2 py-3 border-t border-white/5 space-y-1">
         <button
+          type="button"
           onClick={onLogout}
           title={collapsed ? 'Logout' : undefined}
           className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent transition-all duration-150 group"

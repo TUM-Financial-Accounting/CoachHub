@@ -14,6 +14,7 @@ import { DatePicker } from "./ui/DatePicker";
 import { TimePicker } from "./ui/TimePicker";
 import { Player, MatchDetails, PositionSlot, LineupPlayer } from "../types/models";
 import { PlayerService, MatchService } from "../services";
+import { useTeam } from '../contexts/TeamContext';
 
 // --- Formation Groups for the picker ---
 const FORMATION_GROUPS: { label: string; formations: string[] }[] = [
@@ -151,6 +152,7 @@ function PositionSlotComponent({ slot, player, onDrop, onRemove, onClick, isMatc
 // --- Main Component ---
 
 export default function MatchLineup() {
+  const { activeTeam } = useTeam();
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [lineup, setLineup] = useState<Map<string, LineupPlayer>>(new Map());
   const [substitutes, setSubstitutes] = useState<Player[]>([]);
@@ -202,16 +204,24 @@ export default function MatchLineup() {
 
   // --- 1. Load Data ---
   useEffect(() => {
-    PlayerService.getAll()
+    if (!activeTeam) {
+        setAllPlayers([]);
+        setMatches([]);
+        setMatchDetails(null);
+        return;
+    }
+
+    PlayerService.getAll(activeTeam.id)
       .then(mappedPlayers => {
           setAllPlayers(mappedPlayers);
       })
       .catch(() => toast.error("Failed to load players"));
 
-    MatchService.getAll()
+    MatchService.getAll(activeTeam.id)
         .then(mappedMatches => {
             setMatches(mappedMatches);
             if (mappedMatches.length > 0) setMatchDetails(mappedMatches[0]);
+            else setMatchDetails(null);
         })
         .catch(() => toast.error("Failed to load matches"));
 
@@ -222,7 +232,7 @@ export default function MatchLineup() {
             setAiSourceLabel(data.source);
         }
       });
-  }, []);
+  }, [activeTeam]);
 
   // --- 2. Switch Match Logic (Reactive to AI Data) ---
 useEffect(() => {
@@ -307,7 +317,7 @@ useEffect(() => {
 
         const savedMatch = isEditingMatch && matchDetails
             ? await MatchService.update(matchDetails.id, matchToSave)
-            : await MatchService.create(matchToSave);
+            : await MatchService.create(matchToSave, activeTeam?.id);
 
         if (isEditingMatch) { 
             setMatches(prev => prev.map(m => m.id === savedMatch.id ? savedMatch : m)); 

@@ -21,6 +21,7 @@ class PlayerCreate(BaseModel):
     position: str
     jersey_number: int
     status: str
+    team_id: Optional[str] = None
     player_phone: Optional[str] = ""
     image_url: Optional[str] = ""
     height: int = 0
@@ -30,10 +31,11 @@ class PlayerCreate(BaseModel):
     father_name: Optional[str] = ""
     father_phone: Optional[str] = ""
     attendance: int = 0
-    performance: int = 0
 
 class Player(PlayerCreate):
     id: str
+    performance: int = 0
+    teams: list[Team] = []
     class Config:
         orm_mode = True
 
@@ -105,6 +107,7 @@ class TrainingSessionCreate(BaseModel):
     start_time: str
     end_time: str
     focus: str
+    team_id: Optional[str] = None
     intensity: str
     selected_players: str   # stored as comma-separated string
     selected_exercises: str # stored as comma-separated string
@@ -122,6 +125,7 @@ class MatchCreate(BaseModel):
     date: str
     time: str
     location: str
+    team_id: Optional[str] = None
     formation: Optional[str] = "4-4-2"
     lineup: Optional[str] = None
 
@@ -147,6 +151,17 @@ class User(BaseModel):
     id: str
     email: str
     full_name: Optional[str] = None
-    
+
     class Config:
         orm_mode = True
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+class PerformanceUpdate(BaseModel):
+    performance: int
+    team_id: Optional[str] = None

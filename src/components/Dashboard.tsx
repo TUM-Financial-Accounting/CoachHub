@@ -12,12 +12,14 @@ import { CountUp } from "./ui/CountUp";
 import { Player, TrainingSession, Match } from "../types/models";
 import { Page } from "../types/ui";
 import { PlayerService, TrainingService, MatchService } from '../services';
+import { useTeam } from '../contexts/TeamContext';
 
 interface DashboardProps {
   onNavigate: (page: Page) => void;
 }
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
+  const { activeTeam } = useTeam();
   const [players, setPlayers] = useState<Player[]>([]);
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -52,12 +54,20 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   // Fetch all data on component mount
   useEffect(() => {
+    if (!activeTeam) {
+      setPlayers([]);
+      setSessions([]);
+      setMatches([]);
+      setAttendanceData([]);
+      return;
+    }
+
     const fetchData = async () => {
       try {
         const [playersData, sessionsData, matchesData] = await Promise.all([
-          PlayerService.getAll(),
-          TrainingService.getAll(),
-          MatchService.getAll()
+          PlayerService.getAll(activeTeam.id),
+          TrainingService.getAll(activeTeam.id),
+          MatchService.getAll(activeTeam.id)
         ]);
 
         setPlayers(playersData);
@@ -112,7 +122,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     };
 
     fetchData();
-  }, []);
+  }, [activeTeam]);
   
   // Animation variants
   const container = {
