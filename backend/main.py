@@ -15,8 +15,8 @@ import uuid, os, shutil, secrets
 
 models.Base.metadata.create_all(bind=database.engine)
 
-# Ensure uploads directory exists (relative to repo root, where uvicorn is launched)
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static", "uploads")
+# Ensure uploads directory exists (relative to main.py)
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app = FastAPI()
@@ -45,7 +45,7 @@ app.add_middleware(
 )
 
 # Serve uploaded files as static assets
-app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static")), name="static")
+app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")), name="static")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 

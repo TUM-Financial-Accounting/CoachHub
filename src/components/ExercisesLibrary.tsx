@@ -3,6 +3,7 @@ import { Plus, X, Search, Upload, Check, Image as ImageIcon, FileText, Video as 
 import { toast } from 'sonner';
 import { AnimatePresence, motion } from 'framer-motion';
 import { uploadFile } from '../lib/uploadFile';
+import { API_BASE_URL } from '../lib/api-config';
 
 // UI Components
 import { Card } from "./ui/Card";
@@ -235,7 +236,7 @@ export default function ExercisesLibrary() {
             >
                 <FileText size={48} className="mb-2 group-hover:text-primary transition-colors" />
                 <span className="text-sm">PDF Document</span>
-                {!isPreview && <a href={url} download="exercise.pdf" className="mt-2 text-blue-500 text-xs hover:underline">Download</a>}
+                {!isPreview && <a href={`${API_BASE_URL}${url}`} download="exercise.pdf" className="mt-2 text-blue-500 text-xs hover:underline">Download</a>}
             </div>
         );
 

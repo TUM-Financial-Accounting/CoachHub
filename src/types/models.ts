@@ -4,6 +4,7 @@ export interface Team {
   id: string;
   name: string;
   formation: string;
+  season_id?: string;
 }
 
 export interface Player {
@@ -36,6 +37,8 @@ export interface TrainingSession {
   intensity: string;
   selectedPlayers: string;
   selectedExercises: string;
+  season_id?: string;
+  team_id?: string;
 }
 
 export interface Match {
@@ -45,6 +48,8 @@ export interface Match {
   time: string;
   location: string;
   formation: string;
+  season_id?: string;
+  team_id?: string;
 }
 
 export interface MatchDetails {

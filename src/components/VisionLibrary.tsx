@@ -11,6 +11,7 @@ import { Modal } from "./ui/Modal";
 // --- Services ---
 import { apiClient } from '../services/api-client';
 import { uploadFile } from '../lib/uploadFile';
+import { API_BASE_URL } from '../lib/api-config';
 
 interface Vision {
     id: string;
@@ -195,7 +196,7 @@ export default function VisionLibrary() {
                                             Present
                                         </Button>
                                         <a 
-                                            href={`/static/uploads/${selectedVision.filename}`} 
+                                            href={`${API_BASE_URL}/static/uploads/${selectedVision.filename}`} 
                                             target="_blank" 
                                             rel="noopener noreferrer"
                                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-hover hover:bg-surface text-muted hover:text-foreground text-xs font-bold border border-border transition-colors"
@@ -209,7 +210,7 @@ export default function VisionLibrary() {
                             {/* Preview Window inside panel */}
                             <div className="flex-1 relative bg-background overflow-hidden isolate">
                                 <iframe 
-                                    src={`/static/uploads/${selectedVision.filename}#toolbar=0`}
+                                    src={`${API_BASE_URL}/static/uploads/${selectedVision.filename}#toolbar=0`}
                                     className="w-full h-full border-none pointer-events-none opacity-60"
                                     title="Active Vision Preview"
                                 />
@@ -313,7 +314,7 @@ export default function VisionLibrary() {
                 {viewingVision && (
                     <div className="flex flex-col h-[80vh]">
                         <iframe 
-                            src={`/static/uploads/${viewingVision.filename}`}
+                            src={`${API_BASE_URL}/static/uploads/${viewingVision.filename}`}
                             className="w-full flex-1 rounded-xl border border-border bg-background"
                             title="Vision Viewer"
                         />

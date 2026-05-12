@@ -3,6 +3,7 @@ import { Search, Plus, Edit2, Trash2, Upload, X, Video as VideoIcon, FileText, B
 import { toast } from 'sonner';
 import { AnimatePresence, motion } from 'framer-motion';
 import { uploadFile } from '../lib/uploadFile';
+import { API_BASE_URL } from '../lib/api-config';
 
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
@@ -256,10 +257,10 @@ export default function BasicsLibrary() {
                     <div>
                       <h4 className="text-[10px] uppercase tracking-widest text-muted font-bold mb-3">Media</h4>
                       <img
-                        src={selected.diagramUrl}
+                        src={`${API_BASE_URL}${selected.diagramUrl}`}
                         alt="Diagram"
                         className="w-full max-h-80 object-cover rounded-xl border border-border cursor-zoom-in hover:opacity-90 transition-opacity"
-                        onClick={() => setViewMedia(selected.diagramUrl!)}
+                        onClick={() => setViewMedia(`${API_BASE_URL}${selected.diagramUrl}`)}
                       />
                     </div>
                   );
