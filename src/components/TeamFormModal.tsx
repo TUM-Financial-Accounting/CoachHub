@@ -30,6 +30,19 @@ export default function TeamFormModal({ isOpen, onClose, onSuccess }: TeamFormMo
     }
   }, [mode, isOpen]);
 
+  // Sync selected season when modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      if (activeSeason) {
+        setSelectedSeasonId(activeSeason.id);
+      } else if (seasons.length > 0) {
+        setSelectedSeasonId(seasons[0].id);
+      } else {
+        setSelectedSeasonId('NEW_SEASON');
+      }
+    }
+  }, [isOpen, activeSeason, seasons]);
+
   if (!isOpen) return null;
 
   const isCreatingNewSeason = selectedSeasonId === 'NEW_SEASON';
