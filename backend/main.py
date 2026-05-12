@@ -33,11 +33,11 @@ origins = [
     "http://127.0.0.1:5174",
     frontend_url
 ]
-# Remove duplicates
-origins = list(set(origins))
 
+# Add a wildcard for any railway app to help with initial deployment
 app.add_middleware(
     CORSMiddleware,
+    allow_origin_regex=r"https://.*\.railway\.app", # This allows any railway subdomain
     allow_origins=origins, 
     allow_credentials=True,
     allow_methods=["*"],

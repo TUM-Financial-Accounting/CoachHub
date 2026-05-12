@@ -25,6 +25,7 @@ import SeasonFormModal from './components/SeasonFormModal';
 import VisionLibrary from './components/VisionLibrary';
 import StatisticsView from './components/StatisticsView';
 import FeedbackView from './components/FeedbackView';
+import BottomNav from './components/BottomNav';
 import { Page } from './types/ui';
 
 // Services
@@ -182,21 +183,13 @@ function AppLayout({ currentPage, navigateToPage, handleLogout }: { currentPage:
           onMobileClose={() => setIsMobileMenuOpen(false)}
         />
         
-        <main className="flex-1 overflow-hidden h-full flex flex-col min-h-0 relative">
-          {/* Mobile Header */}
-          <div className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-surface">
-            <div className="flex items-center gap-3">
-              <div className="flex-shrink-0 bg-primary p-1.5 rounded-lg shadow-sm shadow-primary/20 text-white">
-                <Trophy className="w-4 h-4" />
-              </div>
-              <span className="text-sm font-bold text-foreground tracking-tight">CoachHub</span>
-            </div>
-            <button 
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="p-2 -mr-2 text-muted hover:text-foreground hover:bg-surface-hover rounded-xl transition-colors"
-            >
-              <Menu size={20} />
-            </button>
+        <main className="flex-1 overflow-hidden h-full flex flex-col min-h-0 relative pb-16 md:pb-0">
+          {/* Mobile Branding Bar (Mini) */}
+          <div className="md:hidden flex items-center justify-center py-2 bg-background/50 backdrop-blur-sm border-b border-border/50">
+             <div className="flex items-center gap-2 opacity-50">
+                <Trophy size={12} className="text-primary" />
+                <span className="text-[10px] font-bold uppercase tracking-widest">CoachHub</span>
+             </div>
           </div>
 
           <AnimatePresence mode="wait">
@@ -271,6 +264,8 @@ function AppLayout({ currentPage, navigateToPage, handleLogout }: { currentPage:
           onClose={() => setCmdOpen(false)}
           onNavigate={(page) => { navigateToPage(page as Page); }}
         />
+
+        <BottomNav currentPage={currentPage} onNavigate={navigateToPage} />
       </div>
   );
 }

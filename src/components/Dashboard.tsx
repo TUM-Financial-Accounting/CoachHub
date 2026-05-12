@@ -165,14 +165,14 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const attendanceTrend = lastMonthAvg > 0 ? Math.round(thisMonthAvg - lastMonthAvg) : null;
 
   return (
-    <div className="h-full w-full flex flex-col p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto overflow-y-auto custom-scrollbar gap-6">
+    <div className="h-full w-full flex flex-col p-3 sm:p-6 lg:p-8 max-w-[1600px] mx-auto overflow-y-auto custom-scrollbar gap-4 sm:gap-6">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-1 h-10 rounded-full bg-primary flex-shrink-0" />
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="w-1 h-8 sm:h-10 rounded-full bg-primary flex-shrink-0" />
           <div>
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
-            <p className="text-sm text-muted mt-0.5">Welcome back, Coach</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
+            <p className="text-[11px] sm:text-sm text-muted mt-0.5">Welcome back, Coach</p>
           </div>
         </div>
         
@@ -207,10 +207,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           <Card 
             animate 
             delay={0}
-            className="p-6 cursor-pointer hover:border-blue-500/50 transition-colors group"
+            className="p-4 sm:p-6 cursor-pointer hover:border-blue-500/50 transition-colors group"
             onClick={() => onNavigate('session-planner')}
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-2 sm:mb-4">
               <div className="bg-blue-500/10 p-3 rounded-xl group-hover:bg-blue-500/20 transition-colors">
                 <Calendar className="w-6 h-6 text-blue-500" />
               </div>
@@ -240,10 +240,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           <Card 
             animate 
             delay={0.1}
-            className="p-6 cursor-pointer hover:border-emerald-500/50 transition-colors group"
+            className="p-4 sm:p-6 cursor-pointer hover:border-emerald-500/50 transition-colors group"
             onClick={() => onNavigate('match')}
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-2 sm:mb-4">
               <div className="bg-emerald-500/10 p-3 rounded-xl group-hover:bg-emerald-500/20 transition-colors">
                 <Users className="w-6 h-6 text-emerald-500" />
               </div>
@@ -273,10 +273,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           <Card 
             animate 
             delay={0.2}
-            className="p-6 cursor-pointer hover:border-purple-500/50 transition-colors group"
+            className="p-4 sm:p-6 cursor-pointer hover:border-purple-500/50 transition-colors group"
             onClick={() => onNavigate('team')}
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-2 sm:mb-4">
               <div className="bg-purple-500/10 p-3 rounded-xl group-hover:bg-purple-500/20 transition-colors">
                 <TrendingUp className="w-6 h-6 text-purple-500" />
               </div>

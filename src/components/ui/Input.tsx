@@ -23,7 +23,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             type={type}
             className={cn(
-              "w-full bg-surface-hover border border-border text-foreground rounded-xl px-4 py-3.5 text-sm outline-none transition-all",
+              "w-full bg-surface-hover border border-border text-foreground rounded-xl px-4 py-3.5 text-base outline-none transition-all",
               "placeholder:text-muted/60",
               "focus:bg-surface focus:border-primary/40",
               "hover:border-border",
