@@ -171,6 +171,7 @@ function AppLayout({ currentPage, navigateToPage, handleLogout }: { currentPage:
   };
 
   const isLoading = teamLoading || seasonLoading;
+  const showNoSeasonGuard = !isLoading && !activeSeason && currentPage !== 'feedback';
   const showNoTeamGuard = !isLoading && activeSeason && !activeTeam && currentPage !== 'feedback';
 
   return (
@@ -193,7 +194,34 @@ function AppLayout({ currentPage, navigateToPage, handleLogout }: { currentPage:
           </div>
 
           <AnimatePresence mode="wait">
-            {showNoTeamGuard ? (
+            {showNoSeasonGuard ? (
+              <motion.div
+                key="no-season-guard"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-surface/50 backdrop-blur-sm"
+              >
+                <div className="max-w-md space-y-6">
+                  <div className="w-20 h-20 bg-primary/10 text-primary rounded-3xl flex items-center justify-center mx-auto mb-6">
+                    <Trophy size={40} />
+                  </div>
+                  <h2 className="text-3xl font-bold tracking-tight text-foreground">Start Your Coaching Journey</h2>
+                  <p className="text-muted leading-relaxed">
+                    First, let's define a season (e.g. "2024/2025") so you can organize your teams and sessions.
+                  </p>
+                  <div className="pt-4">
+                    <Button 
+                      onClick={() => setIsSeasonModalOpen(true)} 
+                      icon={<Plus size={18} />}
+                      className="w-full sm:w-auto"
+                    >
+                      Create Your First Season
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            ) : showNoTeamGuard ? (
               <motion.div
                 key="no-team-guard"
                 initial={{ opacity: 0 }}
@@ -205,17 +233,17 @@ function AppLayout({ currentPage, navigateToPage, handleLogout }: { currentPage:
                   <div className="w-20 h-20 bg-amber-500/10 text-amber-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
                     <Users size={40} />
                   </div>
-                  <h2 className="text-3xl font-bold tracking-tight text-foreground">No Team in {activeSeason.name}</h2>
+                  <h2 className="text-3xl font-bold tracking-tight text-foreground">Setup Your Squad</h2>
                   <p className="text-muted leading-relaxed">
-                    Every season needs at least one team to manage players, matches, and training sessions.
+                    You're in the <b>{activeSeason?.name}</b> season. Now you just need to create a team to start managing your roster.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
                     <Button 
                       onClick={() => setIsTeamModalOpen(true)} 
-                      icon={<Trophy size={18} />}
+                      icon={<Users size={18} />}
                       className="w-full sm:w-auto"
                     >
-                      Setup Your Team
+                      Create My Team
                     </Button>
                     <Button 
                       variant="secondary"

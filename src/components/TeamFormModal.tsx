@@ -18,7 +18,7 @@ export default function TeamFormModal({ isOpen, onClose, onSuccess }: TeamFormMo
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'create' | 'clone'>('create');
   const [formData, setFormData] = useState({ name: '', formation: '4-4-2' });
-  const [selectedSeasonId, setSelectedSeasonId] = useState<string>(activeSeason?.id || (seasons[0]?.id || ''));
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string>(activeSeason?.id || (seasons[0]?.id || 'NEW_SEASON'));
   const [newSeasonName, setNewSeasonName] = useState('');
   const [sourceTeamId, setSourceTeamId] = useState<string>('');
   const [availableTeamsForCloning, setAvailableTeamsForCloning] = useState<any[]>([]);
@@ -231,11 +231,7 @@ export default function TeamFormModal({ isOpen, onClose, onSuccess }: TeamFormMo
               </div>
 
               {selectedSeasonId === 'NEW_SEASON' && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="space-y-2"
-                >
+                <div className="space-y-2 mt-4">
                   <label className="block text-xs font-bold text-muted uppercase tracking-wider">
                     New Season Name
                   </label>
@@ -247,7 +243,7 @@ export default function TeamFormModal({ isOpen, onClose, onSuccess }: TeamFormMo
                     placeholder="e.g. 2026/2027 Season"
                     className="w-full bg-surface border border-border text-foreground rounded-xl px-4 py-3 placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                   />
-                </motion.div>
+                </div>
               )}
             </div>
           </form>
