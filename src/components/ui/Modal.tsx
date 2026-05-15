@@ -40,7 +40,7 @@ export function Modal({ isOpen, onClose, title, icon, children, footer, maxWidth
             </div>
 
             {/* Scrollable Body - Added custom scrollbar styling via class */}
-            <div className="p-6 overflow-y-auto custom-scrollbar">
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0">
               {children}
             </div>
 

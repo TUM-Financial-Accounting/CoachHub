@@ -273,7 +273,7 @@ useEffect(() => {
           // B. Fresh or Empty Match
           
           // 1. Calculate Date Difference
-          const matchDate = new Date(matchDetails.date);
+          const matchDate = new Date(matchDetails.date + 'T12:00:00');
           const today = new Date();
           // Reset hours to compare dates only
           today.setHours(0, 0, 0, 0);
@@ -359,21 +359,21 @@ useEffect(() => {
   today.setHours(0, 0, 0, 0);
   
   const upcomingMatches = matches.filter(match => {
-    const matchDate = new Date(match.date);
+    const matchDate = new Date(match.date + 'T12:00:00');
     matchDate.setHours(0, 0, 0, 0);
     return matchDate >= today;
-  }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  
+  }).sort((a, b) => new Date(a.date + 'T12:00:00').getTime() - new Date(b.date + 'T12:00:00').getTime());
+
   const pastMatches = matches.filter(match => {
-    const matchDate = new Date(match.date);
+    const matchDate = new Date(match.date + 'T12:00:00');
     matchDate.setHours(0, 0, 0, 0);
     return matchDate < today;
-  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  
+  }).sort((a, b) => new Date(b.date + 'T12:00:00').getTime() - new Date(a.date + 'T12:00:00').getTime());
+
   // Check if currently viewing a past match
   const isMatchPast = useMemo(() => {
     if (!matchDetails) return false;
-    const matchDate = new Date(matchDetails.date);
+    const matchDate = new Date(matchDetails.date + 'T12:00:00');
     matchDate.setHours(0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);

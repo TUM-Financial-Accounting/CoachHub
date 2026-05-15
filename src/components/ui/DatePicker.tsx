@@ -23,6 +23,14 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
   const currentYear = today.getFullYear();
   const years = Array.from({ length: 86 }, (_, i) => currentYear - 80 + i);
 
+  // Reset displayed month to the selected value whenever the picker opens
+  useEffect(() => {
+    if (isOpen) {
+      setDisplayMonth(value ? new Date(value + 'T12:00:00') : new Date());
+      setViewMode('calendar');
+    }
+  }, [isOpen]);
+
   // Close when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -54,8 +62,10 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
   for (let i = 1; i <= daysInMonth; i++) days.push(i);
 
   const handleDateClick = (day: number) => {
-    const date = new Date(displayMonth.getFullYear(), displayMonth.getMonth(), day);
-    onChange(date.toISOString().split('T')[0]);
+    const y = displayMonth.getFullYear();
+    const m = String(displayMonth.getMonth() + 1).padStart(2, '0');
+    const d = String(day).padStart(2, '0');
+    onChange(`${y}-${m}-${d}`);
     setIsOpen(false);
     setViewMode('calendar');
   };

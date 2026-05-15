@@ -250,11 +250,11 @@ export default function TrainingManager() {
         High:   'bg-rose-500/10 text-rose-400 border-rose-500/20',
     };
 
-    const todayDate = new Date(today);
+    const todayDate = new Date(today + 'T12:00:00');
     const weekLater = new Date(todayDate); weekLater.setDate(todayDate.getDate() + 7);
     const twoWeeksLater = new Date(todayDate); twoWeeksLater.setDate(todayDate.getDate() + 14);
-    const weekStr = weekLater.toISOString().split('T')[0];
-    const twoWeeksStr = twoWeeksLater.toISOString().split('T')[0];
+    const weekStr = weekLater.toLocaleDateString('en-CA');
+    const twoWeeksStr = twoWeeksLater.toLocaleDateString('en-CA');
     const groupedUpcoming = [
         { label: 'This Week', items: displaySessions.filter(s => s.date <= weekStr) },
         { label: 'Next Week', items: displaySessions.filter(s => s.date > weekStr && s.date <= twoWeeksStr) },

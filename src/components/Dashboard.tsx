@@ -88,7 +88,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           const monthOrder = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
           sessionsData.forEach(session => {
-            const date = new Date(session.date);
+            const date = new Date(session.date + 'T12:00:00');
             const monthName = monthOrder[date.getMonth()];
             
             if (!monthMap[monthName]) {
@@ -160,8 +160,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     }, 0);
     return total / group.length;
   };
-  const thisMonthAvg = avgAttendanceForGroup(sessions.filter(s => new Date(s.date).getMonth() === thisMonthIdx));
-  const lastMonthAvg = avgAttendanceForGroup(sessions.filter(s => new Date(s.date).getMonth() === lastMonthIdx));
+  const thisMonthAvg = avgAttendanceForGroup(sessions.filter(s => new Date(s.date + 'T12:00:00').getMonth() === thisMonthIdx));
+  const lastMonthAvg = avgAttendanceForGroup(sessions.filter(s => new Date(s.date + 'T12:00:00').getMonth() === lastMonthIdx));
   const attendanceTrend = lastMonthAvg > 0 ? Math.round(thisMonthAvg - lastMonthAvg) : null;
 
   return (

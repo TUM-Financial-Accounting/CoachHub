@@ -74,11 +74,14 @@ export default function App() {
           console.log("[App] Calling getCurrentUser...");
           await AuthService.getCurrentUser();
           console.log("[App] Session valid.");
-        } catch (error) {
-          console.error("[App] Session check failed:", error);
-          // If the cookie is invalid or expired, the API will return 401
-          // and our api-client will handle the reload/logout, but we can also do it here.
-          handleLogout();
+        } catch (error: any) {
+          const isNetworkError = error.name === 'TypeError' || error.name === 'AbortError' || error.message?.includes('timed out') || error.message?.includes('Failed to fetch');
+          if (isNetworkError) {
+            console.warn("[App] Session check failed due to network error, staying logged in:", error.message);
+          } else {
+            console.error("[App] Session check failed:", error);
+            handleLogout();
+          }
         }
       }
     };
