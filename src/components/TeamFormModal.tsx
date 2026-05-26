@@ -17,7 +17,7 @@ export default function TeamFormModal({ isOpen, onClose, onSuccess }: TeamFormMo
   const { seasons, activeSeason, refreshSeasons, setActiveSeasonId } = useSeason();
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'create' | 'clone'>('create');
-  const [formData, setFormData] = useState({ name: '', formation: '4-4-2' });
+  const [formData, setFormData] = useState({ name: '' });
   const [selectedSeasonId, setSelectedSeasonId] = useState<string>(activeSeason?.id || (seasons[0]?.id || 'NEW_SEASON'));
   const [newSeasonName, setNewSeasonName] = useState('');
   const [sourceTeamId, setSourceTeamId] = useState<string>('');
@@ -102,7 +102,7 @@ export default function TeamFormModal({ isOpen, onClose, onSuccess }: TeamFormMo
       await refreshTeams();
       toast.success(mode === 'clone' ? 'Team cloned successfully!' : 'Team created successfully!');
       onSuccess();
-      setFormData({ name: '', formation: '4-4-2' });
+      setFormData({ name: '' });
       setNewSeasonName('');
       setSourceTeamId('');
     } catch (err: any) {
@@ -189,21 +189,6 @@ export default function TeamFormModal({ isOpen, onClose, onSuccess }: TeamFormMo
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">
-                      Default Formation
-                    </label>
-                    <select
-                      value={formData.formation}
-                      onChange={e => setFormData({ ...formData, formation: e.target.value })}
-                      className="w-full bg-surface border border-border text-foreground rounded-xl px-4 py-3 appearance-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                    >
-                      <option value="4-3-3">4-3-3</option>
-                      <option value="4-4-2">4-4-2</option>
-                      <option value="4-2-3-1">4-2-3-1</option>
-                      <option value="3-5-2">3-5-2</option>
-                    </select>
-                  </div>
                 </>
               ) : (
                 <div>
@@ -222,7 +207,7 @@ export default function TeamFormModal({ isOpen, onClose, onSuccess }: TeamFormMo
                     ))}
                   </select>
                   <p className="mt-2 text-[10px] text-muted leading-relaxed">
-                    This will copy the team name, formation, and all player assignments to the selected season.
+                    This will copy the team name and all player assignments to the selected season.
                   </p>
                 </div>
               )}

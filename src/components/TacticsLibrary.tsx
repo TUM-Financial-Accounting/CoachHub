@@ -9,9 +9,10 @@ import { Select } from "./ui/Select";
 import { Modal } from "./ui/Modal";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { PlaybookManagementModal } from "./PlaybookManagementModal";
+import CustomFormationModal from "./CustomFormationModal";
 
-import { Tactic } from '../types/models';
-import { LibraryService } from '../services';
+import { Tactic, CustomFormation } from '../types/models';
+import { LibraryService, FormationService } from '../services';
 
 const ALL_FORMATIONS = ['4-4-2','4-3-3','4-2-3-1','4-3-2-1','4-1-4-1','4-1-2-1-2','4-4-2 DM','3-5-2','3-4-3','3-4-1-2','5-3-2','5-4-1'];
 
@@ -22,6 +23,8 @@ export default function TacticsLibrary() {
   const [activeFormation, setActiveFormation] = useState<string>('All');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showPlaybookModal, setShowPlaybookModal] = useState(false);
+  const [showCustomFormationModal, setShowCustomFormationModal] = useState(false);
+  const [customFormations, setCustomFormations] = useState<CustomFormation[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ id: '', name: '', formation: '4-3-3', description: '', suggestedDrills: '' });
@@ -37,7 +40,14 @@ export default function TacticsLibrary() {
 
   useEffect(() => {
     fetchTactics();
+    FormationService.getAll().then(setCustomFormations).catch(() => {});
   }, []);
+
+  const handleCustomFormationCreated = (formation: CustomFormation) => {
+    setCustomFormations(prev => [...prev, formation]);
+    setFormData(prev => ({ ...prev, formation: formation.name }));
+    setShowCustomFormationModal(false);
+  };
 
   const handleSave = async () => {
     if (!formData.name) return toast.error('Name required');
@@ -291,13 +301,37 @@ export default function TacticsLibrary() {
         footer={<div className="flex gap-3"><Button variant="ghost" onClick={closeModal} className="flex-1">Cancel</Button><Button onClick={handleSave} className="flex-1 bg-green-600 hover:bg-green-500 shadow-lg shadow-green-500/20">Save</Button></div>}>
         <div className="space-y-6">
             <Input label="Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Counter Attack" />
-            <Select label="Formation" value={formData.formation} onChange={val => setFormData({...formData, formation: val as string})} options={['4-4-2', '4-3-3', '4-2-3-1', '4-3-2-1', '4-1-4-1', '4-1-2-1-2', '4-4-2 DM', '3-5-2', '3-4-3', '3-4-1-2', '5-3-2', '5-4-1'].map(f => ({label: f, value: f}))} />
+            <div className="space-y-2">
+              <Select
+                label="Formation"
+                value={formData.formation}
+                onChange={val => setFormData({...formData, formation: val as string})}
+                options={[
+                  ...ALL_FORMATIONS.map(f => ({ label: f, value: f })),
+                  ...customFormations.map(f => ({ label: `${f.name} (Custom)`, value: f.name })),
+                ]}
+              />
+              <button
+                type="button"
+                onClick={() => setShowCustomFormationModal(true)}
+                className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 text-xs font-bold transition-all border border-blue-500/30"
+              >
+                <Plus size={14} />
+                Create Custom Formation
+              </button>
+            </div>
             <div className="space-y-2"><label className="text-[11px] font-bold text-muted uppercase tracking-widest ml-1">Description</label>
             <textarea className="w-full bg-surface-hover border border-border text-foreground rounded-xl px-4 py-3.5 text-sm outline-none placeholder:text-muted focus:bg-surface focus:border-primary/50 focus:ring-4 focus:ring-primary/10 hover:border-border resize-none h-24 custom-scrollbar transition-all" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} /></div>
             <div className="space-y-2"><label className="text-[11px] font-bold text-orange-400 uppercase tracking-widest ml-1">Suggested Drills (Line Separated)</label>
             <textarea className="w-full bg-surface-hover border border-border text-foreground rounded-xl px-4 py-3.5 text-sm outline-none placeholder:text-muted focus:bg-surface focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/10 hover:border-border resize-none h-20 custom-scrollbar transition-all" value={formData.suggestedDrills} onChange={e => setFormData({...formData, suggestedDrills: e.target.value})} placeholder="Rondo&#10;Small Sided Game" /></div>
         </div>
       </Modal>
+
+      <CustomFormationModal
+        isOpen={showCustomFormationModal}
+        onClose={() => setShowCustomFormationModal(false)}
+        onSuccess={handleCustomFormationCreated}
+      />
 
       <ConfirmDialog
         isOpen={confirmDeleteId !== null}
