@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Text, Boolean, Date, Time, ForeignKey, Table
+from sqlalchemy import Column, String, Integer, Text, Boolean, Date, Time, ForeignKey, Table, JSON
 from sqlalchemy.orm import relationship
 from database import Base
 import uuid
@@ -220,5 +220,6 @@ class FeedbackRequest(Base):
     type = Column(String)            # 'bug' | 'feature' | 'question'
     title = Column(String)
     description = Column(Text)
+    screenshot_urls = Column(JSON, nullable=True)
     status = Column(String, default="new")  # 'new' | 'in_progress' | 'resolved'
     created_at = Column(DateTime, default=datetime.datetime.utcnow)

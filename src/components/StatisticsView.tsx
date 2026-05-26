@@ -163,7 +163,7 @@ export default function StatisticsView() {
   }
 
   return (
-    <div className="h-full w-full flex flex-col p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto overflow-y-auto custom-scrollbar gap-6">
+    <div className="h-full w-full flex flex-col p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto overflow-y-auto custom-scrollbar gap-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -194,11 +194,11 @@ export default function StatisticsView() {
       </div>
 
       {matches.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-16 border border-dashed border-border rounded-2xl">
+        <Card className="p-12 flex flex-col items-center justify-center text-center">
           <History size={36} className="text-muted/30 mb-4" />
           <h3 className="text-base font-semibold text-foreground">No match results yet</h3>
           <p className="text-sm text-muted mt-1">Record your first match result to see statistics here.</p>
-        </div>
+        </Card>
       ) : (
         <div className="space-y-6 pb-8">
           {/* Hero stats */}

@@ -283,6 +283,7 @@ def create_feedback(item: schemas.FeedbackRequestCreate, db: Session = Depends(d
         type=item.type,
         title=item.title.strip(),
         description=item.description.strip(),
+        screenshot_urls=item.screenshot_urls,
         status="new",
     )
     db.add(db_item)

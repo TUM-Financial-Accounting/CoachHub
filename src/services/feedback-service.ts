@@ -9,6 +9,7 @@ export interface FeedbackRequest {
   type: FeedbackType;
   title: string;
   description: string;
+  screenshot_urls?: string[] | null;
   status: FeedbackStatus;
   created_at: string;
 }
@@ -17,6 +18,7 @@ export interface FeedbackRequestCreate {
   type: FeedbackType;
   title: string;
   description: string;
+  screenshot_urls?: string[] | null;
 }
 
 export const FeedbackService = {

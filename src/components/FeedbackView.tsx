@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
-import { Bug, Lightbulb, HelpCircle, Send, Inbox } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Bug, Lightbulb, HelpCircle, Send, Inbox, Paperclip, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Select } from './ui/Select';
+import { uploadFile } from '../lib/uploadFile';
 import {
   FeedbackService,
   FeedbackRequest,
@@ -33,7 +34,10 @@ export default function FeedbackView() {
   const [type, setType] = useState<FeedbackType>('bug');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [screenshotUrls, setScreenshotUrls] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [items, setItems] = useState<FeedbackRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +58,29 @@ export default function FeedbackView() {
     }
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    const images = files.filter(f => f.type.startsWith('image/'));
+    if (images.length < files.length) {
+      toast.error('Skipped non-image files');
+    }
+    if (images.length === 0) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+    setUploading(true);
+    try {
+      const urls = await Promise.all(images.map(f => uploadFile(f)));
+      setScreenshotUrls(prev => [...prev, ...urls]);
+    } catch (err: any) {
+      toast.error(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) {
@@ -62,11 +89,17 @@ export default function FeedbackView() {
     }
     setSubmitting(true);
     try {
-      const created = await FeedbackService.create({ type, title: title.trim(), description: description.trim() });
+      const created = await FeedbackService.create({
+        type,
+        title: title.trim(),
+        description: description.trim(),
+        screenshot_urls: screenshotUrls.length > 0 ? screenshotUrls : null,
+      });
       setItems(prev => [created, ...prev]);
       setTitle('');
       setDescription('');
       setType('bug');
+      setScreenshotUrls([]);
       toast.success('Thanks — feedback received');
     } catch (err: any) {
       toast.error(err.message || 'Failed to submit feedback');
@@ -81,7 +114,7 @@ export default function FeedbackView() {
   };
 
   return (
-    <div className="h-full w-full flex flex-col p-4 sm:p-6 lg:p-8 max-w-[1200px] mx-auto overflow-y-auto custom-scrollbar gap-6">
+    <div className="h-full w-full flex flex-col p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto overflow-y-auto custom-scrollbar gap-6">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-1 h-10 rounded-full bg-primary flex-shrink-0" />
@@ -132,6 +165,50 @@ export default function FeedbackView() {
             />
           </div>
 
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-muted uppercase tracking-widest ml-1 block">
+              Screenshots (optional)
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            {screenshotUrls.length > 0 && (
+              <div className="flex flex-wrap gap-3">
+                {screenshotUrls.map((url, idx) => (
+                  <div key={url} className="relative">
+                    <img
+                      src={url}
+                      alt={`Screenshot ${idx + 1}`}
+                      className="h-32 w-auto rounded-lg border border-border"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setScreenshotUrls(prev => prev.filter(u => u !== url))}
+                      className="absolute -top-2 -right-2 bg-surface border border-border rounded-full p-1 text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+                      aria-label="Remove screenshot"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg border border-border bg-surface-hover hover:bg-surface text-muted hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {uploading ? <Loader2 size={14} className="animate-spin" /> : <Paperclip size={14} />}
+              {uploading ? 'Uploading…' : screenshotUrls.length > 0 ? 'Attach more' : 'Attach screenshots'}
+            </button>
+          </div>
+
           <div className="flex justify-end pt-2">
             <Button type="submit" isLoading={submitting} icon={<Send size={14} />}>
               Submit
@@ -176,6 +253,25 @@ export default function FeedbackView() {
                         <span className="text-xs text-muted flex-shrink-0">{formatDate(item.created_at)}</span>
                       </div>
                       <p className="text-sm text-muted mt-1.5 whitespace-pre-wrap">{item.description}</p>
+                      {item.screenshot_urls && item.screenshot_urls.length > 0 && (
+                        <div className="flex flex-wrap gap-3 mt-3">
+                          {item.screenshot_urls.map((url, idx) => (
+                            <a
+                              key={url}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-block"
+                            >
+                              <img
+                                src={url}
+                                alt={`Screenshot ${idx + 1}`}
+                                className="max-h-48 rounded-lg border border-border hover:border-primary/50 transition-colors"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </Card>

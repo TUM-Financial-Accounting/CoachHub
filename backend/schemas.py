@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 # ==========================
 #         SEASONS
@@ -252,6 +252,7 @@ class FeedbackRequestCreate(BaseModel):
     type: str          # 'bug' | 'feature' | 'question'
     title: str
     description: str
+    screenshot_urls: Optional[List[str]] = None
 
 class FeedbackRequest(FeedbackRequestCreate):
     id: str
