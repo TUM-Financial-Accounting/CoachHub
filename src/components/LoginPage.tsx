@@ -8,6 +8,7 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { AuthService, AuthResponse } from '../services';
+import { bootPrefetch } from '../lib/bootPrefetch';
 
 interface LoginPageProps {
   onLogin: () => void;
@@ -111,6 +112,11 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         localStorage.setItem('isAuthenticated', 'true');
         localStorage.setItem('access_token', response.access_token);
         localStorage.setItem('user', JSON.stringify(response.user));
+
+        // Keep the Sign In button in its loading state until the data the
+        // dashboard needs has been fetched. Avoids dropping the user into
+        // a half-loaded dashboard with empty cards.
+        await bootPrefetch.primeAfterLogin();
 
         console.log("[LoginPage] Calling onLogin()...");
         onLogin();
