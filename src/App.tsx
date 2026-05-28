@@ -31,6 +31,7 @@ import { Page } from './types/ui';
 import { AuthService } from './services';
 import { useTeam } from './contexts/TeamContext';
 import { useTheme } from './contexts/ThemeContext';
+import { bootPrefetch } from './lib/bootPrefetch';
 
 export default function App() {
   // 1. Initialize Auth State from LocalStorage
@@ -84,7 +85,13 @@ export default function App() {
     let cancelled = false;
     (async () => {
       try {
-        await AuthService.getCurrentUser();
+        // Prefer the in-flight request kicked off at module load.
+        const prefetched = bootPrefetch.takeMe();
+        if (prefetched) {
+          await prefetched;
+        } else {
+          await AuthService.getCurrentUser();
+        }
       } catch (error: any) {
         if (cancelled) return;
         const isNetworkError = error.name === 'TypeError' || error.name === 'AbortError'

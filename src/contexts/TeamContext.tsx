@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { TeamService } from '../services';
 import { Team } from '../types/models';
 import { useSeason } from './SeasonContext';
+import { bootPrefetch } from '../lib/bootPrefetch';
 
 interface TeamContextProps {
   teams: Team[];
@@ -103,7 +104,12 @@ export const TeamProvider: React.FC<{ children: React.ReactNode, isAuthenticated
     }
 
     try {
-      const data = await TeamService.getAll(activeSeason?.id);
+      // First refresh after boot: pick up the prefetched in-flight request
+      // if it was fired with the same season we want.
+      const prefetched = bootPrefetch.takeTeams(activeSeason?.id);
+      const data = prefetched
+        ? await prefetched
+        : await TeamService.getAll(activeSeason?.id);
       // Drop the response if a newer request has started since we kicked off.
       if (myRequest !== requestIdRef.current) return;
       teamCache.set(seasonKey, data);

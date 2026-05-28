@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { SeasonService } from '../services/season-service';
+import { bootPrefetch } from '../lib/bootPrefetch';
 
 export interface Season {
   id: string;
@@ -50,7 +51,8 @@ export const SeasonProvider: React.FC<{ children: React.ReactNode, isAuthenticat
     // Only show a spinner if we have nothing to render yet.
     if (seasons.length === 0) setLoading(true);
     try {
-      const data = await SeasonService.getAll();
+      const prefetched = bootPrefetch.takeSeasons();
+      const data = prefetched ? await prefetched : await SeasonService.getAll();
       setSeasons(data);
       try { localStorage.setItem(SEASONS_CACHE_KEY, JSON.stringify(data)); } catch {}
       if (data.length > 0) {
