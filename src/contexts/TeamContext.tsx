@@ -53,7 +53,7 @@ function persistTeamCache() {
 }
 
 export const TeamProvider: React.FC<{ children: React.ReactNode, isAuthenticated: boolean }> = ({ children, isAuthenticated }) => {
-  const { activeSeason } = useSeason();
+  const { activeSeason, loading: seasonsLoading } = useSeason();
   // Seed from the persisted cache if we can — this is what makes the team
   // list show up immediately on reload instead of waiting for /teams.
   const initialSeasonKey = (typeof localStorage !== 'undefined' && localStorage.getItem('activeSeasonId')) || NO_SEASON_KEY;
@@ -123,8 +123,14 @@ export const TeamProvider: React.FC<{ children: React.ReactNode, isAuthenticated
   };
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+    // Wait for seasons to load before kicking off a team fetch. Otherwise
+    // we fire a useless /teams (no season filter) while seasons hydrate, then
+    // immediately re-fetch once the real season arrives — a wasted round-trip
+    // on every boot.
+    if (seasonsLoading) return;
     refreshTeams();
-  }, [isAuthenticated, activeSeason]);
+  }, [isAuthenticated, activeSeason, seasonsLoading]);
 
   const activeTeam = teams.find(t => t.id === activeTeamIdState) || null;
 

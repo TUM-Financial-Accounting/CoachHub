@@ -14,6 +14,13 @@ import { Page } from "../types/ui";
 import { PlayerService, TrainingService, MatchService } from '../services';
 import { useTeam } from '../contexts/TeamContext';
 import { useSeason } from '../contexts/SeasonContext';
+import { readPageCache, writePageCache } from '../lib/pageCache';
+
+interface DashboardData {
+  players: Player[];
+  sessions: TrainingSession[];
+  matches: Match[];
+}
 
 interface DashboardProps {
   onNavigate: (page: Page) => void;
@@ -64,6 +71,15 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       return;
     }
 
+    const cacheKey = `dashboard:${activeTeam.id}:${activeSeason?.id ?? 'no-season'}`;
+    // Paint immediately from the last-known data for this team+season.
+    const cached = readPageCache<DashboardData>(cacheKey);
+    if (cached) {
+      setPlayers(cached.players);
+      setSessions(cached.sessions);
+      setMatches(cached.matches);
+    }
+
     const fetchData = async () => {
       try {
         const [playersData, sessionsData, matchesData] = await Promise.all([
@@ -75,6 +91,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         setPlayers(playersData);
         setSessions(sessionsData);
         setMatches(matchesData);
+        writePageCache<DashboardData>(cacheKey, {
+          players: playersData,
+          sessions: sessionsData,
+          matches: matchesData,
+        });
 
         // Calculate attendance from training session participation
         if (playersData.length > 0 && sessionsData.length > 0) {

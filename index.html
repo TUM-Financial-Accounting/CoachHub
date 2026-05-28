@@ -5,6 +5,10 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
     <title>CoachHub - Team Management Dashboard</title>
+    <!-- Open a connection to the API as early as possible so the boot
+         /me, /seasons, /teams requests don't pay the TLS handshake cost. -->
+    <link rel="preconnect" href="%VITE_API_URL%" crossorigin />
+    <link rel="dns-prefetch" href="%VITE_API_URL%" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />

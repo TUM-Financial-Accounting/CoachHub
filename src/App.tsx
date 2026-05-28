@@ -32,6 +32,7 @@ import { AuthService } from './services';
 import { useTeam } from './contexts/TeamContext';
 import { useTheme } from './contexts/ThemeContext';
 import { bootPrefetch } from './lib/bootPrefetch';
+import { clearAllPageCache } from './lib/pageCache';
 
 export default function App() {
   // 1. Initialize Auth State from LocalStorage
@@ -67,6 +68,7 @@ export default function App() {
     localStorage.removeItem('cache:teams:v1');
     localStorage.removeItem('activeTeamId');
     localStorage.removeItem('activeSeasonId');
+    clearAllPageCache();
     setIsAuthenticated(false);
     setCurrentPage('login');
     toast.success("Logged out successfully");
