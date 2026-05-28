@@ -33,15 +33,21 @@ import { useTeam } from './contexts/TeamContext';
 import { useTheme } from './contexts/ThemeContext';
 
 export default function App() {
-  console.log("[App] Rendering component...");
   // 1. Initialize Auth State from LocalStorage
   // If 'isAuthenticated' exists in browser memory, start as true.
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('isAuthenticated') === 'true';
   });
 
-  // 2. Initialize Page State
-  // If logged in, start at 'dashboard', otherwise 'login'
+  // 2. Boot session-validation gate. If we *claim* to be authenticated,
+  // we block the UI behind a splash until we confirm with the backend.
+  // This prevents the dashboard from flashing before we redirect to login
+  // when the stored session has expired.
+  const [bootChecking, setBootChecking] = useState(() => {
+    return localStorage.getItem('isAuthenticated') === 'true';
+  });
+
+  // 3. Initialize Page State
   const [currentPage, setCurrentPage] = useState<Page>(() => {
     return localStorage.getItem('isAuthenticated') === 'true' ? 'dashboard' : 'login';
   });
@@ -64,29 +70,36 @@ export default function App() {
     });
   };
 
-  // 3. Check Session on Mount
-  // Verify if the JWT cookie is still valid even if LocalStorage says we are authenticated.
+  // 4. Boot session validation. Keeps the splash up until we've confirmed the
+  // session is good, or quickly cleared it and bounced to login.
   useEffect(() => {
-    const checkSession = async () => {
-      console.log(`[App] checkSession. isAuthenticated: ${isAuthenticated}`);
-      if (isAuthenticated) {
-        try {
-          console.log("[App] Calling getCurrentUser...");
-          await AuthService.getCurrentUser();
-          console.log("[App] Session valid.");
-        } catch (error: any) {
-          const isNetworkError = error.name === 'TypeError' || error.name === 'AbortError' || error.message?.includes('timed out') || error.message?.includes('Failed to fetch');
-          if (isNetworkError) {
-            console.warn("[App] Session check failed due to network error, staying logged in:", error.message);
-          } else {
-            console.error("[App] Session check failed:", error);
-            handleLogout();
-          }
+    if (!bootChecking) return; // not authenticated → nothing to validate
+
+    let cancelled = false;
+    (async () => {
+      try {
+        await AuthService.getCurrentUser();
+      } catch (error: any) {
+        if (cancelled) return;
+        const isNetworkError = error.name === 'TypeError' || error.name === 'AbortError'
+          || error.message?.includes('timed out') || error.message?.includes('Failed to fetch');
+        if (isNetworkError) {
+          // Backend unreachable — trust local state and let user in.
+          console.warn("[App] Boot session check failed due to network error, staying logged in:", error.message);
+        } else {
+          // Invalid / expired session — clear and route to login.
+          localStorage.removeItem('isAuthenticated');
+          localStorage.removeItem('user');
+          localStorage.removeItem('access_token');
+          setIsAuthenticated(false);
+          setCurrentPage('login');
         }
+      } finally {
+        if (!cancelled) setBootChecking(false);
       }
-    };
-    checkSession();
-  }, [isAuthenticated]);
+    })();
+    return () => { cancelled = true; };
+  }, [bootChecking]);
 
   const handleLogin = () => {
     // Save to browser memory
@@ -98,6 +111,21 @@ export default function App() {
   const navigateToPage = (page: Page) => {
     setCurrentPage(page);
   };
+
+  // Splash while we validate the stored session, so the dashboard never
+  // flashes before we possibly redirect to login.
+  if (bootChecking) {
+    return (
+      <div className="flex h-[100dvh] w-full items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="bg-primary p-3 rounded-2xl shadow-lg shadow-primary/20 text-white">
+            <Trophy className="w-7 h-7" />
+          </div>
+          <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
 
 // If authenticated, show the Main App
   if (!isAuthenticated) {

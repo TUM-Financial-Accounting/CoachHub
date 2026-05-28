@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Calendar, Users, TrendingUp, Plus, Clock, MapPin, Activity, Shield } from 'lucide-react';
 import { formatDate } from '../lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -124,7 +124,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     };
 
     fetchData();
-  }, [activeTeam]);
+  }, [activeTeam, activeSeason]);
   
   // Animation variants
   const container = {
@@ -135,34 +135,42 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     }
   };
 
-  // --- Derived values (computed each render from real data) ---
+  // --- Derived values (memoized — these only recompute when their inputs change) ---
   const today = new Date().toLocaleDateString('en-CA');
 
-  const upcomingSessions = sessions
-    .filter(s => s.date >= today)
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const upcomingSessions = useMemo(
+    () => sessions.filter(s => s.date >= today).sort((a, b) => a.date.localeCompare(b.date)),
+    [sessions, today]
+  );
   const nextSession = upcomingSessions[0] ?? null;
 
-  const upcomingMatches = matches
-    .filter(m => m.date >= today)
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const upcomingMatches = useMemo(
+    () => matches.filter(m => m.date >= today).sort((a, b) => a.date.localeCompare(b.date)),
+    [matches, today]
+  );
   const nextMatch = upcomingMatches[0] ?? null;
 
   // Month-over-month attendance trend
-  const now = new Date();
-  const thisMonthIdx = now.getMonth();
-  const lastMonthIdx = thisMonthIdx === 0 ? 11 : thisMonthIdx - 1;
-  const avgAttendanceForGroup = (group: TrainingSession[]) => {
-    if (group.length === 0 || players.length === 0) return 0;
-    const total = group.reduce((sum, s) => {
-      const count = s.selectedPlayers.split(',').filter(id => id.trim()).length;
-      return sum + (count / players.length) * 100;
-    }, 0);
-    return total / group.length;
-  };
-  const thisMonthAvg = avgAttendanceForGroup(sessions.filter(s => new Date(s.date + 'T12:00:00').getMonth() === thisMonthIdx));
-  const lastMonthAvg = avgAttendanceForGroup(sessions.filter(s => new Date(s.date + 'T12:00:00').getMonth() === lastMonthIdx));
-  const attendanceTrend = lastMonthAvg > 0 ? Math.round(thisMonthAvg - lastMonthAvg) : null;
+  const attendanceTrend = useMemo(() => {
+    const now = new Date();
+    const thisMonthIdx = now.getMonth();
+    const lastMonthIdx = thisMonthIdx === 0 ? 11 : thisMonthIdx - 1;
+    const avgAttendanceForGroup = (group: TrainingSession[]) => {
+      if (group.length === 0 || players.length === 0) return 0;
+      const total = group.reduce((sum, s) => {
+        const count = s.selectedPlayers.split(',').filter(id => id.trim()).length;
+        return sum + (count / players.length) * 100;
+      }, 0);
+      return total / group.length;
+    };
+    const thisMonthAvg = avgAttendanceForGroup(
+      sessions.filter(s => new Date(s.date + 'T12:00:00').getMonth() === thisMonthIdx)
+    );
+    const lastMonthAvg = avgAttendanceForGroup(
+      sessions.filter(s => new Date(s.date + 'T12:00:00').getMonth() === lastMonthIdx)
+    );
+    return lastMonthAvg > 0 ? Math.round(thisMonthAvg - lastMonthAvg) : null;
+  }, [sessions, players]);
 
   return (
     <div className="h-full w-full flex flex-col p-3 sm:p-6 lg:p-8 max-w-[1600px] mx-auto overflow-y-auto custom-scrollbar gap-4 sm:gap-6">
