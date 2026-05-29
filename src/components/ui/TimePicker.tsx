@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Clock, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TimePickerProps } from "../../types/ui";
+import { parseFlexibleTime } from "../../lib/dateParse";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5); 
@@ -115,11 +116,41 @@ function Wheel({ items, selectedValue, onSelect, label }: WheelProps) {
 
 export function TimePicker({ value, onChange, label }: TimePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [draft, setDraft] = useState<string>(value || '');
+  const [draftInvalid, setDraftInvalid] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const parts = value ? value.split(':') : ['09', '00'];
   const h24 = parseInt(parts[0], 10);
   const minute = parseInt(parts[1], 10);
+
+  // Keep the input synced when value changes from the wheel picker — unless
+  // the user is actively typing into it.
+  useEffect(() => {
+    if (document.activeElement !== inputRef.current) {
+      setDraft(value || '');
+      setDraftInvalid(false);
+    }
+  }, [value]);
+
+  const commitDraft = () => {
+    const trimmed = draft.trim();
+    if (!trimmed) {
+      setDraftInvalid(false);
+      if (value) onChange('');
+      return;
+    }
+    const parsed = parseFlexibleTime(trimmed);
+    if (parsed) {
+      setDraftInvalid(false);
+      setDraft(parsed);
+      if (parsed !== value) onChange(parsed);
+    } else {
+      setDraftInvalid(true);
+      setDraft(value || '');
+    }
+  };
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -147,20 +178,49 @@ export function TimePicker({ value, onChange, label }: TimePickerProps) {
         </label>
       )}
 
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={`w-full px-4 py-3.5 bg-surface border text-sm text-left rounded-xl flex items-center justify-between transition-all
-          ${isOpen
-            ? 'border-blue-500/50 bg-surface ring-4 ring-ring'
+      <div
+        className={`w-full bg-surface border text-sm rounded-xl flex items-center transition-all
+          ${draftInvalid
+            ? 'border-rose-500/60 ring-4 ring-rose-500/20'
+            : isOpen
+            ? 'border-blue-500/50 ring-4 ring-ring'
             : 'border-border-subtle hover:border-border'
           }`}
       >
-        <span className={value ? 'text-foreground font-mono' : 'text-dimmed'}>
-          {value || '09:00'}
-        </span>
-        <Clock size={16} className={`transition-colors ${isOpen ? 'text-blue-400' : 'text-muted'}`} />
-      </button>
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="numeric"
+          placeholder="HH:MM"
+          value={draft}
+          onChange={e => {
+            setDraft(e.target.value);
+            if (draftInvalid) setDraftInvalid(false);
+          }}
+          onFocus={() => setIsOpen(true)}
+          onBlur={commitDraft}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitDraft();
+              inputRef.current?.blur();
+            } else if (e.key === 'Escape') {
+              setDraft(value || '');
+              setDraftInvalid(false);
+              inputRef.current?.blur();
+            }
+          }}
+          className="flex-1 bg-transparent px-4 py-3.5 outline-none rounded-l-xl font-mono placeholder:text-dimmed text-foreground"
+        />
+        <button
+          type="button"
+          aria-label="Open time picker"
+          onClick={() => setIsOpen(o => !o)}
+          className="px-3 py-3.5 text-muted hover:text-blue-400 transition-colors rounded-r-xl"
+        >
+          <Clock size={16} className={isOpen ? 'text-blue-400' : ''} />
+        </button>
+      </div>
 
       <AnimatePresence>
         {isOpen && (

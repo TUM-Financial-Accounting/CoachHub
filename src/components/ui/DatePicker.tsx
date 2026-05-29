@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { DatePickerProps } from "../../types/ui";
+import { parseFlexibleDate, formatDateForInput } from "../../lib/dateParse";
 
 type ViewMode = 'calendar' | 'month' | 'year';
 
@@ -13,8 +14,43 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
   const [displayMonth, setDisplayMonth] = useState(value ? new Date(value + 'T12:00:00') : new Date());
+  // Local string the user is actively typing. Kept separate from `value` so
+  // partial input like "15/06" isn't constantly being rejected.
+  const [draft, setDraft] = useState<string>(formatDateForInput(value));
+  const [draftInvalid, setDraftInvalid] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const yearGridRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Re-sync the input when the value prop changes from outside (calendar
+  // click, parent reset, etc.) — but only if the input isn't currently
+  // focused, so we don't yank text out from under the user.
+  useEffect(() => {
+    if (document.activeElement !== inputRef.current) {
+      setDraft(formatDateForInput(value));
+      setDraftInvalid(false);
+    }
+  }, [value]);
+
+  const commitDraft = () => {
+    const trimmed = draft.trim();
+    if (!trimmed) {
+      setDraftInvalid(false);
+      if (value) onChange('');
+      return;
+    }
+    const parsed = parseFlexibleDate(trimmed);
+    if (parsed) {
+      setDraftInvalid(false);
+      setDraft(formatDateForInput(parsed));
+      if (parsed !== value) onChange(parsed);
+      setDisplayMonth(new Date(parsed + 'T12:00:00'));
+    } else {
+      // Bad input: snap back to the last good value and flag it briefly.
+      setDraftInvalid(true);
+      setDraft(formatDateForInput(value));
+    }
+  };
 
   const selectedDate = value ? new Date(value + 'T12:00:00') : null;
   const today = new Date();
@@ -80,10 +116,6 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
     setViewMode('calendar');
   };
 
-  const displayValue = value && value.length >= 10
-    ? `${value.slice(8, 10)}/${value.slice(5, 7)}/${value.slice(0, 4)}`
-    : 'DD/MM/YYYY';
-
   const headerLabel = viewMode === 'year'
     ? 'Select Year'
     : viewMode === 'month'
@@ -94,18 +126,50 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
     <div className="relative space-y-2" ref={containerRef}>
       {label && <label className="text-[11px] font-bold text-muted uppercase tracking-widest ml-1">{label}</label>}
 
-      <button
-        type="button"
-        onClick={() => { setIsOpen(!isOpen); setViewMode('calendar'); }}
-        className={`w-full px-4 py-3.5 bg-surface border text-sm text-left rounded-xl flex items-center justify-between transition-all
-          ${isOpen
-            ? 'border-blue-500/50 bg-surface ring-4 ring-ring'
+      <div
+        className={`w-full bg-surface border text-sm rounded-xl flex items-center transition-all
+          ${draftInvalid
+            ? 'border-rose-500/60 ring-4 ring-rose-500/20'
+            : isOpen
+            ? 'border-blue-500/50 ring-4 ring-ring'
             : 'border-border-subtle hover:border-border'
           }`}
       >
-        <span className={selectedDate ? 'text-foreground' : 'text-dimmed'}>{displayValue}</span>
-        <Calendar size={16} className={`transition-colors ${isOpen ? 'text-blue-400' : 'text-muted'}`} />
-      </button>
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="numeric"
+          placeholder="DD/MM/YYYY"
+          value={draft}
+          onChange={e => {
+            setDraft(e.target.value);
+            if (draftInvalid) setDraftInvalid(false);
+          }}
+          onFocus={() => { setIsOpen(true); setViewMode('calendar'); }}
+          onBlur={commitDraft}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitDraft();
+              inputRef.current?.blur();
+            } else if (e.key === 'Escape') {
+              setDraft(formatDateForInput(value));
+              setDraftInvalid(false);
+              inputRef.current?.blur();
+            }
+          }}
+          className={`flex-1 bg-transparent px-4 py-3.5 outline-none rounded-l-xl placeholder:text-dimmed
+            ${selectedDate ? 'text-foreground' : 'text-foreground'}`}
+        />
+        <button
+          type="button"
+          aria-label="Open calendar"
+          onClick={() => { setIsOpen(o => !o); setViewMode('calendar'); }}
+          className="px-3 py-3.5 text-muted hover:text-blue-400 transition-colors rounded-r-xl"
+        >
+          <Calendar size={16} className={isOpen ? 'text-blue-400' : ''} />
+        </button>
+      </div>
 
       <AnimatePresence>
         {isOpen && (
