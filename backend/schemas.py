@@ -27,6 +27,10 @@ class Team(TeamCreate):
         orm_mode = True
 
 class PlayerCreate(BaseModel):
+    # Optional client-supplied UUID. Lets the frontend pre-generate the id so
+    # an optimistic insert can use the same id the server ends up persisting,
+    # avoiding a row-key flicker when the response arrives.
+    id: Optional[str] = None
     first_name: str
     last_name: str
     date_of_birth: str

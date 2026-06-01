@@ -20,10 +20,13 @@ export const PlayerService = {
   },
 
   /**
-   * Creates a new player.
+   * Creates a new player. Accepts an optional `id` so callers can pre-mint
+   * a UUID for optimistic UI — the server will honor it if provided.
    */
-  async create(player: Omit<Player, 'id'>, teamId?: string, seasonId?: string): Promise<Player> {
+  async create(player: Player | Omit<Player, 'id'>, teamId?: string, seasonId?: string): Promise<Player> {
     const payload = mapPlayerToApi(player as Player) as any;
+    const presetId = (player as Player).id;
+    if (presetId) payload.id = presetId;
     if (teamId) payload.team_id = teamId;
     if (seasonId) payload.season_id = seasonId;
     const data = await apiClient.post<any>('/players', payload);

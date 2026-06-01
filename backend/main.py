@@ -876,7 +876,11 @@ def update_performance(id: str, item: schemas.PerformanceUpdate, db: Session = D
 
 @app.post("/players")
 def create_player(item: schemas.PlayerCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    # Strip empty client-supplied id so SQLAlchemy falls back to the default
+    # generator if the frontend didn't pre-mint one.
     data = item.dict(exclude={"team_id", "season_id"})
+    if not data.get("id"):
+        data.pop("id", None)
     db_item = models.Player(**data, coach_id=current_user.id)
     
     if item.team_id:

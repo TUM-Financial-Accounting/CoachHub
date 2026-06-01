@@ -18,6 +18,7 @@ import { Player, Team } from '../types/models';
 import { PlayerService, TrainingService } from '../services';
 import { useTeam } from '../contexts/TeamContext';
 import { useSeason } from '../contexts/SeasonContext';
+import { uuid } from '../lib/uuid';
 
 export default function TeamManagement() {
     const { activeTeam, teams } = useTeam();
@@ -129,38 +130,32 @@ export default function TeamManagement() {
             }
         }
 
-        // OPTIMISTIC UI: drop the new/edited player into the list right away
-        // and close the modal immediately, so the create feels instant even
-        // when Railway is cold-starting (1-3s round-trip). The API call runs
-        // in the background; we reconcile (or roll back) once it returns.
-        const tempId = isEditMode ? formData.id : `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        // OPTIMISTIC UI with a client-minted UUID. The frontend picks the id
+        // up front and sends it to the server; the server uses the same id,
+        // so the row React renders never has its key change. No flicker, no
+        // post-success re-render — just a clean roll-back if it fails.
+        const finalId = isEditMode ? formData.id : uuid();
         const optimisticPlayer: Player = {
             ...formData,
-            id: tempId,
+            id: finalId,
             teams: isEditMode
                 ? (formData.teams || [])
                 : (activeTeam ? [activeTeam] : (formData.teams || [])),
         };
         const playersBefore = players;
         if (isEditMode) {
-            setPlayers(prev => prev.map(p => p.id === tempId ? optimisticPlayer : p));
+            setPlayers(prev => prev.map(p => p.id === finalId ? optimisticPlayer : p));
         } else {
             setPlayers(prev => [...prev, optimisticPlayer]);
         }
         setShowPlayerModal(false);
 
         try {
-            const saved = isEditMode
-                ? await PlayerService.update(formData.id, formData)
-                : await PlayerService.create(formData, activeTeam?.id, activeSeason?.id);
-
-            // Reconcile: swap the temp id for the canonical server id and
-            // pick up the teams join the server populated (if any).
-            setPlayers(prev => prev.map(p => p.id === tempId ? {
-                ...optimisticPlayer,
-                id: saved.id,
-                teams: saved.teams && saved.teams.length > 0 ? saved.teams : optimisticPlayer.teams,
-            } : p));
+            if (isEditMode) {
+                await PlayerService.update(formData.id, formData);
+            } else {
+                await PlayerService.create({ ...formData, id: finalId }, activeTeam?.id, activeSeason?.id);
+            }
             toast.success("Player saved!");
         } catch (error) {
             // Roll back the optimistic insert/edit.
@@ -185,23 +180,18 @@ export default function TeamManagement() {
 
     const handleCreateNewAnyway = async () => {
         setDuplicatePlayer(null);
-        // Same optimistic flow as handleSave for the "create anyway" branch.
-        const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        // Same client-minted UUID flow as handleSave.
+        const finalId = uuid();
         const optimisticPlayer: Player = {
             ...formData,
-            id: tempId,
+            id: finalId,
             teams: activeTeam ? [activeTeam] : (formData.teams || []),
         };
         const playersBefore = players;
         setPlayers(prev => [...prev, optimisticPlayer]);
         setShowPlayerModal(false);
         try {
-            const saved = await PlayerService.create(formData, activeTeam?.id, activeSeason?.id);
-            setPlayers(prev => prev.map(p => p.id === tempId ? {
-                ...optimisticPlayer,
-                id: saved.id,
-                teams: saved.teams && saved.teams.length > 0 ? saved.teams : optimisticPlayer.teams,
-            } : p));
+            await PlayerService.create({ ...formData, id: finalId }, activeTeam?.id, activeSeason?.id);
             toast.success("New player created!");
         } catch (error) {
             setPlayers(playersBefore);
