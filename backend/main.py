@@ -1056,10 +1056,33 @@ def create_player(item: schemas.PlayerCreate, db: Session = Depends(database.get
 def update_player(id: str, item: schemas.PlayerCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
     db_item = db.query(models.Player).filter(models.Player.id == id).first()
     if not db_item: raise HTTPException(status_code=404)
-    
-    for key, value in item.dict().items():
-        setattr(db_item, key, value)
-    
+
+    # Explicit per-field assignment, matching the pattern used by the other
+    # update endpoints. We deliberately do NOT touch `id`, `team_id`, or
+    # `season_id` here — those are managed via the URL path and the
+    # dedicated team-assignment endpoints. Any new fields added to the
+    # schema must be wired in here as well; the previous setattr-loop
+    # version silently picked them up, including the optional `id` that
+    # exists for client-minted UUIDs on create, which nulled the primary
+    # key on every update.
+    db_item.first_name = item.first_name
+    db_item.last_name = item.last_name
+    db_item.date_of_birth = item.date_of_birth
+    db_item.position = item.position
+    db_item.jersey_number = item.jersey_number
+    db_item.status = item.status
+    db_item.player_phone = item.player_phone
+    db_item.image_url = item.image_url
+    db_item.height = item.height
+    db_item.weight = item.weight
+    db_item.clothing_size = item.clothing_size
+    db_item.strong_foot = item.strong_foot
+    db_item.mother_name = item.mother_name
+    db_item.mother_phone = item.mother_phone
+    db_item.father_name = item.father_name
+    db_item.father_phone = item.father_phone
+    db_item.attendance = item.attendance
+
     db.commit()
     db.refresh(db_item)
     return db_item
