@@ -76,11 +76,20 @@ export default function VisionLibrary() {
 
     const handleDelete = async (id: string) => {
         if (!confirm("Are you sure you want to delete this version?")) return;
+        // Optimistic delete: remove locally instead of refetching the list.
+        const visionsBefore = visions;
+        const selectedBefore = selectedVisionId;
+        setVisions(prev => {
+            const next = prev.filter(v => v.id !== id);
+            if (selectedVisionId === id) setSelectedVisionId(next[0]?.id ?? null);
+            return next;
+        });
+        toast.success("Version deleted");
         try {
             await apiClient.delete(`/visions/${id}`);
-            toast.success("Version deleted");
-            fetchVisions();
         } catch (err) {
+            setVisions(visionsBefore);
+            setSelectedVisionId(selectedBefore);
             toast.error("Delete failed");
         }
     };

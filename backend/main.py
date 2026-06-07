@@ -546,14 +546,17 @@ def get_tactics(db: Session = Depends(database.get_db), current_user: models.Use
 
 @app.post("/tactics")
 def create_tactic(item: schemas.TacticCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
-    db_item = models.Tactic(
-        name=item.name, 
-        formation=item.formation, 
+    fields = dict(
+        name=item.name,
+        formation=item.formation,
         description=item.description,
         diagram_url=item.diagram_url,
         suggested_drills=item.suggested_drills,
-        coach_id=current_user.id
+        coach_id=current_user.id,
     )
+    if item.id:
+        fields["id"] = item.id
+    db_item = models.Tactic(**fields)
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
@@ -702,14 +705,51 @@ def create_session(item: schemas.TrainingSessionCreate, db: Session = Depends(da
     return db_item
 
 @app.put("/training_sessions/{id}")
-def update_session(id: str, item: schemas.TrainingSessionCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+def update_session(
+    id: str,
+    item: schemas.TrainingSessionCreate,
+    scope: str = "this",  # "this" | "future"
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     db_item = db.query(models.TrainingSession).filter(models.TrainingSession.id == id).first()
     if not db_item: raise HTTPException(status_code=404, detail="Session not found")
-    
-    # Parse date again
+
     import datetime
     date_obj = datetime.datetime.strptime(item.date, "%Y-%m-%d").date()
 
+    if scope == "future" and db_item.series_id:
+        # Propagate the editable fields to every unmodified future occurrence
+        # (and to the series template so further "edit future" calls reuse the
+        # new values). Date / weekday changes never apply here — the recurrence
+        # pattern is what makes them future occurrences in the first place.
+        series = db.query(models.TrainingSeries).filter(models.TrainingSeries.id == db_item.series_id).first()
+        if series:
+            series.start_time = item.start_time
+            series.end_time = item.end_time
+            series.focus = item.focus
+            series.intensity = item.intensity
+            series.selected_players = item.selected_players
+            series.selected_exercises = item.selected_exercises
+
+        future_rows = db.query(models.TrainingSession).filter(
+            models.TrainingSession.series_id == db_item.series_id,
+            models.TrainingSession.date >= db_item.date,
+            models.TrainingSession.is_modified == False,
+        ).all()
+        for row in future_rows:
+            row.start_time = item.start_time
+            row.end_time = item.end_time
+            row.focus = item.focus
+            row.intensity = item.intensity
+            row.selected_players = item.selected_players
+            row.selected_exercises = item.selected_exercises
+        db.commit()
+        db.refresh(db_item)
+        return db_item
+
+    # Default "this only" — full edit on the single row, mark as detached
+    # from series-wide propagation if it belongs to one.
     db_item.date = date_obj
     db_item.start_time = item.start_time
     db_item.end_time = item.end_time
@@ -717,18 +757,125 @@ def update_session(id: str, item: schemas.TrainingSessionCreate, db: Session = D
     db_item.intensity = item.intensity
     db_item.selected_players = item.selected_players
     db_item.selected_exercises = item.selected_exercises
-    
+    if db_item.series_id:
+        db_item.is_modified = True
+
     db.commit()
     db.refresh(db_item)
     return db_item
 
 @app.delete("/training_sessions/{id}")
-def delete_session(id: str, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+def delete_session(
+    id: str,
+    scope: str = "this",  # "this" | "future"
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     db_item = db.query(models.TrainingSession).filter(models.TrainingSession.id == id).first()
     if not db_item: raise HTTPException(status_code=404)
+
+    if scope == "future" and db_item.series_id:
+        future_rows = db.query(models.TrainingSession).filter(
+            models.TrainingSession.series_id == db_item.series_id,
+            models.TrainingSession.date >= db_item.date,
+        ).all()
+        series = db.query(models.TrainingSeries).filter(models.TrainingSeries.id == db_item.series_id).first()
+        for row in future_rows:
+            db.delete(row)
+        # Trim the series end so a subsequent rematerialise wouldn't recreate
+        # the deleted dates. If we deleted from the very first occurrence,
+        # drop the series entirely.
+        if series:
+            import datetime
+            previous_day = db_item.date - datetime.timedelta(days=1)
+            if previous_day < series.series_start_date:
+                db.delete(series)
+            else:
+                series.series_end_date = previous_day
+        db.commit()
+        return {"message": "Future occurrences deleted"}
+
     db.delete(db_item)
     db.commit()
     return {"message": "Deleted"}
+
+
+# ==========================
+#  TRAINING SERIES (recurring)
+# ==========================
+
+@app.post("/training_series")
+def create_training_series(
+    item: schemas.TrainingSeriesCreate,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    import datetime
+    start_date = datetime.datetime.strptime(item.series_start_date, "%Y-%m-%d").date()
+    end_date = datetime.datetime.strptime(item.series_end_date, "%Y-%m-%d").date()
+    if end_date < start_date:
+        raise HTTPException(status_code=400, detail="series_end_date is before series_start_date")
+    if not (0 <= item.day_of_week <= 6):
+        raise HTTPException(status_code=400, detail="day_of_week must be 0..6 (Mon..Sun)")
+
+    series = models.TrainingSeries(
+        coach_id=current_user.id,
+        team_id=item.team_id,
+        season_id=item.season_id,
+        day_of_week=item.day_of_week,
+        series_start_date=start_date,
+        series_end_date=end_date,
+        start_time=item.start_time,
+        end_time=item.end_time,
+        focus=item.focus,
+        intensity=item.intensity,
+        selected_players=item.selected_players,
+        selected_exercises=item.selected_exercises,
+    )
+    db.add(series)
+    db.flush()  # populate series.id without committing yet
+
+    # Find the first occurrence on/after series_start_date matching day_of_week
+    offset = (item.day_of_week - start_date.weekday()) % 7
+    occurrence = start_date + datetime.timedelta(days=offset)
+
+    # Hard cap to prevent runaway series creation.
+    MAX_OCCURRENCES = 200
+    created = 0
+    while occurrence <= end_date and created < MAX_OCCURRENCES:
+        db.add(models.TrainingSession(
+            team_id=item.team_id,
+            season_id=item.season_id,
+            date=occurrence,
+            start_time=item.start_time,
+            end_time=item.end_time,
+            focus=item.focus,
+            intensity=item.intensity,
+            selected_players=item.selected_players,
+            selected_exercises=item.selected_exercises,
+            series_id=series.id,
+            is_modified=False,
+        ))
+        occurrence += datetime.timedelta(days=7)
+        created += 1
+
+    db.commit()
+    db.refresh(series)
+    return {"series": series, "occurrences_created": created}
+
+
+@app.delete("/training_series/{id}")
+def delete_training_series(
+    id: str,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    series = db.query(models.TrainingSeries).filter(models.TrainingSeries.id == id).first()
+    if not series: raise HTTPException(status_code=404)
+    db.query(models.TrainingSession).filter(models.TrainingSession.series_id == id).delete()
+    db.delete(series)
+    db.commit()
+    return {"message": "Series deleted"}
 
 # ==========================
 #    PLAYERS (Helper)

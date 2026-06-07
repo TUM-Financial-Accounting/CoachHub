@@ -200,11 +200,15 @@ export default function TeamManagement() {
     };
 
     const handleDelete = async (id: string) => {
+        // Optimistic: drop the player from the list now, restore if the API
+        // call fails. Coaches expect the trash-icon click to feel instant.
+        const playersBefore = players;
+        setPlayers(prev => prev.filter(p => p.id !== id));
+        toast.success('Player profile deleted globally');
         try {
             await PlayerService.delete(id);
-            setPlayers(prev => prev.filter(p => p.id !== id));
-            toast.success('Player profile deleted globally');
         } catch (e) {
+            setPlayers(playersBefore);
             toast.error("Failed to delete profile");
         }
     };
@@ -212,18 +216,20 @@ export default function TeamManagement() {
     const handleRemoveFromTeam = async (playerId: string, teamId?: string) => {
         const targetTeamId = teamId || activeTeam?.id;
         if (!targetTeamId) return;
+        // Optimistic: update local state immediately, roll back on error.
+        const playersBefore = players;
+        setPlayers(prev => prev.map(p => {
+            if (p.id === playerId) {
+                return { ...p, teams: p.teams?.filter(t => t.id !== targetTeamId) || [] };
+            }
+            return p;
+        }).filter(p => (viewMode === 'squad' && targetTeamId === activeTeam?.id) ? p.id !== playerId : true));
+        toast.success('Player removed from squad');
         try {
             await PlayerService.removeFromTeam(playerId, targetTeamId, activeSeason?.id);
-            setPlayers(prev => prev.map(p => {
-                if (p.id === playerId) {
-                    return { ...p, teams: p.teams?.filter(t => t.id !== targetTeamId) || [] };
-                }
-                return p;
-            }).filter(p => (viewMode === 'squad' && targetTeamId === activeTeam?.id) ? p.id !== playerId : true));
-            toast.success('Player removed from squad');
         } catch (e) {
+            setPlayers(playersBefore);
             toast.error("Failed to remove from squad");
-            refreshData();
         }
     };
 
@@ -276,7 +282,7 @@ export default function TeamManagement() {
     const openCreate = () => {
         setEditingId(null);
         setImagePreview('');
-        setFormData({ id: '', firstName: '', lastName: '', dateOfBirth: '', position: 'Forward', jerseyNumber: 0, status: 'Active', playerPhone: '', height: 0, weight: 0, motherName: '', motherPhone: '', fatherName: '', fatherPhone: '', imageUrl: '', attendance: 0, performance: 0 });
+        setFormData({ id: '', firstName: '', lastName: '', dateOfBirth: '', position: 'Forward', jerseyNumber: 0, status: 'Active', playerPhone: '', height: 0, weight: 0, clothingSize: '', strongFoot: '', motherName: '', motherPhone: '', fatherName: '', fatherPhone: '', imageUrl: '', attendance: 0, performance: 0 });
         setWeightInput('');
         setShowPlayerModal(true);
     };
@@ -604,6 +610,8 @@ export default function TeamManagement() {
                                     const numeric = raw === '' || raw === '.' ? 0 : (parseFloat(raw) || 0);
                                     setFormData({ ...formData, weight: numeric });
                                 }} />
+                                <Input label="Clothing Size" value={formData.clothingSize} onChange={e => setFormData({ ...formData, clothingSize: e.target.value })} placeholder="e.g. M or 152" />
+                                <Select label="Strong Foot" value={formData.strongFoot || ''} onChange={(value) => setFormData({ ...formData, strongFoot: value as string })} options={[{ label: '—', value: '' }, { label: 'Right', value: 'Right' }, { label: 'Left', value: 'Left' }, { label: 'Both', value: 'Both' }]} />
                             </div>
                         </div>
 

@@ -141,12 +141,19 @@ export default function ExercisesLibrary() {
     };
 
     const handleDeleteExercise = async (id: string) => {
+        // Optimistic delete: remove from state immediately, restore on failure.
+        const exercisesBefore = exercises;
+        const selectedBefore = selectedExercise;
+        setExercises(prev => prev.filter(ex => ex.id !== id));
+        setSelectedExercise(null);
+        toast.success('Deleted');
         try {
             await ExerciseService.delete(id);
-            setExercises(prev => prev.filter(ex => ex.id !== id)); 
-            toast.success('Deleted'); 
-            setSelectedExercise(null); 
-        } catch (e) { toast.error('Connection failed'); }
+        } catch (e) {
+            setExercises(exercisesBefore);
+            setSelectedExercise(selectedBefore);
+            toast.error('Connection failed');
+        }
     };
 
     // --- UI Helpers ---

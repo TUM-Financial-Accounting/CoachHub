@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Edit2, Trash2, Phone, Calendar, Ruler, Weight, Shield, Hash, User, TrendingUp, Clock, Activity } from 'lucide-react';
+import { X, Edit2, Trash2, Phone, Calendar, Ruler, Weight, Shield, Hash, User, TrendingUp, Clock, Activity, Shirt, Footprints } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { formatDate } from '../lib/utils';
 import { TrainingSession } from '../types/models';
@@ -197,6 +197,8 @@ export default function PlayerSlideOver({ player, computedAttendance, onClose, o
                                         { icon: <Ruler size={13} />, label: 'Height', value: player.height ? `${player.height} cm` : '—' },
                                         { icon: <Weight size={13} />, label: 'Weight', value: player.weight ? `${player.weight} kg` : '—' },
                                         { icon: <Hash size={13} />, label: 'Jersey', value: player.jerseyNumber ? `#${player.jerseyNumber}` : '—' },
+                                        { icon: <Shirt size={13} />, label: 'Clothing Size', value: player.clothingSize || '—' },
+                                        { icon: <Footprints size={13} />, label: 'Strong Foot', value: player.strongFoot || '—' },
                                     ].map(item => (
                                         <div key={item.label} className="bg-surface-hover border border-border rounded-xl px-3 py-2.5">
                                             <div className="flex items-center gap-1.5 text-dimmed text-[10px] font-semibold uppercase tracking-wider mb-1">

@@ -161,15 +161,22 @@ export default function PrinciplesLibrary() {
   };
 
   const handleDelete = async (id: string) => {
+    // Optimistic delete with rollback snapshot.
+    const principlesBefore = principles;
+    const selectedBefore = selectedId;
+    setPrinciples(prev => {
+      const next = prev.filter(p => p.id !== id);
+      if (selectedId === id) setSelectedId(next[0]?.id ?? null);
+      return next;
+    });
+    toast.success('Deleted');
     try {
       await LibraryService.deletePrinciple(id);
-      setPrinciples(prev => {
-        const next = prev.filter(p => p.id !== id);
-        if (selectedId === id) setSelectedId(next[0]?.id ?? null);
-        return next;
-      });
-      toast.success('Deleted');
-    } catch { toast.error('Failed to delete'); }
+    } catch {
+      setPrinciples(principlesBefore);
+      setSelectedId(selectedBefore);
+      toast.error('Failed to delete');
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

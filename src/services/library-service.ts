@@ -54,7 +54,9 @@ export const LibraryService = {
     const data = await apiClient.get<any[]>('/tactics');
     return data.map(mapTacticFromApi);
   },
-  async createTactic(tactic: Omit<Tactic, 'id' | 'isCustom'>): Promise<Tactic> {
+  async createTactic(tactic: Omit<Tactic, 'isCustom'>): Promise<Tactic> {
+    // Accepts an optional `id`; the backend will honor it. Enables optimistic
+    // UI with no row-key flicker after the server responds.
     const payload = mapTacticToApi(tactic as Tactic);
     const data = await apiClient.post<any>('/tactics', payload);
     return mapTacticFromApi(data);

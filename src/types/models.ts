@@ -18,6 +18,8 @@ export interface Player {
   playerPhone: string;
   height: number;
   weight: number;
+  clothingSize: string;
+  strongFoot: string;
   motherName: string;
   motherPhone: string;
   fatherName: string;
@@ -39,6 +41,10 @@ export interface TrainingSession {
   selectedExercises: string;
   season_id?: string;
   team_id?: string;
+  // Set when this session was materialised from a recurring series. UI uses
+  // these to show a "series" badge and to offer the scope dialog on edit/delete.
+  seriesId?: string | null;
+  isModified?: boolean;
 }
 
 export interface Match {

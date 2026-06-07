@@ -63,6 +63,8 @@ class Player(Base):
     # Physical
     height = Column(Integer, default=0)
     weight = Column(Float, default=0)
+    clothing_size = Column(String, nullable=True)  # free text: XS/S/M/L/XL/XXL or kid sizes
+    strong_foot = Column(String, nullable=True)    # 'Left' | 'Right' | 'Both'
     
     # Parents
     mother_name = Column(String, nullable=True)
@@ -137,13 +139,43 @@ class TrainingSession(Base):
     team_id = Column(String, ForeignKey("teams.id"), nullable=True)
     season_id = Column(String, ForeignKey("seasons.id"), nullable=True)
     date = Column(Date)
-    start_time = Column(String) 
-    end_time = Column(String)   
+    start_time = Column(String)
+    end_time = Column(String)
     focus = Column(String)
     intensity = Column(String)
-    
-    selected_players = Column(Text)   
-    selected_exercises = Column(Text)    
+
+    selected_players = Column(Text)
+    selected_exercises = Column(Text)
+
+    # Recurring-series link. NULL for one-off sessions. When the user edits an
+    # occurrence with scope="this only" we flip is_modified so subsequent
+    # "edit this and future" changes skip over the customised row.
+    series_id = Column(String, ForeignKey("training_series.id"), nullable=True)
+    is_modified = Column(Boolean, default=False)
+
+
+class TrainingSeries(Base):
+    __tablename__ = "training_series"
+    id = Column(String, primary_key=True, default=generate_uuid)
+    coach_id = Column(String, ForeignKey("users.id"), nullable=True)
+    team_id = Column(String, ForeignKey("teams.id"), nullable=True)
+    season_id = Column(String, ForeignKey("seasons.id"), nullable=True)
+
+    # Recurrence pattern. Currently we only support "every <day_of_week>
+    # between series_start_date and series_end_date." Stored alongside the
+    # template fields below so a future "edit this and all future" can
+    # propagate the new template to remaining unmodified occurrences.
+    day_of_week = Column(Integer)  # 0 = Monday … 6 = Sunday, matches python's date.weekday()
+    series_start_date = Column(Date)
+    series_end_date = Column(Date)
+
+    start_time = Column(String)
+    end_time = Column(String)
+    focus = Column(String)
+    intensity = Column(String)
+    selected_players = Column(Text)
+    selected_exercises = Column(Text)
+
 
 class Match(Base):
     __tablename__ = "matches"

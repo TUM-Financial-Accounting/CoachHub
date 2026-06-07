@@ -90,15 +90,22 @@ export default function BasicsLibrary() {
   };
 
   const handleDelete = async (id: string) => {
+    // Optimistic delete with rollback snapshot.
+    const basicsBefore = basics;
+    const selectedBefore = selectedId;
+    setBasics(prev => {
+      const next = prev.filter(b => b.id !== id);
+      if (selectedId === id) setSelectedId(next[0]?.id ?? null);
+      return next;
+    });
+    toast.success('Deleted');
     try {
       await LibraryService.deleteBasic(id);
-      setBasics(prev => {
-        const next = prev.filter(b => b.id !== id);
-        if (selectedId === id) setSelectedId(next[0]?.id ?? null);
-        return next;
-      });
-      toast.success('Deleted');
-    } catch { toast.error('Failed to delete'); }
+    } catch {
+      setBasics(basicsBefore);
+      setSelectedId(selectedBefore);
+      toast.error('Failed to delete');
+    }
   };
 
   // --- File Upload Logic ---

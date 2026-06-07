@@ -18,6 +18,8 @@ export const mapPlayerFromApi = (p: any): Player => ({
   playerPhone: p.player_phone || '',
   height: p.height || 0,
   weight: p.weight || 0,
+  clothingSize: p.clothing_size || '',
+  strongFoot: p.strong_foot || '',
   motherName: p.mother_name || '',
   motherPhone: p.mother_phone || '',
   fatherName: p.father_name || '',
@@ -43,6 +45,8 @@ export const mapSessionFromApi = (s: any): TrainingSession => ({
   intensity: s.intensity || 'Medium',
   selectedPlayers: s.selected_players || '',
   selectedExercises: s.selected_exercises || '',
+  seriesId: s.series_id || null,
+  isModified: !!s.is_modified,
 });
 
 /**
@@ -169,6 +173,8 @@ export const mapPlayerToApi = (p: Player) => ({
   player_phone: p.playerPhone,
   height: p.height,
   weight: p.weight,
+  clothing_size: p.clothingSize,
+  strong_foot: p.strongFoot,
   mother_name: p.motherName,
   mother_phone: p.motherPhone,
   father_name: p.fatherName,
@@ -212,14 +218,19 @@ export const mapPrincipleToApi = (p: Principle) => ({
 });
 
 /**
- * Maps a clean Tactic model back to the snake_case format.
+ * Maps a clean Tactic model back to the snake_case format. `id` is forwarded
+ * if present so the backend can honor a client-minted UUID.
  */
-export const mapTacticToApi = (t: Tactic) => ({
-  name: t.name,
-  formation: t.formation,
-  description: t.description,
-  suggested_drills: t.suggestedDrills,
-});
+export const mapTacticToApi = (t: Tactic) => {
+  const out: any = {
+    name: t.name,
+    formation: t.formation,
+    description: t.description,
+    suggested_drills: t.suggestedDrills,
+  };
+  if (t.id) out.id = t.id;
+  return out;
+};
 
 /**
  * Maps a clean Match model back to the snake_case format.

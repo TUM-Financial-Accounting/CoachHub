@@ -13,6 +13,7 @@ import CustomFormationModal from "./CustomFormationModal";
 
 import { Tactic, CustomFormation } from '../types/models';
 import { LibraryService, FormationService } from '../services';
+import { uuid } from '../lib/uuid';
 
 const ALL_FORMATIONS = ['4-4-2','4-3-3','4-2-3-1','4-3-2-1','4-1-4-1','4-1-2-1-2','4-4-2 DM','3-5-2','3-4-3','3-4-1-2','5-3-2','5-4-1'];
 
@@ -51,42 +52,59 @@ export default function TacticsLibrary() {
 
   const handleSave = async () => {
     if (!formData.name) return toast.error('Name required');
+    // Optimistic save. Client mints the id for new tactics so the row React
+    // renders never has its key change after the server responds.
+    const finalId = isEditing && formData.id ? formData.id : uuid();
+    const tacticToSave: Tactic = {
+      id: finalId,
+      name: formData.name,
+      formation: formData.formation,
+      description: formData.description,
+      suggestedDrills: formData.suggestedDrills,
+      isCustom: true,
+    };
+
+    const tacticsBefore = tactics;
+    const selectedBefore = selectedId;
+    if (isEditing && formData.id) {
+      setTactics(prev => prev.map(t => t.id === finalId ? tacticToSave : t));
+    } else {
+      setTactics(prev => [...prev, tacticToSave]);
+      setSelectedId(finalId);
+    }
+    toast.success(isEditing ? 'Updated!' : 'Created!');
+    closeModal();
+
     try {
-      const tacticToSave: Tactic = {
-        id: formData.id,
-        name: formData.name,
-        formation: formData.formation,
-        description: formData.description,
-        suggestedDrills: formData.suggestedDrills,
-        isCustom: true
-      };
-      
-      let saved: Tactic;
       if (isEditing && formData.id) {
-        saved = await LibraryService.updateTactic(formData.id, tacticToSave);
-        setTactics(prev => prev.map(t => t.id === saved.id ? saved : t));
+        await LibraryService.updateTactic(formData.id, tacticToSave);
       } else {
-        saved = await LibraryService.createTactic(tacticToSave);
-        setTactics(prev => [...prev, saved]);
-        setSelectedId(saved.id);
+        await LibraryService.createTactic(tacticToSave);
       }
-      toast.success(isEditing ? 'Updated!' : 'Created!');
-      closeModal();
-    } catch { 
-      toast.error('Failed to save'); 
+    } catch {
+      setTactics(tacticsBefore);
+      setSelectedId(selectedBefore);
+      toast.error('Failed to save');
     }
   };
 
   const handleDelete = async (id: string) => {
+    // Optimistic delete. Restore the snapshot if the API call fails.
+    const tacticsBefore = tactics;
+    const selectedBefore = selectedId;
+    setTactics(prev => {
+      const next = prev.filter(t => t.id !== id);
+      if (selectedId === id) setSelectedId(next[0]?.id ?? null);
+      return next;
+    });
+    toast.success('Deleted');
     try {
       await LibraryService.deleteTactic(id);
-      setTactics(prev => {
-        const next = prev.filter(t => t.id !== id);
-        if (selectedId === id) setSelectedId(next[0]?.id ?? null);
-        return next;
-      });
-      toast.success('Deleted');
-    } catch { toast.error('Failed to delete'); }
+    } catch {
+      setTactics(tacticsBefore);
+      setSelectedId(selectedBefore);
+      toast.error('Failed to delete');
+    }
   };
 
   const closeModal = () => { setShowCreateModal(false); setIsEditing(false); setFormData({ id: '', name: '', formation: '4-3-3', description: '', suggestedDrills: '' }); };

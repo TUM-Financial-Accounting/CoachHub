@@ -43,6 +43,8 @@ class PlayerCreate(BaseModel):
     image_url: Optional[str] = ""
     height: int = 0
     weight: float = 0
+    clothing_size: Optional[str] = ""
+    strong_foot: Optional[str] = ""
     mother_name: Optional[str] = ""
     mother_phone: Optional[str] = ""
     father_name: Optional[str] = ""
@@ -83,6 +85,9 @@ class Principle(PrincipleCreate):
         orm_mode = True
 
 class TacticCreate(BaseModel):
+    # Optional client-supplied UUID so the frontend can do optimistic inserts
+    # without a row-key flicker when the server response arrives.
+    id: Optional[str] = None
     name: str
     formation: str
     description: str
@@ -131,6 +136,28 @@ class TrainingSessionCreate(BaseModel):
     selected_exercises: str # stored as comma-separated string
 
 class TrainingSession(TrainingSessionCreate):
+    id: str
+    series_id: Optional[str] = None
+    is_modified: Optional[bool] = False
+    class Config:
+        orm_mode = True
+
+
+# Recurring session series. Materialises into N TrainingSession rows on create.
+class TrainingSeriesCreate(BaseModel):
+    team_id: Optional[str] = None
+    season_id: Optional[str] = None
+    day_of_week: int               # 0 = Monday … 6 = Sunday
+    series_start_date: str         # YYYY-MM-DD
+    series_end_date: str           # YYYY-MM-DD
+    start_time: str
+    end_time: str
+    focus: str
+    intensity: str
+    selected_players: str
+    selected_exercises: str
+
+class TrainingSeries(TrainingSeriesCreate):
     id: str
     class Config:
         orm_mode = True

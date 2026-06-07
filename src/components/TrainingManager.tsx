@@ -39,13 +39,26 @@ export default function TrainingManager() {
         focus: '',
         intensity: 'Medium',
         selectedPlayerIds: [] as string[],
-        selectedExerciseIds: [] as string[]
+        selectedExerciseIds: [] as string[],
+        // Recurring series fields. Only used when creating (never when
+        // editing an existing occurrence) — once a series exists, edits go
+        // through the per-occurrence flow with a scope dialog.
+        isRecurring: false,
+        recurrenceEndDate: '',
     });
 
     const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
     const [activeIntensity, setActiveIntensity] = useState<string>('All');
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
     const [selectedSession, setSelectedSession] = useState<TrainingSession | null>(null);
+    // When editing a session that belongs to a recurring series, the user
+    // picks whether their changes apply only to this occurrence or to this
+    // and every future unmodified occurrence. Defaults to "this" so the
+    // safe behaviour is to scope changes narrowly.
+    const [editScope, setEditScope] = useState<'this' | 'future'>('this');
+    // Holds the session targeted for deletion when we need a scope picker
+    // (i.e. the session belongs to a series).
+    const [scopeDeleteSession, setScopeDeleteSession] = useState<TrainingSession | null>(null);
 
     // --- 1. LOAD DATA ---
     useEffect(() => {
@@ -79,7 +92,49 @@ export default function TrainingManager() {
 
     const handleSave = async () => {
         if (!formData.focus) return toast.error("Focus is required");
-        
+
+        // Recurring branch: create a series, then reload sessions so the
+        // newly materialised occurrences show up in the list.
+        if (!isEditing && formData.isRecurring) {
+            if (!formData.recurrenceEndDate) {
+                return toast.error('Pick a "Repeat until" date');
+            }
+            if (formData.recurrenceEndDate < formData.date) {
+                return toast.error('"Repeat until" must be on or after the start date');
+            }
+            // Day-of-week from the first occurrence. JS Sunday=0 → convert
+            // to Python convention (Monday=0).
+            const startDate = new Date(formData.date + 'T12:00:00');
+            const jsDay = startDate.getDay();              // 0..6, Sun..Sat
+            const pyDay = (jsDay + 6) % 7;                 // 0..6, Mon..Sun
+            try {
+                await TrainingService.createSeries({
+                    teamId: activeTeam?.id,
+                    seasonId: activeSeason?.id,
+                    dayOfWeek: pyDay,
+                    seriesStartDate: formData.date,
+                    seriesEndDate: formData.recurrenceEndDate,
+                    startTime: formData.startTime,
+                    endTime: formData.endTime,
+                    focus: formData.focus,
+                    intensity: formData.intensity,
+                    selectedPlayers: formData.selectedPlayerIds.join(','),
+                    selectedExercises: formData.selectedExerciseIds.join(','),
+                });
+                // Refetch the session list so every materialised occurrence
+                // shows up. (We don't have the inserted rows in the response.)
+                if (activeTeam && activeSeason) {
+                    const fresh = await TrainingService.getAll(activeTeam.id, activeSeason.id);
+                    setSessions(fresh);
+                }
+                toast.success("Recurring series created");
+                closeModal();
+            } catch {
+                toast.error("Failed to create series");
+            }
+            return;
+        }
+
         const sessionToSave: TrainingSession = {
             id: editingId || '',
             date: formData.date,
@@ -88,15 +143,23 @@ export default function TrainingManager() {
             focus: formData.focus,
             intensity: formData.intensity,
             selectedPlayers: formData.selectedPlayerIds.join(','),
-            selectedExercises: formData.selectedExerciseIds.join(',')
+            selectedExercises: formData.selectedExerciseIds.join(','),
         };
 
         try {
             let saved: TrainingSession;
             if (isEditing && editingId) {
-                saved = await TrainingService.update(editingId, sessionToSave);
-                setSessions(prev => prev.map(s => s.id === saved.id ? saved : s));
-                toast.success("Session Updated");
+                saved = await TrainingService.update(editingId, sessionToSave, editScope);
+                if (editScope === 'future' && saved.seriesId) {
+                    // Refetch so every updated future occurrence shows the new values.
+                    if (activeTeam && activeSeason) {
+                        const fresh = await TrainingService.getAll(activeTeam.id, activeSeason.id);
+                        setSessions(fresh);
+                    }
+                } else {
+                    setSessions(prev => prev.map(s => s.id === saved.id ? saved : s));
+                }
+                toast.success(editScope === 'future' ? 'Series updated' : 'Session Updated');
             } else {
                 saved = await TrainingService.create(sessionToSave, activeTeam?.id, activeSeason?.id);
                 setSessions(prev => [...prev, saved]);
@@ -106,12 +169,26 @@ export default function TrainingManager() {
         } catch { toast.error("Connection failed"); }
     };
 
-    const handleDelete = async (id: string) => {
-        try {
-            await TrainingService.delete(id);
+    const handleDelete = async (id: string, scope: 'this' | 'future' = 'this') => {
+        const sessionsBefore = sessions;
+        const target = sessions.find(s => s.id === id);
+        // Optimistic delete. For "future" scope on a series, also prune every
+        // future occurrence of the same series client-side so the list
+        // updates instantly.
+        if (scope === 'future' && target?.seriesId) {
+            setSessions(prev => prev.filter(s =>
+                !(s.seriesId === target.seriesId && s.date >= target.date)
+            ));
+        } else {
             setSessions(prev => prev.filter(s => s.id !== id));
-            toast.success("Deleted");
-        } catch (e) { toast.error("Failed to delete"); }
+        }
+        toast.success(scope === 'future' ? 'Future occurrences deleted' : 'Deleted');
+        try {
+            await TrainingService.delete(id, scope);
+        } catch (e) {
+            setSessions(sessionsBefore);
+            toast.error("Failed to delete");
+        }
     };
 
     // --- 3. PDF EXPORT ---
@@ -214,23 +291,26 @@ export default function TrainingManager() {
     };
 
     // --- 4. UI HELPERS ---
-    const openCreate = () => { setIsEditing(false); setEditingId(null); setFormData({ date: new Date().toLocaleDateString('en-CA'), startTime: '09:00', endTime: '11:00', focus: '', intensity: 'Medium', selectedPlayerIds: allPlayers.map(p => p.id), selectedExerciseIds: [] }); setShowCreateModal(true); };
-    const openEdit = (s: TrainingSession) => { 
-        setSelectedSession(null); 
-        setIsEditing(true); 
-        setEditingId(s.id); 
-        setFormData({ 
-            date: s.date, 
-            startTime: s.startTime, 
-            endTime: s.endTime, 
-            focus: s.focus, 
-            intensity: s.intensity, 
-            selectedPlayerIds: s.selectedPlayers ? s.selectedPlayers.split(',').filter(id => id.trim() !== '') : [], 
-            selectedExerciseIds: s.selectedExercises ? s.selectedExercises.split(',').filter(id => id.trim() !== '') : [] 
-        }); 
-        setShowCreateModal(true); 
+    const openCreate = () => { setIsEditing(false); setEditingId(null); setEditScope('this'); setFormData({ date: new Date().toLocaleDateString('en-CA'), startTime: '09:00', endTime: '11:00', focus: '', intensity: 'Medium', selectedPlayerIds: allPlayers.map(p => p.id), selectedExerciseIds: [], isRecurring: false, recurrenceEndDate: '' }); setShowCreateModal(true); };
+    const openEdit = (s: TrainingSession) => {
+        setSelectedSession(null);
+        setIsEditing(true);
+        setEditingId(s.id);
+        setEditScope('this');
+        setFormData({
+            date: s.date,
+            startTime: s.startTime,
+            endTime: s.endTime,
+            focus: s.focus,
+            intensity: s.intensity,
+            selectedPlayerIds: s.selectedPlayers ? s.selectedPlayers.split(',').filter(id => id.trim() !== '') : [],
+            selectedExerciseIds: s.selectedExercises ? s.selectedExercises.split(',').filter(id => id.trim() !== '') : [],
+            isRecurring: false,
+            recurrenceEndDate: '',
+        });
+        setShowCreateModal(true);
     };
-    const closeModal = () => setShowCreateModal(false);
+    const closeModal = () => { setShowCreateModal(false); setEditScope('this'); };
     const togglePlayer = (id: string) => { setFormData(prev => { const exists = prev.selectedPlayerIds.includes(id); return { ...prev, selectedPlayerIds: exists ? prev.selectedPlayerIds.filter(pid => pid !== id) : [...prev.selectedPlayerIds, id] }; }); };
     const toggleExercise = (id: string) => { setFormData(prev => { const exists = prev.selectedExerciseIds.includes(id); return { ...prev, selectedExerciseIds: exists ? prev.selectedExerciseIds.filter(eid => eid !== id) : [...prev.selectedExerciseIds, id] }; }); };
 
@@ -373,7 +453,7 @@ export default function TrainingManager() {
                                                         <Button variant="secondary" onClick={(e) => { e.stopPropagation(); openEdit(s); }} className="p-2.5" title="Edit">
                                                             <Edit2 size={18} />
                                                         </Button>
-                                                        <Button variant="danger" onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(s.id); }} className="p-2.5" title="Delete">
+                                                        <Button variant="danger" onClick={(e) => { e.stopPropagation(); if (s.seriesId) setScopeDeleteSession(s); else setConfirmDeleteId(s.id); }} className="p-2.5" title="Delete">
                                                             <Trash2 size={18} />
                                                         </Button>
                                                     </div>
@@ -422,7 +502,7 @@ export default function TrainingManager() {
                                                 <Button variant="secondary" onClick={(e) => { e.stopPropagation(); openEdit(s); }} className="p-2.5" title="Edit">
                                                     <Edit2 size={18} />
                                                 </Button>
-                                                <Button variant="danger" onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(s.id); }} className="p-2.5" title="Delete">
+                                                <Button variant="danger" onClick={(e) => { e.stopPropagation(); if (s.seriesId) setScopeDeleteSession(s); else setConfirmDeleteId(s.id); }} className="p-2.5" title="Delete">
                                                     <Trash2 size={18} />
                                                 </Button>
                                             </div>
@@ -456,6 +536,40 @@ export default function TrainingManager() {
                 }
             >
                 <div className="space-y-8">
+                    {/* Edit scope picker — only shown for series occurrences. */}
+                    {isEditing && (() => {
+                        const target = sessions.find(s => s.id === editingId);
+                        if (!target || !target.seriesId) return null;
+                        return (
+                            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 flex flex-col md:flex-row md:items-center gap-3">
+                                <div className="text-xs font-bold text-blue-300 uppercase tracking-wider">
+                                    Apply changes to
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditScope('this')}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${editScope === 'this' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-surface-raised border-border text-muted hover:text-foreground'}`}
+                                    >
+                                        Only this event
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditScope('future')}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${editScope === 'future' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-surface-raised border-border text-muted hover:text-foreground'}`}
+                                    >
+                                        This and all future
+                                    </button>
+                                </div>
+                                {editScope === 'future' && (
+                                    <p className="text-[11px] text-muted md:ml-2">
+                                        Date can't change with this scope.
+                                    </p>
+                                )}
+                            </div>
+                        );
+                    })()}
+
                     {/* 1. Details */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
                         <div className="md:col-span-2">
@@ -492,6 +606,42 @@ export default function TrainingManager() {
                             onChange={time => setFormData({ ...formData, endTime: time })}
                         />
                     </div>
+
+                    {/* Recurring series — only on create. Editing an
+                        existing series occurrence goes through the scope
+                        dialog instead. */}
+                    {!isEditing && (
+                        <div className="bg-surface-hover/40 border border-border rounded-xl p-4 space-y-3">
+                            <label className="flex items-center gap-3 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.isRecurring}
+                                    onChange={e => setFormData({ ...formData, isRecurring: e.target.checked })}
+                                    className="w-4 h-4 accent-blue-500"
+                                />
+                                <span className="text-sm font-semibold text-foreground">
+                                    Repeat weekly
+                                </span>
+                                <span className="text-xs text-muted">
+                                    Creates a session every {(() => {
+                                        try {
+                                            const d = new Date(formData.date + 'T12:00:00');
+                                            return d.toLocaleDateString('en-US', { weekday: 'long' });
+                                        } catch { return 'week'; }
+                                    })()} until the end date.
+                                </span>
+                            </label>
+                            {formData.isRecurring && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
+                                    <DatePicker
+                                        label="Repeat until"
+                                        value={formData.recurrenceEndDate}
+                                        onChange={date => setFormData({ ...formData, recurrenceEndDate: date })}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <div className="w-full h-[1px] bg-border/50"></div>
 
@@ -585,6 +735,48 @@ export default function TrainingManager() {
                 onCancel={() => setConfirmDeleteId(null)}
             />
 
+            {/* Scope picker for deleting a session that belongs to a series. */}
+            <Modal
+                isOpen={scopeDeleteSession !== null}
+                onClose={() => setScopeDeleteSession(null)}
+                title="Delete recurring session"
+            >
+                <div className="space-y-4">
+                    <p className="text-sm text-muted">
+                        This session is part of a recurring series. What do you want to delete?
+                    </p>
+                    <div className="flex flex-col gap-2">
+                        <Button
+                            variant="secondary"
+                            onClick={() => {
+                                if (scopeDeleteSession) handleDelete(scopeDeleteSession.id, 'this');
+                                setScopeDeleteSession(null);
+                            }}
+                            className="w-full justify-start"
+                        >
+                            Only this event
+                        </Button>
+                        <Button
+                            variant="danger"
+                            onClick={() => {
+                                if (scopeDeleteSession) handleDelete(scopeDeleteSession.id, 'future');
+                                setScopeDeleteSession(null);
+                            }}
+                            className="w-full justify-start"
+                        >
+                            This and all future events
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            onClick={() => setScopeDeleteSession(null)}
+                            className="w-full justify-center"
+                        >
+                            Cancel
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+
             <SessionSlideOver
                 session={!showCreateModal ? selectedSession : null}
                 allPlayers={allPlayers}
@@ -592,7 +784,12 @@ export default function TrainingManager() {
                 isPast={selectedSession ? selectedSession.date < today : false}
                 onClose={() => setSelectedSession(null)}
                 onEdit={openEdit}
-                onDelete={(id) => { setSelectedSession(null); setConfirmDeleteId(id); }}
+                onDelete={(id) => {
+                    setSelectedSession(null);
+                    const target = sessions.find(s => s.id === id);
+                    if (target?.seriesId) setScopeDeleteSession(target);
+                    else setConfirmDeleteId(id);
+                }}
                 onExportPDF={generatePDF}
             />
         </div>
