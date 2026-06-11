@@ -115,7 +115,9 @@ const getMediaType = (url?: string) => {
 };
 
 const resolveMediaUrl = (url: string) =>
-  url.startsWith('http://') || url.startsWith('https://') ? url : `${API_BASE_URL}${url}`;
+  url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')
+    ? url
+    : `${API_BASE_URL}${url}`;
 
 export default function PrinciplesLibrary() {
   const { t } = useTranslation();
@@ -196,6 +198,8 @@ export default function PrinciplesLibrary() {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Reset so picking the same file again re-triggers onChange.
+    e.target.value = '';
     const isImage = file.type.startsWith('image/');
     const isVideo = file.type.startsWith('video/');
     const isPdf = file.type === 'application/pdf';
@@ -336,16 +340,18 @@ export default function PrinciplesLibrary() {
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         {isSelected && <ChevronRight size={14} className={`${c.text} mt-0.5`} />}
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-1">
-                          <button
-                            onClick={e => { e.stopPropagation(); openEdit(p); }}
-                            className="p-1.5 rounded-lg bg-surface-hover hover:bg-surface text-muted hover:text-foreground border border-border transition-colors"
-                          ><Edit2 size={11} /></button>
-                          <button
-                            onClick={e => { e.stopPropagation(); setConfirmDeleteId(p.id); }}
-                            className="p-1.5 rounded-lg bg-surface-hover hover:bg-rose-500/10 text-muted hover:text-rose-500 border border-border transition-colors"
-                          ><Trash2 size={11} /></button>
-                        </div>
+                        {p.isCustom && (
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-1">
+                            <button
+                              onClick={e => { e.stopPropagation(); openEdit(p); }}
+                              className="p-1.5 rounded-lg bg-surface-hover hover:bg-surface text-muted hover:text-foreground border border-border transition-colors"
+                            ><Edit2 size={11} /></button>
+                            <button
+                              onClick={e => { e.stopPropagation(); setConfirmDeleteId(p.id); }}
+                              className="p-1.5 rounded-lg bg-surface-hover hover:bg-rose-500/10 text-muted hover:text-rose-500 border border-border transition-colors"
+                            ><Trash2 size={11} /></button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </motion.div>

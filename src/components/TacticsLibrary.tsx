@@ -218,16 +218,18 @@ export default function TacticsLibrary() {
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         {isSelected && <ChevronRight size={14} className="text-emerald-400 mt-0.5" />}
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-1">
-                          <button
-                            onClick={e => { e.stopPropagation(); openEdit(t); }}
-                            className="p-1.5 rounded-lg bg-surface-raised hover:bg-surface-hover text-muted hover:text-foreground border border-border transition-colors"
-                          ><Edit2 size={11} /></button>
-                          <button
-                            onClick={e => { e.stopPropagation(); setConfirmDeleteId(t.id); }}
-                            className="p-1.5 rounded-lg bg-surface-raised hover:bg-rose-900/60 text-muted hover:text-rose-400 border border-border transition-colors"
-                          ><Trash2 size={11} /></button>
-                        </div>
+                        {t.isCustom && (
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-1">
+                            <button
+                              onClick={e => { e.stopPropagation(); openEdit(t); }}
+                              className="p-1.5 rounded-lg bg-surface-raised hover:bg-surface-hover text-muted hover:text-foreground border border-border transition-colors"
+                            ><Edit2 size={11} /></button>
+                            <button
+                              onClick={e => { e.stopPropagation(); setConfirmDeleteId(t.id); }}
+                              className="p-1.5 rounded-lg bg-surface-raised hover:bg-rose-900/60 text-muted hover:text-rose-400 border border-border transition-colors"
+                            ><Trash2 size={11} /></button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </motion.div>

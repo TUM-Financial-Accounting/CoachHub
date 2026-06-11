@@ -51,19 +51,23 @@ export default function PlayerSlideOver({ player, computedAttendance, onClose, o
             .finally(() => setLoadingSessions(false));
     }, [player?.id]);
 
-    // Last 6 months attendance chart data
+    // Last 6 months attendance chart data. Grouped on YYYY-MM so the bars
+    // stay chronological across a year change and months from different
+    // years don't merge.
     const chartData = (() => {
         if (!sessions.length) return [];
         const monthMap: Record<string, number> = {};
-        const monthOrder = Array.from({ length: 12 }, (_, i) => {
-            const date = new Date(2026, i, 15);
-            return date.toLocaleDateString(i18n.language, { month: 'short' });
-        });
         sessions.forEach(s => {
-            const m = new Date(s.date + 'T12:00:00').toLocaleDateString(i18n.language, { month: 'short' });
-            monthMap[m] = (monthMap[m] || 0) + 1;
+            const yearMonth = s.date.slice(0, 7);
+            monthMap[yearMonth] = (monthMap[yearMonth] || 0) + 1;
         });
-        return monthOrder.filter(m => monthMap[m]).map(m => ({ month: m, sessions: monthMap[m] })).slice(-6);
+        return Object.keys(monthMap)
+            .sort()
+            .slice(-6)
+            .map(yearMonth => ({
+                month: new Date(yearMonth + '-15T12:00:00').toLocaleDateString(i18n.language, { month: 'short' }),
+                sessions: monthMap[yearMonth],
+            }));
     })();
 
     const attendance = computedAttendance[player?.id ?? ''] ?? player?.attendance ?? 0;

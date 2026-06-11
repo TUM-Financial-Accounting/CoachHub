@@ -141,8 +141,10 @@ export const mapMatchDetailsFromApi = (m: any): MatchDetails => ({
   location: m.location || '',
   formation: m.formation || '4-4-2',
   lineup: m.lineup,
-  goalsFor: m.goals_for || 0,
-  goalsAgainst: m.goals_against || 0,
+  // Keep unrecorded scores as undefined — coercing to 0 made every
+  // unrecorded past match look like a played 0–0 draw in the statistics.
+  goalsFor: m.goals_for ?? undefined,
+  goalsAgainst: m.goals_against ?? undefined,
   notes: m.notes || '',
 });
 

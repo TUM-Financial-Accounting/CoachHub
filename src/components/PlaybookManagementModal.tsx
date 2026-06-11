@@ -192,7 +192,7 @@ export function PlaybookManagementModal({ isOpen, onClose, onImportSuccess }: Pl
             isOpen={isOpen}
             onClose={onClose}
             title={mode === 'export' ? "Export Playbook" : "Import Playbook"}
-            maxWidth="3xl"
+            maxWidth="max-w-3xl"
             icon={mode === 'export' ? <Download className="text-blue-400" /> : <Upload className="text-emerald-400" />}
         >
             <div className="space-y-6">

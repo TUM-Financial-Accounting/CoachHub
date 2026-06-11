@@ -320,7 +320,7 @@ export default function VisionLibrary() {
                 isOpen={!!viewingVision}
                 onClose={() => setViewingVision(null)}
                 title={viewingVision?.title || "Vision Presenter"}
-                maxWidth="6xl"
+                maxWidth="max-w-6xl"
             >
                 {viewingVision && (
                     <div className="flex flex-col h-[80vh]">

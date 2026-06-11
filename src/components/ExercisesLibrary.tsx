@@ -24,7 +24,9 @@ import { Exercise, SelectorItem } from '../types/models';
 
 // --- Helpers ---
 const resolveMediaUrl = (url: string) =>
-    url.startsWith('http://') || url.startsWith('https://') ? url : `${API_BASE_URL}${url}`;
+    url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')
+        ? url
+        : `${API_BASE_URL}${url}`;
 
 const getMediaType = (url?: string) => {
     if (!url) return null;
@@ -176,6 +178,8 @@ export default function ExercisesLibrary() {
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+        // Reset so picking the same file again re-triggers onChange.
+        e.target.value = '';
         const isImage = file.type.startsWith('image/');
         const isVideo = file.type.startsWith('video/');
         const isPdf = file.type === 'application/pdf';
@@ -208,17 +212,18 @@ export default function ExercisesLibrary() {
     // Media Renderer
     const renderMedia = (url: string, isPreview = false) => {
         const type = getMediaType(url);
+        const resolvedUrl = resolveMediaUrl(url);
 
         const openLightbox = (e: React.MouseEvent) => {
             if (isPreview) {
                 e.stopPropagation();
-                setViewMedia(url);
+                setViewMedia(resolvedUrl);
             }
         };
 
         if (type === 'image') return (
             <img
-                src={url}
+                src={resolvedUrl}
                 alt="Preview"
                 className={`w-full h-full object-cover rounded-lg ${isPreview ? 'cursor-zoom-in hover:opacity-90 transition-opacity' : ''}`}
                 onClick={openLightbox}
@@ -236,7 +241,7 @@ export default function ExercisesLibrary() {
                         <span className="text-[10px] uppercase font-bold tracking-widest">{t('libraries.watchVideo')}</span>
                     </div>
                 ) : (
-                    <video src={url} controls className="w-full h-full rounded-lg" />
+                    <video src={resolvedUrl} controls className="w-full h-full rounded-lg" />
                 )}
             </div>
         );

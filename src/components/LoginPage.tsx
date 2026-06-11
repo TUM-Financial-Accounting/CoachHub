@@ -96,7 +96,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         ? await AuthService.register(payload)
         : await AuthService.login(payload);
 
-      console.log(`[LoginPage] ${isRegister ? 'Register' : 'Login'} Success:`, data);
+      // Don't log the response object — it contains the access token.
+      console.log(`[LoginPage] ${isRegister ? 'Register' : 'Login'} succeeded`);
 
       // Success Action
       if (isRegister) {

@@ -48,10 +48,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       });
     });
 
-    // Calculate average attendance percentage
+    // Calculate average attendance percentage. Clamped to 100 because old
+    // sessions can still reference players since removed from the squad,
+    // which would push the raw ratio above 1.
     const totalSelections = Object.values(playerAttendanceCount).reduce((a, b) => a + b, 0);
     const maxPossibleSelections = playerList.length * sessionList.length;
-    const attendanceRate = Math.round((totalSelections / maxPossibleSelections) * 100);
+    const attendanceRate = Math.min(100, Math.round((totalSelections / maxPossibleSelections) * 100));
 
     return attendanceRate;
   };
@@ -63,6 +65,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       setSessions([]);
       setMatches([]);
       setAttendanceData([]);
+      setCalculatedAttendance(0);
       return;
     }
 
@@ -78,26 +81,22 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         setSessions(sessionsData);
         setMatches(matchesData);
 
-        // Calculate attendance from training session participation
-        if (playersData.length > 0 && sessionsData.length > 0) {
-          const attendance = calculateAttendance(playersData, sessionsData);
-          setCalculatedAttendance(attendance);
-        }
+        // Calculate attendance from training session participation.
+        // Always set it so switching to a team without sessions doesn't
+        // keep showing the previous team's rate.
+        setCalculatedAttendance(calculateAttendance(playersData, sessionsData));
 
-        // Calculate attendance data from training sessions grouped by month
+        // Calculate attendance data from training sessions grouped by month.
+        // Group on YYYY-MM so a season spanning a year change (e.g. Aug–May)
+        // stays chronological and months from different years don't merge.
         const calculateMonthlyAttendance = () => {
+          if (playersData.length === 0) return [];
           const monthMap: { [key: string]: { total: number; count: number } } = {};
-          const monthOrder = Array.from({ length: 12 }, (_, i) => {
-            const date = new Date(2026, i, 15);
-            return date.toLocaleDateString(i18n.language, { month: 'short' });
-          });
 
           sessionsData.forEach(session => {
-            const date = new Date(session.date + 'T12:00:00');
-            const monthName = date.toLocaleDateString(i18n.language, { month: 'short' });
-            
-            if (!monthMap[monthName]) {
-              monthMap[monthName] = { total: 0, count: 0 };
+            const yearMonth = session.date.slice(0, 7);
+            if (!monthMap[yearMonth]) {
+              monthMap[yearMonth] = { total: 0, count: 0 };
             }
 
             // Count selected players for this session
@@ -105,21 +104,18 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               .split(',')
               .map(id => id.trim())
               .filter(id => id.length > 0);
-            
+
             const sessionAttendance = (playerIds.length / playersData.length) * 100;
-            monthMap[monthName].total += sessionAttendance;
-            monthMap[monthName].count += 1;
+            monthMap[yearMonth].total += sessionAttendance;
+            monthMap[yearMonth].count += 1;
           });
 
-          // Convert to chart format, maintaining month order
-          const chartData = monthOrder
-            .filter(month => monthMap[month])
-            .map(month => ({
-              month: month.slice(0, 3),
-              attendance: Math.round(monthMap[month].total / monthMap[month].count)
+          return Object.keys(monthMap)
+            .sort()
+            .map(yearMonth => ({
+              month: new Date(yearMonth + '-15T12:00:00').toLocaleDateString(i18n.language, { month: 'short' }),
+              attendance: Math.round(monthMap[yearMonth].total / monthMap[yearMonth].count)
             }));
-
-          return chartData;
         };
 
         setAttendanceData(calculateMonthlyAttendance());
@@ -157,9 +153,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   // Month-over-month attendance trend
   const attendanceTrend = useMemo(() => {
+    // Compare on YYYY-MM so sessions from the same calendar month of a
+    // different year don't leak into the comparison.
     const now = new Date();
-    const thisMonthIdx = now.getMonth();
-    const lastMonthIdx = thisMonthIdx === 0 ? 11 : thisMonthIdx - 1;
+    const ym = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const thisMonth = ym(now);
+    const lastMonth = ym(new Date(now.getFullYear(), now.getMonth() - 1, 15));
     const avgAttendanceForGroup = (group: TrainingSession[]) => {
       if (group.length === 0 || players.length === 0) return 0;
       const total = group.reduce((sum, s) => {
@@ -168,12 +167,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       }, 0);
       return total / group.length;
     };
-    const thisMonthAvg = avgAttendanceForGroup(
-      sessions.filter(s => new Date(s.date + 'T12:00:00').getMonth() === thisMonthIdx)
-    );
-    const lastMonthAvg = avgAttendanceForGroup(
-      sessions.filter(s => new Date(s.date + 'T12:00:00').getMonth() === lastMonthIdx)
-    );
+    const thisMonthAvg = avgAttendanceForGroup(sessions.filter(s => s.date.slice(0, 7) === thisMonth));
+    const lastMonthAvg = avgAttendanceForGroup(sessions.filter(s => s.date.slice(0, 7) === lastMonth));
     return lastMonthAvg > 0 ? Math.round(thisMonthAvg - lastMonthAvg) : null;
   }, [sessions, players]);
 

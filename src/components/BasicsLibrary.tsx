@@ -17,7 +17,9 @@ import { LibraryService } from '../services';
 
 
 const resolveMediaUrl = (url: string) =>
-  url.startsWith('http://') || url.startsWith('https://') ? url : `${API_BASE_URL}${url}`;
+  url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')
+    ? url
+    : `${API_BASE_URL}${url}`;
 
 const getMediaType = (url?: string) => {
   if (!url) return null;
@@ -114,6 +116,8 @@ export default function BasicsLibrary() {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Reset so picking the same file again re-triggers onChange.
+    e.target.value = '';
     const isImage = file.type.startsWith('image/');
     const isVideo = file.type.startsWith('video/');
     const isPdf = file.type === 'application/pdf';
@@ -209,16 +213,18 @@ export default function BasicsLibrary() {
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         {isSelected && <ChevronRight size={14} className="text-sky-500 mt-0.5" />}
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-1">
-                          <button
-                            onClick={e => { e.stopPropagation(); openEdit(basic); }}
-                            className="p-1.5 rounded-lg bg-surface-hover hover:bg-surface text-muted hover:text-foreground border border-border transition-colors"
-                          ><Edit2 size={11} /></button>
-                          <button
-                            onClick={e => { e.stopPropagation(); setConfirmDeleteId(basic.id); }}
-                            className="p-1.5 rounded-lg bg-surface-hover hover:bg-rose-500/10 text-muted hover:text-rose-500 border border-border transition-colors"
-                          ><Trash2 size={11} /></button>
-                        </div>
+                        {basic.isCustom && (
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-1">
+                            <button
+                              onClick={e => { e.stopPropagation(); openEdit(basic); }}
+                              className="p-1.5 rounded-lg bg-surface-hover hover:bg-surface text-muted hover:text-foreground border border-border transition-colors"
+                            ><Edit2 size={11} /></button>
+                            <button
+                              onClick={e => { e.stopPropagation(); setConfirmDeleteId(basic.id); }}
+                              className="p-1.5 rounded-lg bg-surface-hover hover:bg-rose-500/10 text-muted hover:text-rose-500 border border-border transition-colors"
+                            ><Trash2 size={11} /></button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </motion.div>
@@ -281,7 +287,7 @@ export default function BasicsLibrary() {
                       <h4 className="text-[10px] uppercase tracking-widest text-muted font-bold mb-3">{t('libraries.visuals')}</h4>
                       <div
                         className="w-full h-40 bg-black rounded-xl border border-border flex items-center justify-center group cursor-pointer hover:border-border transition-colors"
-                        onClick={() => setViewMedia(selected.diagramUrl!)}
+                        onClick={() => setViewMedia(resolveMediaUrl(selected.diagramUrl!))}
                       >
                         <div className="flex flex-col items-center gap-2 text-foreground/60 group-hover:text-foreground transition-colors">
                            <VideoIcon size={32} /><span className="text-xs font-bold uppercase tracking-widest">{t('libraries.watchVideo')}</span>
@@ -294,7 +300,7 @@ export default function BasicsLibrary() {
                       <h4 className="text-[10px] uppercase tracking-widest text-muted font-bold mb-3">{t('libraries.visuals')}</h4>
                       <div
                         className="w-full h-40 bg-surface-hover rounded-xl border border-border flex items-center justify-center group cursor-pointer hover:border-border transition-colors"
-                        onClick={() => setViewMedia(selected.diagramUrl!)}
+                        onClick={() => setViewMedia(resolveMediaUrl(selected.diagramUrl!))}
                       >
                         <div className="flex flex-col items-center gap-2 text-muted group-hover:text-foreground transition-colors">
                           <FileText size={32} /><span className="text-xs font-bold uppercase tracking-widest">{t('libraries.pdfDoc')}</span>

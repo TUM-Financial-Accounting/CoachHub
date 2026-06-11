@@ -45,8 +45,6 @@ export default function TeamFormModal({ isOpen, onClose, onSuccess }: TeamFormMo
     }
   }, [isOpen, activeSeason, seasons]);
 
-  if (!isOpen) return null;
-
   const isCreatingNewSeason = selectedSeasonId === 'NEW_SEASON';
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -116,6 +114,7 @@ export default function TeamFormModal({ isOpen, onClose, onSuccess }: TeamFormMo
 
   return (
     <AnimatePresence>
+      {isOpen && (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
         <motion.div
            initial={{ opacity: 0 }}
@@ -267,6 +266,7 @@ export default function TeamFormModal({ isOpen, onClose, onSuccess }: TeamFormMo
           </div>
         </motion.div>
       </div>
+      )}
     </AnimatePresence>
   );
 }

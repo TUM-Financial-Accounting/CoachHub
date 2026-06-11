@@ -2,6 +2,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Edit2, Trash2, FileText, Video as VideoIcon, Dumbbell, Users, Layers, BookOpen, Target, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {ExerciseSlideOverProps} from "../types/ui"
+import { API_BASE_URL } from '../lib/api-config';
+
+// Only http(s)/data/blob pass through untouched; anything else (including a
+// javascript: URL smuggled in via playbook import) is treated as a relative
+// API path, which renders it inert.
+const resolveMediaUrl = (url: string) =>
+    url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')
+        ? url
+        : `${API_BASE_URL}${url}`;
 
 const getIntensityStyles = (intensity: string) => {
     switch (intensity) {
@@ -31,15 +40,16 @@ export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete 
 
     const renderMedia = (url: string) => {
         const type = getMediaType(url);
-        if (type === 'image') return <img src={url} alt="Exercise visual" className="w-full h-full object-cover" />;
+        const resolvedUrl = resolveMediaUrl(url);
+        if (type === 'image') return <img src={resolvedUrl} alt="Exercise visual" className="w-full h-full object-cover" />;
         if (type === 'video') return (
-            <video src={url} controls className="w-full h-full rounded-t-none" />
+            <video src={resolvedUrl} controls className="w-full h-full rounded-t-none" />
         );
         if (type === 'pdf') return (
             <div className="flex flex-col items-center justify-center h-full text-muted gap-2">
                 <FileText size={40} />
                 <span className="text-sm font-medium">{t('libraries.pdfDoc')}</span>
-                <a href={url} download="exercise.pdf" className="text-primary text-xs hover:underline">{t('libraries.download')}</a>
+                <a href={resolvedUrl} download="exercise.pdf" className="text-primary text-xs hover:underline">{t('libraries.download')}</a>
             </div>
         );
         return (

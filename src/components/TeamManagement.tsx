@@ -111,7 +111,7 @@ export default function TeamManagement() {
     // --- Handlers ---
     const handleSave = async () => {
         if (!formData.firstName || !formData.lastName) {
-            toast.error('Name required');
+            toast.error(t('team.nameRequired'));
             return;
         }
 
@@ -158,11 +158,11 @@ export default function TeamManagement() {
             } else {
                 await PlayerService.create({ ...formData, id: finalId }, activeTeam?.id, activeSeason?.id);
             }
-            toast.success("Player saved!");
+            toast.success(t('team.playerSaved'));
         } catch (error) {
             // Roll back the optimistic insert/edit.
             setPlayers(playersBefore);
-            toast.error('Save failed — please try again');
+            toast.error(t('team.saveFailed'));
         }
     };
 
@@ -194,10 +194,10 @@ export default function TeamManagement() {
         setShowPlayerModal(false);
         try {
             await PlayerService.create({ ...formData, id: finalId }, activeTeam?.id, activeSeason?.id);
-            toast.success("New player created!");
+            toast.success(t('team.newPlayerCreated'));
         } catch (error) {
             setPlayers(playersBefore);
-            toast.error('Save failed — please try again');
+            toast.error(t('team.saveFailed'));
         }
     };
 
@@ -206,12 +206,12 @@ export default function TeamManagement() {
         // call fails. Coaches expect the trash-icon click to feel instant.
         const playersBefore = players;
         setPlayers(prev => prev.filter(p => p.id !== id));
-        toast.success('Player profile deleted globally');
+        toast.success(t('team.profileDeleted'));
         try {
             await PlayerService.delete(id);
         } catch (e) {
             setPlayers(playersBefore);
-            toast.error("Failed to delete profile");
+            toast.error(t('team.profileDeleteFailed'));
         }
     };
 
@@ -226,12 +226,12 @@ export default function TeamManagement() {
             }
             return p;
         }).filter(p => (viewMode === 'squad' && targetTeamId === activeTeam?.id) ? p.id !== playerId : true));
-        toast.success('Player removed from squad');
+        toast.success(t('team.removedFromSquad'));
         try {
             await PlayerService.removeFromTeam(playerId, targetTeamId, activeSeason?.id);
         } catch (e) {
             setPlayers(playersBefore);
-            toast.error("Failed to remove from squad");
+            toast.error(t('team.removeFromSquadFailed'));
         }
     };
 
@@ -257,9 +257,9 @@ export default function TeamManagement() {
                 refreshData();
             }
             
-            toast.success('Player added to squad');
+            toast.success(t('team.addedToSquad'));
         } catch (e) {
-            toast.error("Failed to add to squad");
+            toast.error(t('team.addToSquadFailed'));
             refreshData();
             throw e; // Re-throw so callers (like handleReusePlayer) know it failed
         }
@@ -268,6 +268,8 @@ export default function TeamManagement() {
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+        // Reset so picking the same file again re-triggers onChange.
+        e.target.value = '';
         // Show a local preview immediately while the upload runs
         const localPreview = URL.createObjectURL(file);
         setImagePreview(localPreview);
@@ -276,7 +278,7 @@ export default function TeamManagement() {
             setImagePreview(url);
             setFormData(prev => ({ ...prev, imageUrl: url }));
         } catch {
-            toast.error('Image upload failed. Please try again.');
+            toast.error(t('team.imageUploadFailed'));
             setImagePreview('');
         }
     };
@@ -304,9 +306,9 @@ export default function TeamManagement() {
         try {
             await PlayerService.updatePerformance(player.id, clamped, teamId);
             setPlayers(prev => prev.map(p => p.id === player.id ? { ...p, performance: clamped } : p));
-            if (!silent) toast.success('Performance updated');
-        } catch { 
-            if (!silent) toast.error('Failed to save'); 
+            if (!silent) toast.success(t('matches.performanceSaved'));
+        } catch {
+            if (!silent) toast.error(t('matches.performanceSaveFailed'));
         }
     };
 

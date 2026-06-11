@@ -222,7 +222,7 @@ export default function Navigation({ currentPage, onNavigate, onLogout, isMobile
                   transition={{ duration: 0.12 }}
                   className="text-xs font-medium whitespace-nowrap capitalize"
                 >
-                  {theme}
+                  {t(`theme.${theme}`)}
                 </motion.span>
               )}
             </AnimatePresence>

@@ -15,6 +15,10 @@ const CATEGORY_META: Record<Category, { icon: React.ReactNode; color: string; pa
     Tactics:    { icon: <Target size={14} />,       color: 'text-emerald-400', page: 'tactics' },
 };
 
+// Render order of result groups. Filtered results are sorted with this so
+// the keyboard-selected index always matches the visually highlighted row.
+const CATEGORY_ORDER: Category[] = ['Players', 'Sessions', 'Exercises', 'Basics', 'Principles', 'Tactics'];
+
 const QUICK_LINKS: { label: string; page: Page; category: Category }[] = [
     { label: 'Squad Roster',       page: 'team',           category: 'Players' },
     { label: 'Session Planner',    page: 'session-planner', category: 'Sessions' },
@@ -46,9 +50,10 @@ export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandP
         setSelectedIdx(0);
         setTimeout(() => inputRef.current?.focus(), 50);
 
-        if (allDataRef.current.length > 0) return; // already loaded
-
-        setLoading(true);
+        // Refetch on every open so items created during the session show up.
+        // Only show the loading skeleton when there's nothing cached yet —
+        // otherwise the stale list stays searchable while we refresh.
+        setLoading(allDataRef.current.length === 0);
         Promise.allSettled([
             PlayerService.getAll(),
             TrainingService.getAll(),
@@ -103,7 +108,9 @@ export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandP
         const q = query.toLowerCase();
         const filtered = allDataRef.current.filter(r =>
             r.label.toLowerCase().includes(q) || r.sub.toLowerCase().includes(q) || r.category.toLowerCase().includes(q)
-        ).slice(0, 12);
+        )
+        .sort((a, b) => CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category))
+        .slice(0, 12);
         setResults(filtered);
         setSelectedIdx(0);
     }, [query]);
@@ -136,9 +143,10 @@ export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandP
         return () => window.removeEventListener('keydown', onKey);
     }, [isOpen, displayItems, selectedIdx, onClose, handleSelect]);
 
-    // Scroll selected item into view
+    // Scroll selected item into view. Items are nested inside group
+    // wrappers, so look them up by data-idx rather than child position.
     useEffect(() => {
-        const el = listRef.current?.children[selectedIdx] as HTMLElement | undefined;
+        const el = listRef.current?.querySelector(`[data-idx="${selectedIdx}"]`);
         el?.scrollIntoView({ block: 'nearest' });
     }, [selectedIdx]);
 
@@ -212,6 +220,7 @@ export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandP
                                             return (
                                                 <button
                                                     key={link.page}
+                                                    data-idx={i}
                                                     onClick={() => handleSelect(link.page)}
                                                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-surface-hover text-foreground'}`}
                                                 >
@@ -236,6 +245,7 @@ export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandP
                                                     return (
                                                         <button
                                                             key={item.id}
+                                                            data-idx={idx}
                                                             onClick={() => handleSelect(item.page)}
                                                             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${isSelected ? 'bg-primary/10' : 'hover:bg-surface-hover'}`}
                                                         >

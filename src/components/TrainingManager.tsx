@@ -67,7 +67,7 @@ export default function TrainingManager() {
         if (!activeTeam || !activeSeason) {
              setSessions([]);
              setAllPlayers([]);
-             ExerciseService.getAll().then(setAllExercises).catch();
+             ExerciseService.getAll().then(setAllExercises).catch(() => {});
              return;
         }
         const fetchData = async () => {

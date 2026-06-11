@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Edit2, Trash2, Download, Calendar, Clock, Users, Activity, Dumbbell, Zap, BookOpen, Layers, Target, Image as ImageIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatDate } from '../../lib/utils';
+import { API_BASE_URL } from '../../lib/api-config';
 import { Exercise } from '../../types/models';
 
 import { SessionSlideOverProps } from "../../types/ui";
@@ -19,15 +20,21 @@ const getMediaType = (url?: string) => {
     return null;
 };
 
+const resolveMediaUrl = (url: string) =>
+    url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')
+        ? url
+        : `${API_BASE_URL}${url}`;
+
 export default function SessionSlideOver({
     session, allPlayers, allExercises, isPast, onClose, onEdit, onDelete, onExportPDF,
 }: SessionSlideOverProps) {
     const { t } = useTranslation();
-    if (!session) return null;
 
-    const style = intensityStyles[session.intensity] ?? intensityStyles.Medium;
-    const playerIds = session.selectedPlayers.split(',').map(id => id.trim()).filter(Boolean);
-    const exerciseIds = session.selectedExercises.split(',').map(id => id.trim()).filter(Boolean);
+    // All derived values are null-safe so the component can keep rendering
+    // while AnimatePresence plays the exit animation after `session` clears.
+    const style = intensityStyles[session?.intensity ?? 'Medium'] ?? intensityStyles.Medium;
+    const playerIds = (session?.selectedPlayers ?? '').split(',').map(id => id.trim()).filter(Boolean);
+    const exerciseIds = (session?.selectedExercises ?? '').split(',').map(id => id.trim()).filter(Boolean);
 
     const players = allPlayers.filter(p => playerIds.includes(p.id));
     const exercises = exerciseIds
@@ -35,10 +42,10 @@ export default function SessionSlideOver({
         .filter((e): e is Exercise => !!e);
 
     // Duration in minutes
-    const [sh, sm] = session.startTime.split(':').map(Number);
-    const [eh, em] = session.endTime.split(':').map(Number);
+    const [sh, sm] = (session?.startTime ?? '0:00').split(':').map(Number);
+    const [eh, em] = (session?.endTime ?? '0:00').split(':').map(Number);
     const durationMin = (eh * 60 + em) - (sh * 60 + sm);
-    const durationLabel = durationMin > 0 ? `${Math.floor(durationMin / 60)}h${durationMin % 60 > 0 ? ` ${durationMin % 60}m` : ''}` : session.endTime;
+    const durationLabel = durationMin > 0 ? `${Math.floor(durationMin / 60)}h${durationMin % 60 > 0 ? ` ${durationMin % 60}m` : ''}` : session?.endTime ?? '';
 
     return (
         <AnimatePresence>
@@ -156,7 +163,7 @@ export default function SessionSlideOver({
                                                         {/* Thumbnail */}
                                                         <div className="w-12 h-12 rounded-lg bg-surface-raised flex-shrink-0 overflow-hidden flex items-center justify-center">
                                                             {mediaType === 'image' && ex.mediaUrl
-                                                                ? <img src={ex.mediaUrl} className="w-full h-full object-cover" alt={ex.name} />
+                                                                ? <img src={resolveMediaUrl(ex.mediaUrl)} className="w-full h-full object-cover" alt={ex.name} />
                                                                 : <ImageIcon size={18} className="text-dimmed" />}
                                                         </div>
                                                         <div className="flex-1 min-w-0">

@@ -232,7 +232,15 @@ export default function MatchLineup() {
       setCustomFormations(formations);
       
       if (mappedMatches.length > 0) {
-        setMatchDetails(mappedMatches[0]);
+        // Default to the next upcoming match. The API returns matches sorted
+        // by date descending, so [0] would otherwise be the furthest-future
+        // fixture; fall back to the most recent past match if nothing is
+        // scheduled.
+        const todayStr = new Date().toLocaleDateString('en-CA');
+        const nextUpcoming = mappedMatches
+          .filter(m => m.date >= todayStr)
+          .sort((a, b) => a.date.localeCompare(b.date))[0];
+        setMatchDetails(nextUpcoming ?? mappedMatches[0]);
       } else {
         setMatchDetails(null);
       }
@@ -322,7 +330,7 @@ useEffect(() => {
     if (isMatchPast) return;
     if (formation === currentFormation) return;
     if (lineup.size > 0) {
-      if (!window.confirm(`Switching to ${formation} will clear the current lineup. Continue?`)) return;
+      if (!window.confirm(t('matches.switchFormationConfirm', { formation }))) return;
     }
     setCurrentFormation(formation);
     setFormationSource(t('matches.manualSelection'));
@@ -465,7 +473,7 @@ useEffect(() => {
   };
 
   const handleSaveLineup = async () => {
-    if (lineup.size < 11) return toast.error(t('matches.incompleteLineup'));
+    if (lineup.size < 11) return toast.error(t('matches.lineupIncomplete'));
     if (!matchDetails) return;
 
     try {
@@ -779,9 +787,9 @@ useEffect(() => {
                         
                         const updatedPlayers = allPlayers.map(p => p.id === selectedPlayer.id ? updatedPlayer : p);
                         setAllPlayers(updatedPlayers);
-                        toast.success('Performance updated');
+                        toast.success(t('matches.performanceSaved'));
                       } catch (e) {
-                        toast.error('Failed to save performance');
+                        toast.error(t('matches.performanceSaveFailed'));
                       }
                     }
                     setSelectedPlayer(null);
@@ -901,7 +909,7 @@ useEffect(() => {
           match={matchDetails}
           players={allPlayers}
           onSuccess={async () => {
-            const data = await MatchService.getAll();
+            const data = await MatchService.getAll(activeTeam?.id, activeSeason?.id);
             setMatches(data);
             const updated = data.find(m => m.id === matchDetails.id);
             if (updated) setMatchDetails(updated);

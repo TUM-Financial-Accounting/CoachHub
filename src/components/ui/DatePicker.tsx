@@ -1,16 +1,21 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 import { DatePickerProps } from "../../types/ui";
 import { parseFlexibleDate, formatDateForInput } from "../../lib/dateParse";
 
 type ViewMode = 'calendar' | 'month' | 'year';
 
-const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'];
-
 export function DatePicker({ value, onChange, label }: DatePickerProps) {
+  const { t, i18n } = useTranslation();
+  // Locale-aware month and weekday labels (grid starts on Sunday;
+  // 2026-01-04 is a Sunday, used as the anchor for weekday names).
+  const monthNames = Array.from({ length: 12 }, (_, i) =>
+    new Date(2026, i, 15).toLocaleDateString(i18n.language, { month: 'short' }));
+  const weekdayLabels = Array.from({ length: 7 }, (_, i) =>
+    new Date(2026, 0, 4 + i).toLocaleDateString(i18n.language, { weekday: 'short' }).slice(0, 2));
   const [isOpen, setIsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
   const [displayMonth, setDisplayMonth] = useState(value ? new Date(value + 'T12:00:00') : new Date());
@@ -117,10 +122,10 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
   };
 
   const headerLabel = viewMode === 'year'
-    ? 'Select Year'
+    ? t('common.selectYear')
     : viewMode === 'month'
     ? `${displayMonth.getFullYear()}`
-    : displayMonth.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    : displayMonth.toLocaleDateString(i18n.language, { month: 'long', year: 'numeric' });
 
   return (
     <div className="relative space-y-2" ref={containerRef}>
@@ -238,7 +243,7 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
             {/* Month Grid */}
             {viewMode === 'month' && (
               <div className="grid grid-cols-3 gap-2">
-                {MONTH_NAMES.map((month, i) => (
+                {monthNames.map((month, i) => (
                   <button
                     key={month}
                     onClick={() => handleMonthSelect(i)}
@@ -250,7 +255,7 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
                         : 'bg-surface-raised text-foreground hover:bg-surface-hover'
                     }`}
                   >
-                    {month.slice(0, 3)}
+                    {month}
                   </button>
                 ))}
               </div>
@@ -260,7 +265,7 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
             {viewMode === 'calendar' && (
               <>
                 <div className="grid grid-cols-7 gap-1 mb-2">
-                  {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                  {weekdayLabels.map(day => (
                     <div key={day} className="text-center text-[10px] font-bold text-muted uppercase py-2">{day}</div>
                   ))}
                 </div>

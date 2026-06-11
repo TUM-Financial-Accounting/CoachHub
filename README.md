@@ -28,10 +28,12 @@ A modern, coach-centric web dashboard for managing sports teams, training sessio
 
 ### 1. Database
 
-Create a PostgreSQL database, then update the connection string in `backend/database.py`:
+Create a PostgreSQL database, then configure the connection in `backend/.env`:
 
-```python
-SQLALCHEMY_DATABASE_URL = "postgresql://<user>:<password>@localhost/<db_name>"
+```bash
+DATABASE_URL=postgresql://<user>:<password>@localhost/<db_name>
+SECRET_KEY=<any long random string>   # required — used to sign JWTs
+FRONTEND_URL=http://localhost:5173    # optional, defaults shown
 ```
 
 ### 2. Backend
@@ -47,7 +49,7 @@ venv\Scripts\Activate.ps1
 source venv/bin/activate
 
 # Install dependencies
-pip install fastapi uvicorn sqlalchemy psycopg2-binary python-multipart pydantic
+pip install -r backend/requirements.txt
 
 # Start the API server — run from inside the backend/ directory
 cd backend
@@ -213,9 +215,7 @@ Sessions reference exercises from three library layers:
 
 ### Authentication
 
-Login and registration are handled by the FastAPI backend (`/login`, `/register`). On success the frontend stores an `isAuthenticated` flag in `localStorage` for session persistence across page reloads.
-
-> **Security note:** Passwords are currently stored in plain text. Integrate a hashing library (e.g. `passlib[bcrypt]`) before any production deployment.
+Login and registration are handled by the FastAPI backend (`/login`, `/register`). Passwords are hashed with bcrypt, and a successful login sets an HttpOnly JWT cookie (the token is also returned for header-based auth). The frontend stores an `isAuthenticated` flag in `localStorage` for session persistence across page reloads.
 
 ### Media Uploads
 
