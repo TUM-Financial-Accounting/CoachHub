@@ -74,7 +74,15 @@ class Player(Base):
     
     # Stats
     attendance = Column(Integer, default=0)
-    
+
+    # Trial players ("Probespieler"). Created like regular players but not
+    # part of any squad until promoted; tracked with their current club and
+    # a short scouting evaluation.
+    is_trial = Column(Boolean, default=False)
+    home_club = Column(String, nullable=True)
+    trial_rating = Column(Integer, default=0)  # 0 = unrated, 1-5 stars
+    trial_notes = Column(Text, nullable=True)
+
 # --- 2. LIBRARIES ---
 class Basic(Base):
     __tablename__ = "basics"
@@ -118,6 +126,10 @@ class Exercise(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     coach_id = Column(String, ForeignKey("users.id"), nullable=True)
     name = Column(String)
+    # Training focus / type of drill: technique, tactical, athletic, game form, etc.
+    # Stored as a canonical string (see EXERCISE_CATEGORIES on the frontend);
+    # nullable so exercises created before this field keep working.
+    category = Column(String, nullable=True)
     intensity = Column(String)
     description = Column(Text)
     setup = Column(Text, nullable=True)

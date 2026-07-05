@@ -140,7 +140,7 @@ export default function PrinciplesLibrary() {
             setPrinciples(dbItems);
             if (dbItems.length > 0 && !selectedId) setSelectedId(dbItems[0].id);
         })
-        .catch(() => toast.error('Backend offline'));
+        .catch(() => toast.error(t('training.saveFailed')));
   };
 
   useEffect(() => {

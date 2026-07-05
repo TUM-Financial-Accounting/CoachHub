@@ -18,7 +18,7 @@ export default function SeasonSwitcher({ collapsed }: { collapsed: boolean }) {
   }
 
   const options = seasons.map(s => ({ label: s.name, value: s.id }));
-  options.push({ label: '+ Create Season', value: 'CREATE_NEW' });
+  options.push({ label: `+ ${t('modals.createSeasonBtn')}`, value: 'CREATE_NEW' });
 
   return (
      <div className="px-3 py-2 border-b border-border">
@@ -28,7 +28,7 @@ export default function SeasonSwitcher({ collapsed }: { collapsed: boolean }) {
            </span>
         </div>
         <Select 
-           placeholder={seasons.length === 0 ? "No seasons yet" : "Select Season"}
+           placeholder={seasons.length === 0 ? t('nav.noSeasonsYet') : t('nav.selectSeason')}
            value={activeSeason?.id || ''}
            options={options}
            onChange={(val) => {

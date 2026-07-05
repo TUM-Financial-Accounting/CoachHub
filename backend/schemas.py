@@ -50,6 +50,10 @@ class PlayerCreate(BaseModel):
     father_name: Optional[str] = ""
     father_phone: Optional[str] = ""
     attendance: int = 0
+    is_trial: Optional[bool] = False
+    home_club: Optional[str] = ""
+    trial_rating: int = 0
+    trial_notes: Optional[str] = ""
 
 class Player(PlayerCreate):
     id: str
@@ -104,6 +108,7 @@ class Tactic(TacticCreate):
 # ==========================
 class ExerciseCreate(BaseModel):
     name: str
+    category: Optional[str] = ""
     intensity: str
     description: str
     setup: Optional[str] = ""

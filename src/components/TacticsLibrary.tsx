@@ -16,7 +16,13 @@ import { Tactic, CustomFormation } from '../types/models';
 import { LibraryService, FormationService } from '../services';
 import { uuid } from '../lib/uuid';
 
-const ALL_FORMATIONS = ['4-4-2','4-3-3','4-2-3-1','4-3-2-1','4-1-4-1','4-1-2-1-2','4-4-2 DM','3-5-2','3-4-3','3-4-1-2','5-3-2','5-4-1'];
+// 11v11 formats first, then the 9v9 and 7v7 youth formats (digit sums of 8
+// and 6 outfield players respectively, so the names never collide).
+const ALL_FORMATIONS = [
+  '4-4-2','4-3-3','4-2-3-1','4-3-2-1','4-1-4-1','4-1-2-1-2','4-4-2 DM','3-5-2','3-4-3','3-4-1-2','5-3-2','5-4-1',
+  '3-2-3','3-3-2','2-3-3','4-3-1',
+  '2-3-1','3-2-1','3-1-2','2-2-2',
+];
 
 export default function TacticsLibrary() {
   const { t } = useTranslation();

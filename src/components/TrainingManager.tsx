@@ -92,8 +92,18 @@ export default function TrainingManager() {
         }
     }, [showCreateModal, isEditing, allPlayers]);
 
+    const toMin = (time: string) => {
+        const [h, m] = (time || '').split(':').map(Number);
+        return Number.isNaN(h) ? 0 : h * 60 + (Number.isNaN(m) ? 0 : m);
+    };
+
     const handleSave = async () => {
         if (!formData.focus) return toast.error(t('training.focusRequired'));
+        // Same guard the calendar applies — otherwise a session can be saved
+        // with an end time before its start.
+        if (toMin(formData.endTime) <= toMin(formData.startTime)) {
+            return toast.error(t('calendar.endAfterStart'));
+        }
 
         // Recurring branch: create a series, then reload sessions so the
         // newly materialised occurrences show up in the list.

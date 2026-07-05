@@ -331,7 +331,7 @@ export default function VisionLibrary() {
                         />
                         <div className="mt-6 flex justify-between items-center px-2">
                              <div className="text-slate-500 text-xs">
-                                Uploaded on {new Date(viewingVision.uploaded_at).toLocaleString()}
+                                {t('libraries.uploadedOn', { date: new Date(viewingVision.uploaded_at).toLocaleString() })}
                             </div>
                             <Button variant="secondary" onClick={() => setViewingVision(null)}>{t('libraries.closePresenter')}</Button>
                         </div>

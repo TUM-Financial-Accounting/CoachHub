@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from './Button';
 
 import { ConfirmDialogProps } from "../../types/ui";
@@ -12,6 +13,7 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation();
   return (
     <AnimatePresence>
       {isOpen && (
@@ -55,7 +57,7 @@ export function ConfirmDialog({
                   onClick={onCancel}
                   className="flex-1 text-muted hover:text-foreground hover:bg-surface-hover"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <button
                   onClick={onConfirm}

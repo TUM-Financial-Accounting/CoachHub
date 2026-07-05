@@ -20,10 +20,14 @@ import { PlayerService, MatchService, FormationService } from "../services";
 import CustomFormationModal from './CustomFormationModal';
 
 // --- Formation Groups for the picker ---
-const FORMATION_GROUPS: { label: string; formations: string[] }[] = [
-  { label: '4 Defenders', formations: ['4-4-2', '4-3-3', '4-2-3-1', '4-3-2-1', '4-1-4-1', '4-1-2-1-2', '4-4-2 DM'] },
-  { label: '3 Defenders', formations: ['3-5-2', '3-4-3', '3-4-1-2'] },
-  { label: '5 Defenders', formations: ['5-3-2', '5-4-1'] },
+// The digits of a formation name sum to the number of outfield players, so
+// 11v11, 9v9, and 7v7 names never collide (e.g. 2-3-1 can only be 7v7).
+const FORMATION_GROUPS: { labelKey: string; formations: string[] }[] = [
+  { labelKey: 'matches.fourDefenders',  formations: ['4-4-2', '4-3-3', '4-2-3-1', '4-3-2-1', '4-1-4-1', '4-1-2-1-2', '4-4-2 DM'] },
+  { labelKey: 'matches.threeDefenders', formations: ['3-5-2', '3-4-3', '3-4-1-2'] },
+  { labelKey: 'matches.fiveDefenders',  formations: ['5-3-2', '5-4-1'] },
+  { labelKey: 'matches.nineASide',      formations: ['3-2-3', '3-3-2', '2-3-3', '4-3-1'] },
+  { labelKey: 'matches.sevenASide',     formations: ['2-3-1', '3-2-1', '3-1-2', '2-2-2'] },
 ];
 
 // --- Formation Coordinate Maps ---
@@ -107,6 +111,56 @@ const FORMATIONS: Record<string, PositionSlot[]> = {
     { id: 'lwb', position: 'LWB', x: 8, y: 68 }, { id: 'lcb', position: 'CB', x: 28, y: 76 }, { id: 'cb', position: 'CB', x: 50, y: 80 }, { id: 'rcb', position: 'CB', x: 72, y: 76 }, { id: 'rwb', position: 'RWB', x: 92, y: 68 },
     { id: 'lm', position: 'LM', x: 12, y: 48 }, { id: 'lcm', position: 'CM', x: 35, y: 52 }, { id: 'rcm', position: 'CM', x: 65, y: 52 }, { id: 'rm', position: 'RM', x: 88, y: 48 },
     { id: 'st', position: 'ST', x: 50, y: 18 },
+  ],
+  // --- 9v9 youth formats (GK + 8 outfield) ---
+  '3-2-3': [
+    { id: 'gk', position: 'GK', x: 50, y: 90 },
+    { id: 'lcb', position: 'CB', x: 22, y: 74 }, { id: 'cb', position: 'CB', x: 50, y: 78 }, { id: 'rcb', position: 'CB', x: 78, y: 74 },
+    { id: 'lcm', position: 'CM', x: 35, y: 52 }, { id: 'rcm', position: 'CM', x: 65, y: 52 },
+    { id: 'lw', position: 'LW', x: 20, y: 26 }, { id: 'st', position: 'ST', x: 50, y: 20 }, { id: 'rw', position: 'RW', x: 80, y: 26 },
+  ],
+  '3-3-2': [
+    { id: 'gk', position: 'GK', x: 50, y: 90 },
+    { id: 'lcb', position: 'CB', x: 22, y: 74 }, { id: 'cb', position: 'CB', x: 50, y: 78 }, { id: 'rcb', position: 'CB', x: 78, y: 74 },
+    { id: 'lm', position: 'LM', x: 20, y: 50 }, { id: 'cm', position: 'CM', x: 50, y: 54 }, { id: 'rm', position: 'RM', x: 80, y: 50 },
+    { id: 'lst', position: 'ST', x: 38, y: 22 }, { id: 'rst', position: 'ST', x: 62, y: 22 },
+  ],
+  '2-3-3': [
+    { id: 'gk', position: 'GK', x: 50, y: 90 },
+    { id: 'lcb', position: 'CB', x: 35, y: 76 }, { id: 'rcb', position: 'CB', x: 65, y: 76 },
+    { id: 'lm', position: 'LM', x: 20, y: 52 }, { id: 'cm', position: 'CM', x: 50, y: 56 }, { id: 'rm', position: 'RM', x: 80, y: 52 },
+    { id: 'lw', position: 'LW', x: 20, y: 26 }, { id: 'st', position: 'ST', x: 50, y: 20 }, { id: 'rw', position: 'RW', x: 80, y: 26 },
+  ],
+  '4-3-1': [
+    { id: 'gk', position: 'GK', x: 50, y: 90 },
+    { id: 'lb', position: 'LB', x: 15, y: 72 }, { id: 'lcb', position: 'CB', x: 38, y: 76 }, { id: 'rcb', position: 'CB', x: 62, y: 76 }, { id: 'rb', position: 'RB', x: 85, y: 72 },
+    { id: 'lcm', position: 'CM', x: 28, y: 50 }, { id: 'cm', position: 'CM', x: 50, y: 54 }, { id: 'rcm', position: 'CM', x: 72, y: 50 },
+    { id: 'st', position: 'ST', x: 50, y: 22 },
+  ],
+  // --- 7v7 youth formats (GK + 6 outfield) ---
+  '2-3-1': [
+    { id: 'gk', position: 'GK', x: 50, y: 90 },
+    { id: 'lcb', position: 'CB', x: 35, y: 72 }, { id: 'rcb', position: 'CB', x: 65, y: 72 },
+    { id: 'lm', position: 'LM', x: 20, y: 48 }, { id: 'cm', position: 'CM', x: 50, y: 52 }, { id: 'rm', position: 'RM', x: 80, y: 48 },
+    { id: 'st', position: 'ST', x: 50, y: 22 },
+  ],
+  '3-2-1': [
+    { id: 'gk', position: 'GK', x: 50, y: 90 },
+    { id: 'lcb', position: 'CB', x: 25, y: 72 }, { id: 'cb', position: 'CB', x: 50, y: 76 }, { id: 'rcb', position: 'CB', x: 75, y: 72 },
+    { id: 'lcm', position: 'CM', x: 35, y: 48 }, { id: 'rcm', position: 'CM', x: 65, y: 48 },
+    { id: 'st', position: 'ST', x: 50, y: 22 },
+  ],
+  '3-1-2': [
+    { id: 'gk', position: 'GK', x: 50, y: 90 },
+    { id: 'lcb', position: 'CB', x: 25, y: 72 }, { id: 'cb', position: 'CB', x: 50, y: 76 }, { id: 'rcb', position: 'CB', x: 75, y: 72 },
+    { id: 'cm', position: 'CM', x: 50, y: 50 },
+    { id: 'lst', position: 'ST', x: 35, y: 24 }, { id: 'rst', position: 'ST', x: 65, y: 24 },
+  ],
+  '2-2-2': [
+    { id: 'gk', position: 'GK', x: 50, y: 90 },
+    { id: 'lcb', position: 'CB', x: 35, y: 74 }, { id: 'rcb', position: 'CB', x: 65, y: 74 },
+    { id: 'lcm', position: 'CM', x: 35, y: 50 }, { id: 'rcm', position: 'CM', x: 65, y: 50 },
+    { id: 'lst', position: 'ST', x: 35, y: 24 }, { id: 'rst', position: 'ST', x: 65, y: 24 },
   ],
 };
 
@@ -267,7 +321,7 @@ useEffect(() => {
       if (hasSavedLineup) {
           // A. Saved Match (Real data exists) -> Always load saved strategy
           setCurrentFormation(matchDetails.formation || '4-4-2');
-          setFormationSource('Saved Strategy');
+          setFormationSource(t('matches.savedStrategy'));
           
           try {
               const parsedArray = JSON.parse(matchDetails.lineup!);
@@ -473,7 +527,9 @@ useEffect(() => {
   };
 
   const handleSaveLineup = async () => {
-    if (lineup.size < 11) return toast.error(t('matches.lineupIncomplete'));
+    // Required size follows the active formation, so 7v7 / 9v9 youth
+    // formats and smaller custom formations are saveable too.
+    if (lineup.size < activeSlots.length) return toast.error(t('matches.lineupIncomplete', { count: activeSlots.length }));
     if (!matchDetails) return;
 
     try {
@@ -515,7 +571,7 @@ useEffect(() => {
             {isMatchPast ? (
               <Button onClick={() => setShowStatsModal(true)} variant="secondary" icon={<Trophy size={18} />}>{t('matches.recordStats')}</Button>
             ) : (
-              <Button onClick={() => setShowSaveModal(true)} disabled={lineup.size < 11} icon={<Save size={18} />}>{t('matches.saveLineup')}</Button>
+              <Button onClick={() => setShowSaveModal(true)} disabled={lineup.size < activeSlots.length} icon={<Save size={18} />}>{t('matches.saveLineup')}</Button>
             )}
         </div>
       </div>
@@ -664,7 +720,7 @@ useEffect(() => {
             </div>
             <div className="absolute top-6 right-6 bg-black/40 backdrop-blur-md rounded-lg px-4 py-2 border border-white/10">
               <p className="text-[10px] text-white/50 uppercase tracking-widest">{t('matches.starters')}</p>
-              <p className="text-xl font-bold text-white">{t('matches.startersCount', { count: lineup.size })}</p>
+              <p className="text-xl font-bold text-white">{t('matches.startersCount', { count: lineup.size, total: activeSlots.length })}</p>
             </div>
           </div>
         </div>
@@ -836,14 +892,9 @@ useEffect(() => {
           className="w-64 bg-surface border border-border rounded-2xl shadow-2xl shadow-black/60 p-3 space-y-3"
         >
           {FORMATION_GROUPS.map(group => {
-            const translatedLabel = group.label.includes('4') 
-              ? t('matches.fourDefenders')
-              : group.label.includes('3')
-              ? t('matches.threeDefenders')
-              : t('matches.fiveDefenders');
             return (
-              <div key={group.label}>
-                <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold px-1 mb-1.5">{translatedLabel}</p>
+              <div key={group.labelKey}>
+                <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold px-1 mb-1.5">{t(group.labelKey)}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {group.formations.map(f => (
                     <button

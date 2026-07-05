@@ -147,7 +147,7 @@ export default function App() {
     return (
       <>
         <LoginPage onLogin={handleLogin} />
-        <Toaster position="top-right" theme={toasterTheme} />
+        <Toaster position="bottom-right" theme={toasterTheme} />
       </>
     );
   }
@@ -157,7 +157,7 @@ export default function App() {
       <TeamProvider isAuthenticated={isAuthenticated}>
         <DndProvider backend={HTML5Backend}>
           <AppLayout currentPage={currentPage} navigateToPage={navigateToPage} handleLogout={handleLogout} />
-          <Toaster position="top-right" theme={toasterTheme} />
+          <Toaster position="bottom-right" theme={toasterTheme} />
         </DndProvider>
       </TeamProvider>
     </SeasonProvider>

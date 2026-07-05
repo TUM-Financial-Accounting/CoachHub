@@ -3,6 +3,7 @@ import { X, Edit2, Trash2, FileText, Video as VideoIcon, Dumbbell, Users, Layers
 import { useTranslation } from 'react-i18next';
 import {ExerciseSlideOverProps} from "../types/ui"
 import { API_BASE_URL } from '../lib/api-config';
+import { getCategoryStyles } from '../lib/exerciseCategories';
 
 // Only http(s)/data/blob pass through untouched; anything else (including a
 // javascript: URL smuggled in via playbook import) is treated as a relative
@@ -107,6 +108,11 @@ export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete 
                                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${intensity?.badge}`}>
                                             {exercise.intensity === 'High' ? t('common.high') : exercise.intensity === 'Low' ? t('common.low') : t('common.medium')}
                                         </span>
+                                        {exercise.category && (
+                                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getCategoryStyles(exercise.category)}`}>
+                                                {t(`exerciseCategories.${exercise.category}`)}
+                                            </span>
+                                        )}
                                         {exercise.goalkeepers > 0 && (
                                             <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-border text-muted">
                                                 <Users size={9} /> {exercise.goalkeepers} GK

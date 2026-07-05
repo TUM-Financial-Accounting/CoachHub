@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Edit2, Plus, Trash2, Camera, Shield, Hash, Ruler, Weight, User, TrendingUp, Users, ChevronUp, ChevronDown, ChevronsUpDown, Check } from 'lucide-react';
+import { Search, Edit2, Plus, Trash2, Camera, Shield, Hash, Ruler, Weight, User, TrendingUp, Users, ChevronUp, ChevronDown, ChevronsUpDown, Check, Star, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -35,11 +35,11 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
     const [editingPerf, setEditingPerf] = useState<string | null>(null);
     const [perfDraft, setPerfDraft] = useState<number>(0);
     const [loading, setLoading] = useState(true);
-    const [viewMode, setViewMode] = useState<'squad' | 'pool'>('squad');
+    const [viewMode, setViewMode] = useState<'squad' | 'pool' | 'trial'>('squad');
     const [assignmentPlayer, setAssignmentPlayer] = useState<Player | null>(null);
     const [duplicatePlayer, setDuplicatePlayer] = useState<Player | null>(null);
 
-    type SortKey = 'jerseyNumber' | 'firstName' | 'position' | 'attendance' | 'performance' | 'status' | 'teams';
+    type SortKey = 'jerseyNumber' | 'firstName' | 'lastName' | 'position' | 'attendance' | 'performance' | 'status' | 'teams' | 'homeClub' | 'trialRating';
     const [sortKey, setSortKey] = useState<SortKey>('jerseyNumber');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -56,7 +56,7 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
     };
 
     const [formData, setFormData] = useState<Player>({
-        id: '', firstName: '', lastName: '', dateOfBirth: '', position: 'Forward', jerseyNumber: 0, status: 'Active', playerPhone: '', height: 0, weight: 0, clothingSize: '', strongFoot: '', motherName: '', motherPhone: '', fatherName: '', fatherPhone: '', imageUrl: '', attendance: 0, performance: 0
+        id: '', firstName: '', lastName: '', dateOfBirth: '', position: 'Forward', jerseyNumber: 0, status: 'Active', playerPhone: '', height: 0, weight: 0, clothingSize: '', strongFoot: '', motherName: '', motherPhone: '', fatherName: '', fatherPhone: '', imageUrl: '', attendance: 0, performance: 0, isTrial: false, homeClub: '', trialRating: 0, trialNotes: ''
     });
     // Mirrors formData.weight as a string so the user can type a partial
     // decimal like "72." without us silently dropping the trailing dot.
@@ -141,9 +141,10 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
         const optimisticPlayer: Player = {
             ...formData,
             id: finalId,
+            // Trial players stay unassigned until they're signed to the squad.
             teams: isEditMode
                 ? (formData.teams || [])
-                : (activeTeam ? [activeTeam] : (formData.teams || [])),
+                : (activeTeam && !formData.isTrial ? [activeTeam] : (formData.teams || [])),
         };
         const playersBefore = players;
         if (isEditMode) {
@@ -157,7 +158,7 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
             if (isEditMode) {
                 await PlayerService.update(formData.id, formData);
             } else {
-                await PlayerService.create({ ...formData, id: finalId }, activeTeam?.id, activeSeason?.id);
+                await PlayerService.create({ ...formData, id: finalId }, formData.isTrial ? undefined : activeTeam?.id, activeSeason?.id);
             }
             toast.success(t('team.playerSaved'));
         } catch (error) {
@@ -188,13 +189,13 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
         const optimisticPlayer: Player = {
             ...formData,
             id: finalId,
-            teams: activeTeam ? [activeTeam] : (formData.teams || []),
+            teams: activeTeam && !formData.isTrial ? [activeTeam] : (formData.teams || []),
         };
         const playersBefore = players;
         setPlayers(prev => [...prev, optimisticPlayer]);
         setShowPlayerModal(false);
         try {
-            await PlayerService.create({ ...formData, id: finalId }, activeTeam?.id, activeSeason?.id);
+            await PlayerService.create({ ...formData, id: finalId }, formData.isTrial ? undefined : activeTeam?.id, activeSeason?.id);
             toast.success(t('team.newPlayerCreated'));
         } catch (error) {
             setPlayers(playersBefore);
@@ -266,6 +267,23 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
         }
     };
 
+    // "Sign" a trial player: clear the trial flag and add them to the
+    // active team's roster in one step.
+    const handlePromote = async (player: Player) => {
+        if (!activeTeam) return;
+        try {
+            const signed = { ...player, isTrial: false };
+            await PlayerService.update(player.id, signed);
+            await PlayerService.assignToTeam(player.id, activeTeam.id, activeSeason?.id);
+            setPlayers(prev => prev.map(p => p.id === player.id
+                ? { ...p, isTrial: false, teams: [...(p.teams || []), activeTeam] }
+                : p));
+            toast.success(t('team.promotedToSquad', { name: `${player.firstName} ${player.lastName}` }));
+        } catch {
+            toast.error(t('team.saveFailed'));
+        }
+    };
+
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -287,7 +305,8 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
     const openCreate = () => {
         setEditingId(null);
         setImagePreview('');
-        setFormData({ id: '', firstName: '', lastName: '', dateOfBirth: '', position: 'Forward', jerseyNumber: 0, status: 'Active', playerPhone: '', height: 0, weight: 0, clothingSize: '', strongFoot: '', motherName: '', motherPhone: '', fatherName: '', fatherPhone: '', imageUrl: '', attendance: 0, performance: 0 });
+        // Creating from the trial tab pre-selects the trial flag.
+        setFormData({ id: '', firstName: '', lastName: '', dateOfBirth: '', position: 'Forward', jerseyNumber: 0, status: 'Active', playerPhone: '', height: 0, weight: 0, clothingSize: '', strongFoot: '', motherName: '', motherPhone: '', fatherName: '', fatherPhone: '', imageUrl: '', attendance: 0, performance: 0, isTrial: viewMode === 'trial', homeClub: '', trialRating: 0, trialNotes: '' });
         setWeightInput('');
         setShowPlayerModal(true);
     };
@@ -328,18 +347,23 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
         return { bar: 'bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]', text: 'text-rose-400' };
     };
 
-    const filteredPlayers = players.filter(p => p.firstName.toLowerCase().includes(searchQuery.toLowerCase()) || p.lastName.toLowerCase().includes(searchQuery.toLowerCase()));
+    // Trial players live in their own tab; squad and pool only show signed players.
+    const modeFiltered = players.filter(p => viewMode === 'trial' ? p.isTrial : !p.isTrial);
+    const filteredPlayers = modeFiltered.filter(p => p.firstName.toLowerCase().includes(searchQuery.toLowerCase()) || p.lastName.toLowerCase().includes(searchQuery.toLowerCase()));
 
     const sortedPlayers = [...filteredPlayers].sort((a, b) => {
         let av: string | number, bv: string | number;
         switch (sortKey) {
             case 'jerseyNumber': av = a.jerseyNumber; bv = b.jerseyNumber; break;
             case 'firstName': av = (a.firstName + ' ' + a.lastName).toLowerCase(); bv = (b.firstName + ' ' + b.lastName).toLowerCase(); break;
+            case 'lastName': av = (a.lastName + ' ' + a.firstName).toLowerCase(); bv = (b.lastName + ' ' + b.firstName).toLowerCase(); break;
             case 'position': av = a.position; bv = b.position; break;
             case 'attendance': av = computedAttendance[a.id] ?? a.attendance; bv = computedAttendance[b.id] ?? b.attendance; break;
             case 'performance': av = a.performance; bv = b.performance; break;
             case 'status': av = a.status; bv = b.status; break;
             case 'teams': av = (a.teams || []).map(t => t.name).join(', '); bv = (b.teams || []).map(t => t.name).join(', '); break;
+            case 'homeClub': av = a.homeClub.toLowerCase(); bv = b.homeClub.toLowerCase(); break;
+            case 'trialRating': av = a.trialRating; bv = b.trialRating; break;
             default: av = 0; bv = 0;
         }
         if (av < bv) return sortDir === 'asc' ? -1 : 1;
@@ -359,7 +383,7 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                 </div>
                 <div className="flex items-center gap-3">
                     <Button onClick={() => onNavigate('session-planner')} icon={<Plus size={18} />} className="shadow-lg shadow-primary/20">{t('nav.training')}</Button>
-                    <Button variant="secondary" onClick={openCreate} icon={<Plus size={18} />} disabled={!activeTeam}>{t('team.playerCol')}</Button>
+                    <Button variant="secondary" onClick={openCreate} icon={<Plus size={18} />} disabled={!activeTeam && viewMode !== 'trial'}>{t('team.playerCol')}</Button>
                 </div>
             </div>
 
@@ -370,11 +394,17 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                 >
                     {activeTeam?.name || t('team.currentSquad')}
                 </button>
-                <button 
+                <button
                     onClick={() => setViewMode('pool')}
                     className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${viewMode === 'pool' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-muted hover:text-foreground'}`}
                 >
                     {t('team.allPlayers')}
+                </button>
+                <button
+                    onClick={() => setViewMode('trial')}
+                    className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${viewMode === 'trial' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-muted hover:text-foreground'}`}
+                >
+                    {t('team.trialPlayers')}
                 </button>
             </div>
 
@@ -389,10 +419,11 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                             <tr className="border-b border-border text-xs uppercase tracking-wider text-muted font-semibold">
                                 {([
                                     { key: 'jerseyNumber', label: t('team.jerseyCol') },
-                                    { key: 'firstName',    label: t('team.playerCol') },
+                                    { key: 'firstName',    label: t('team.firstName') },
+                                    { key: 'lastName',     label: t('team.lastName') },
                                     { key: 'position',     label: t('team.positionCol') },
-                                    viewMode === 'squad' ? { key: 'attendance', label: t('team.attendanceCol') } : { key: 'teams', label: t('team.assignedTeamsCol') },
-                                    viewMode === 'squad' ? { key: 'performance', label: t('team.performanceCol') } : { key: 'status', label: t('team.statusCol') },
+                                    viewMode === 'squad' ? { key: 'attendance', label: t('team.attendanceCol') } : viewMode === 'trial' ? { key: 'homeClub', label: t('team.homeClub') } : { key: 'teams', label: t('team.assignedTeamsCol') },
+                                    viewMode === 'squad' ? { key: 'performance', label: t('team.performanceCol') } : viewMode === 'trial' ? { key: 'trialRating', label: t('team.trialRating') } : { key: 'status', label: t('team.statusCol') },
                                     viewMode === 'squad' ? { key: 'status', label: t('team.statusCol') } : null,
                                 ].filter(Boolean) as any[]).map(col => (
                                     <th key={col.key} className="px-6 py-4">
@@ -418,25 +449,29 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                             {loading && Array.from({ length: 5 }).map((_, i) => <PlayerRowSkeleton key={i} />)}
                             {!loading && filteredPlayers.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-20 text-center">
+                                    <td colSpan={8} className="px-6 py-20 text-center">
                                         <div className="flex flex-col items-center gap-4 text-muted">
                                             <div className="w-16 h-16 rounded-2xl bg-surface-hover flex items-center justify-center">
                                                 <Users className="w-8 h-8 text-muted/60" />
                                             </div>
                                             <div>
                                                 <p className="font-semibold text-muted">
-                                                    {!activeTeam ? t('team.noActiveTeam') : searchQuery ? t('team.noPlayersFound') : t('team.noPlayersYet')}
+                                                    {viewMode === 'trial'
+                                                        ? (searchQuery ? t('team.noPlayersFound') : t('team.noTrialPlayers'))
+                                                        : !activeTeam ? t('team.noActiveTeam') : searchQuery ? t('team.noPlayersFound') : t('team.noPlayersYet')}
                                                 </p>
                                                 <p className="text-sm mt-1">
-                                                    {!activeTeam ? t('team.addTeamPrompt') : searchQuery ? t('team.searchPrompt') : t('team.addPlayerPrompt')}
+                                                    {viewMode === 'trial'
+                                                        ? (searchQuery ? t('team.searchPrompt') : t('team.addTrialPrompt'))
+                                                        : !activeTeam ? t('team.addTeamPrompt') : searchQuery ? t('team.searchPrompt') : t('team.addPlayerPrompt')}
                                                 </p>
                                             </div>
                                             {!searchQuery && (
-                                                <button 
-                                                    onClick={!activeTeam ? () => window.dispatchEvent(new Event('open-create-team')) : openCreate} 
+                                                <button
+                                                    onClick={(!activeTeam && viewMode !== 'trial') ? () => window.dispatchEvent(new Event('open-create-team')) : openCreate}
                                                     className="mt-2 px-4 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 text-sm font-medium hover:bg-indigo-500/20 transition-colors"
                                                 >
-                                                    {!activeTeam ? t('team.addTeam') : t('team.addPlayer')}
+                                                    {(!activeTeam && viewMode !== 'trial') ? t('team.addTeam') : t('team.addPlayer')}
                                                 </button>
                                             )}
                                         </div>
@@ -452,14 +487,20 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                                                 onClick={() => setSelectedPlayer(player)}
                                                 className="flex items-center gap-4 text-left group/name hover:opacity-80 transition-opacity"
                                             >
-                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 p-[2px] shadow-lg shadow-blue-500/20">
+                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 p-[2px] shadow-lg shadow-blue-500/20 flex-shrink-0">
                                                     <div className="w-full h-full rounded-full bg-surface flex items-center justify-center overflow-hidden">
                                                         {player.imageUrl ? <img src={player.imageUrl} className="w-full h-full object-cover" /> : <span className="font-bold text-blue-500">{player.firstName[0]}</span>}
                                                     </div>
                                                 </div>
-                                                <div>
-                                                    <p className="font-semibold text-foreground group-hover/name:text-blue-500 transition-colors">{player.firstName} {player.lastName}</p>
-                                                </div>
+                                                <p className="font-semibold text-foreground group-hover/name:text-blue-500 transition-colors">{player.firstName}</p>
+                                            </button>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <button
+                                                onClick={() => setSelectedPlayer(player)}
+                                                className="text-left group/last hover:opacity-80 transition-opacity"
+                                            >
+                                                <p className="font-semibold text-foreground group-hover/last:text-blue-500 transition-colors">{player.lastName}</p>
                                             </button>
                                         </td>
                                         <td className="px-6 py-4"><span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-hover/50 text-foreground/80 text-xs font-medium border border-border"><Shield size={12} /> {t(`positions.${player.position}`)}</span></td>
@@ -471,6 +512,8 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                                                     </div>
                                                     <span className="text-xs font-bold text-muted">{computedAttendance[player.id] ?? player.attendance}%</span>
                                                 </div>
+                                            ) : viewMode === 'trial' ? (
+                                                <span className="text-sm text-foreground/80">{player.homeClub || '—'}</span>
                                             ) : (
                                                 <div className="flex flex-wrap gap-1 items-center">
                                                     {player.teams?.length ? player.teams.map((t: Team) => (
@@ -522,6 +565,12 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                                                             <TrendingUp size={12} className="text-muted/40 group-hover/perf:text-blue-500 transition-colors shrink-0" />
                                                         </div>
                                                     )
+                                                ) : viewMode === 'trial' ? (
+                                                    <div className="flex gap-0.5" title={player.trialNotes || undefined}>
+                                                        {[1, 2, 3, 4, 5].map(v => (
+                                                            <Star key={v} size={14} className={v <= player.trialRating ? 'text-amber-400 fill-amber-400' : 'text-muted/30'} />
+                                                        ))}
+                                                    </div>
                                                 ) : (
                                                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${getStatusColor(player.status)}`}>{t(`status.${player.status}`)}</span>
                                                 )}
@@ -536,7 +585,12 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                                                 {viewMode === 'squad' ? (
                                                     <button onClick={() => setConfirmRemoveId(player.id)} className="p-2 hover:bg-orange-500/10 text-muted/60 hover:text-orange-500 rounded-lg transition-colors" title={t('team.removePlayerBtn')}><Trash2 size={16} /></button>
                                                 ) : (
-                                                    <button onClick={() => setConfirmDeleteId(player.id)} className="p-2 hover:bg-rose-500/10 text-muted/60 hover:text-rose-500 rounded-lg transition-colors" title={t('team.deleteProfile')}><Trash2 size={16} /></button>
+                                                    <>
+                                                        {viewMode === 'trial' && activeTeam && (
+                                                            <button onClick={() => handlePromote(player)} className="p-2 hover:bg-emerald-500/10 text-muted/60 hover:text-emerald-500 rounded-lg transition-colors" title={t('team.promoteToSquad')}><UserPlus size={16} /></button>
+                                                        )}
+                                                        <button onClick={() => setConfirmDeleteId(player.id)} className="p-2 hover:bg-rose-500/10 text-muted/60 hover:text-rose-500 rounded-lg transition-colors" title={t('team.deleteProfile')}><Trash2 size={16} /></button>
+                                                    </>
                                                 )}
                                             </div>
                                         </td>
@@ -590,6 +644,50 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                                 <Input label={t('team.jerseyNumberLabel')} type="text" inputMode="numeric" icon={<Hash size={14} />} value={formData.jerseyNumber || ''} onChange={e => { const raw = e.target.value.replace(/\D/g, ''); const v = raw === '' ? 0 : Math.min(99, parseInt(raw)); setFormData({ ...formData, jerseyNumber: v }); }} className="font-mono font-bold" />
                                 <Select label={t('common.status')} value={formData.status} onChange={(value) => setFormData({ ...formData, status: value as string })} options={[{ label: t('status.Active'), value: 'Active' }, { label: t('status.Injured'), value: 'Injured' }, { label: t('status.Away'), value: 'Away' }]} />
                             </div>
+                        </div>
+
+                        <div>
+                            <h4 className="text-[11px] uppercase tracking-widest font-bold text-amber-500 mb-6 flex items-center gap-3">
+                                <span className="w-6 h-[2px] bg-amber-500/50 rounded-full"></span>{t('team.trialDetails')}<span className="flex-1 h-[1px] bg-gradient-to-r from-amber-500/20 to-transparent"></span>
+                            </h4>
+                            <label className="flex items-center gap-3 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.isTrial}
+                                    onChange={e => setFormData({ ...formData, isTrial: e.target.checked })}
+                                    className="w-4 h-4 accent-amber-500"
+                                />
+                                <span className="text-sm font-semibold text-foreground">{t('team.isTrialLabel')}</span>
+                            </label>
+                            {formData.isTrial && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                                    <Input label={t('team.homeClub')} value={formData.homeClub} onChange={e => setFormData({ ...formData, homeClub: e.target.value })} placeholder={t('team.homeClubPlaceholder')} />
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-bold text-muted uppercase tracking-widest ml-1 block">{t('team.trialRating')}</label>
+                                        <div className="flex items-center gap-1.5 h-[46px]">
+                                            {[1, 2, 3, 4, 5].map(v => (
+                                                <button
+                                                    key={v}
+                                                    type="button"
+                                                    onClick={() => setFormData({ ...formData, trialRating: v === formData.trialRating ? 0 : v })}
+                                                    className="p-0.5 transition-transform hover:scale-110"
+                                                >
+                                                    <Star size={22} className={v <= formData.trialRating ? 'text-amber-400 fill-amber-400' : 'text-muted/40 hover:text-amber-400/60'} />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="md:col-span-2 space-y-2">
+                                        <label className="text-[11px] font-bold text-muted uppercase tracking-widest ml-1 block">{t('team.trialNotes')}</label>
+                                        <textarea
+                                            className="w-full bg-surface-hover border border-border text-foreground rounded-xl px-4 py-3 text-sm outline-none transition-all placeholder:text-muted/60 focus:bg-surface focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 resize-none h-20 custom-scrollbar"
+                                            value={formData.trialNotes}
+                                            onChange={e => setFormData({ ...formData, trialNotes: e.target.value })}
+                                            placeholder={t('team.trialNotesPlaceholder')}
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div>

@@ -21,6 +21,7 @@ import { ExerciseService, LibraryService } from '../services';
 
 // --- Types ---
 import { Exercise, SelectorItem } from '../types/models';
+import { EXERCISE_CATEGORIES, getCategoryStyles } from '../lib/exerciseCategories';
 
 // --- Helpers ---
 const resolveMediaUrl = (url: string) =>
@@ -61,6 +62,7 @@ export default function ExercisesLibrary() {
     const [exercises, setExercises] = useState<Exercise[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeIntensity, setActiveIntensity] = useState<string>('All');
+    const [activeCategory, setActiveCategory] = useState<string>('All');
     const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showPlaybookModal, setShowPlaybookModal] = useState(false);
@@ -84,7 +86,7 @@ export default function ExercisesLibrary() {
     const [tacticsSearch, setTacticsSearch] = useState('');
 
     const [formData, setFormData] = useState<Exercise>({
-        id: '', name: '', intensity: 'Medium', description: '', setup: '',
+        id: '', name: '', category: '', intensity: 'Medium', description: '', setup: '',
         variations: '', coachingPoints: '', goalkeepers: 0,
         equipment: [], linkedBasics: [], linkedPrinciples: [], linkedTactics: [], isCustom: true, mediaUrl: ''
     });
@@ -166,7 +168,7 @@ export default function ExercisesLibrary() {
 
     // --- UI Helpers ---
     const resetForm = () => {
-        setFormData({ id: '', name: '', intensity: 'Medium', description: '', setup: '', variations: '', coachingPoints: '', goalkeepers: 0, equipment: [], linkedBasics: [], linkedPrinciples: [], linkedTactics: [], isCustom: true, mediaUrl: '' });
+        setFormData({ id: '', name: '', category: '', intensity: 'Medium', description: '', setup: '', variations: '', coachingPoints: '', goalkeepers: 0, equipment: [], linkedBasics: [], linkedPrinciples: [], linkedTactics: [], isCustom: true, mediaUrl: '' });
         setMediaPreview(null); setBasicsSearch(''); setPrinciplesSearch(''); setTacticsSearch(''); setOpenSection(null);
     };
 
@@ -207,10 +209,15 @@ export default function ExercisesLibrary() {
         }
     };
 
+    // Only surface category filter chips that are actually in use, so the row
+    // stays empty (and hidden) until exercises start getting categorised.
+    const usedCategories = EXERCISE_CATEGORIES.filter(cat => exercises.some(ex => ex.category === cat));
+
     const filteredExercises = exercises.filter(ex => {
         const matchIntensity = activeIntensity === 'All' || ex.intensity === activeIntensity;
+        const matchCategory = activeCategory === 'All' || ex.category === activeCategory;
         const matchSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchIntensity && matchSearch;
+        return matchIntensity && matchCategory && matchSearch;
     });
 
     // Media Renderer
@@ -321,6 +328,38 @@ export default function ExercisesLibrary() {
                 })}
             </div>
 
+            {/* Category Filter Tabs — only shown once exercises carry a category */}
+            {usedCategories.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        onClick={() => setActiveCategory('All')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                            activeCategory === 'All'
+                                ? 'bg-surface-raised border-border text-foreground'
+                                : 'bg-transparent border-border text-muted hover:text-foreground hover:border-border'
+                        }`}
+                    >
+                        {t('libraries.category')}: {t('common.all')}
+                    </button>
+                    {usedCategories.map(cat => {
+                        const count = exercises.filter(ex => ex.category === cat).length;
+                        const isActive = activeCategory === cat;
+                        return (
+                            <button
+                                key={cat}
+                                onClick={() => setActiveCategory(isActive ? 'All' : cat)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                                    isActive ? getCategoryStyles(cat) : 'bg-transparent border-border text-muted hover:text-foreground hover:border-border'
+                                }`}
+                            >
+                                {t(`exerciseCategories.${cat}`)}
+                                <span className="ml-1 opacity-60">{count}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+
             {/* Search */}
             <div className="flex-shrink-0">
                 <Input icon={<Search size={18} />} placeholder={t('libraries.searchExercises')} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
@@ -330,9 +369,16 @@ export default function ExercisesLibrary() {
                 <AnimatePresence>
                     {filteredExercises.map((ex, idx) => (
                         <Card key={ex.id} animate delay={idx * 0.05} onClick={() => setSelectedExercise(ex)} className="p-6 cursor-pointer hover:border-primary/50 flex flex-col h-full group">
-                            <div className="flex justify-between items-start mb-4">
+                            <div className="flex justify-between items-start mb-4 gap-2">
                                 <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">{ex.name}</h3>
-                                <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${getIntensityStyles(ex.intensity)}`}>{ex.intensity}</span>
+                                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                                    <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${getIntensityStyles(ex.intensity)}`}>{ex.intensity}</span>
+                                    {ex.category && (
+                                        <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${getCategoryStyles(ex.category)}`}>
+                                            {t(`exerciseCategories.${ex.category}`)}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="h-40 mb-4 bg-background rounded-xl overflow-hidden flex items-center justify-center border border-border relative">
@@ -370,8 +416,19 @@ export default function ExercisesLibrary() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="md:col-span-2 space-y-4">
                             <Input label={t('common.name')} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Rondo 4v2" />
+                            <Select
+                                label={t('libraries.category')}
+                                placeholder={t('libraries.selectCategory')}
+                                value={formData.category}
+                                onChange={val => setFormData({ ...formData, category: val as string })}
+                                options={[
+                                    // Leading "—" lets the user clear a previously chosen category.
+                                    { label: '—', value: '' },
+                                    ...EXERCISE_CATEGORIES.map(c => ({ label: t(`exerciseCategories.${c}`), value: c })),
+                                ]}
+                            />
                             <div className="grid grid-cols-2 gap-4">
-                                <Select label={t('training.focus')} value={formData.intensity} onChange={val => setFormData({ ...formData, intensity: val as any })} options={['Low', 'Medium', 'High'].map(v => ({ label: v === 'High' ? t('common.high') : v === 'Low' ? t('common.low') : t('common.medium'), value: v }))} />
+                                <Select label={t('training.intensity')} value={formData.intensity} onChange={val => setFormData({ ...formData, intensity: val as any })} options={['Low', 'Medium', 'High'].map(v => ({ label: v === 'High' ? t('common.high') : v === 'Low' ? t('common.low') : t('common.medium'), value: v }))} />
                                 <Input label={t('libraries.goalkeepers')} type="number" value={formData.goalkeepers} onChange={e => setFormData({ ...formData, goalkeepers: parseInt(e.target.value) || 0 })} />
                             </div>
                         </div>

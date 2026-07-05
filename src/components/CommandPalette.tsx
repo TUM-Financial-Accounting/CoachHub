@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Users, CalendarDays, Dumbbell, BookOpen, Target, ChevronRight, Command, Layers } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import {Result, Page, Category} from "../types/ui"
 import { PlayerService, TrainingService, ExerciseService, LibraryService } from '../services';
@@ -19,13 +20,15 @@ const CATEGORY_META: Record<Category, { icon: React.ReactNode; color: string; pa
 // the keyboard-selected index always matches the visually highlighted row.
 const CATEGORY_ORDER: Category[] = ['Players', 'Sessions', 'Exercises', 'Basics', 'Principles', 'Tactics'];
 
-const QUICK_LINKS: { label: string; page: Page; category: Category }[] = [
-    { label: 'Squad Roster',       page: 'team',           category: 'Players' },
-    { label: 'Session Planner',    page: 'session-planner', category: 'Sessions' },
-    { label: 'Training Manager',   page: 'training',        category: 'Exercises' },
-    { label: 'Basics Library',     page: 'basics',          category: 'Basics' },
-    { label: 'Principles Library', page: 'principles',      category: 'Principles' },
-    { label: 'Tactics Library',    page: 'tactics',         category: 'Tactics' },
+// Labels resolve through the same nav.* keys as the sidebar, so the palette
+// always matches the sidebar wording in every language.
+const QUICK_LINKS: { labelKey: string; page: Page; category: Category }[] = [
+    { labelKey: 'nav.squadRoster', page: 'team',            category: 'Players' },
+    { labelKey: 'nav.training',    page: 'session-planner', category: 'Sessions' },
+    { labelKey: 'nav.exercises',   page: 'training',        category: 'Exercises' },
+    { labelKey: 'nav.basics',      page: 'basics',          category: 'Basics' },
+    { labelKey: 'nav.principles',  page: 'principles',      category: 'Principles' },
+    { labelKey: 'nav.tactics',     page: 'tactics',         category: 'Tactics' },
 ];
 
 interface CommandPaletteProps {
@@ -35,6 +38,7 @@ interface CommandPaletteProps {
 }
 
 export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandPaletteProps) {
+    const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<Result[]>([]);
     const [loading, setLoading] = useState(false);
@@ -71,27 +75,27 @@ export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandP
             }
             if (sessions.status === 'fulfilled') {
                 sessions.value.forEach(s =>
-                    all.push({ id: `session-${s.id}`, label: s.focus || 'Training Session', sub: s.date, page: 'session-planner', category: 'Sessions' })
+                    all.push({ id: `session-${s.id}`, label: s.focus || t('nav.training'), sub: s.date, page: 'session-planner', category: 'Sessions' })
                 );
             }
             if (exercises.status === 'fulfilled') {
                 exercises.value.forEach(e =>
-                    all.push({ id: `ex-${e.id}`, label: e.name, sub: 'Exercise', page: 'training', category: 'Exercises' })
+                    all.push({ id: `ex-${e.id}`, label: e.name, sub: t('commandPalette.categories.Exercises'), page: 'training', category: 'Exercises' })
                 );
             }
             if (basics.status === 'fulfilled') {
                 basics.value.forEach(b =>
-                    all.push({ id: `basic-${b.id}`, label: b.name, sub: 'Basics', page: 'basics', category: 'Basics' })
+                    all.push({ id: `basic-${b.id}`, label: b.name, sub: t('commandPalette.categories.Basics'), page: 'basics', category: 'Basics' })
                 );
             }
             if (principles.status === 'fulfilled') {
                 principles.value.forEach(p =>
-                    all.push({ id: `prin-${p.id}`, label: p.name, sub: 'Principles', page: 'principles', category: 'Principles' })
+                    all.push({ id: `prin-${p.id}`, label: p.name, sub: t('commandPalette.categories.Principles'), page: 'principles', category: 'Principles' })
                 );
             }
             if (tactics.status === 'fulfilled') {
-                tactics.value.forEach(t =>
-                    all.push({ id: `tact-${t.id}`, label: t.name, sub: 'Tactics', page: 'tactics', category: 'Tactics' })
+                tactics.value.forEach(tac =>
+                    all.push({ id: `tact-${tac.id}`, label: tac.name, sub: t('commandPalette.categories.Tactics'), page: 'tactics', category: 'Tactics' })
                 );
             }
             allDataRef.current = all;
@@ -115,7 +119,7 @@ export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandP
         setSelectedIdx(0);
     }, [query]);
 
-    const displayItems: (Result | { type: 'quicklink'; label: string; page: Page; category: Category })[] =
+    const displayItems: (Result | { type: 'quicklink'; labelKey: string; page: Page; category: Category })[] =
         query.trim() ? results : QUICK_LINKS.map(q => ({ type: 'quicklink' as const, ...q }));
 
     const handleSelect = useCallback((page: Page) => {
@@ -187,7 +191,7 @@ export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandP
                                 <input
                                     ref={inputRef}
                                     type="text"
-                                    placeholder="Search players, sessions, exercises..."
+                                    placeholder={t('commandPalette.placeholder')}
                                     value={query}
                                     onChange={e => setQuery(e.target.value)}
                                     className="flex-1 bg-transparent text-foreground placeholder-muted text-sm outline-none"
@@ -207,13 +211,13 @@ export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandP
 
                                 {!loading && displayItems.length === 0 && query.trim() && (
                                     <div className="px-4 py-10 text-center text-muted text-sm">
-                                        No results for "{query}"
+                                        {t('commandPalette.noResults', { query })}
                                     </div>
                                 )}
 
                                 {!loading && !query.trim() && (
                                     <div className="px-3 pt-1 pb-1">
-                                        <p className="px-2 pb-2 text-[10px] font-semibold text-muted uppercase tracking-wider">Quick navigation</p>
+                                        <p className="px-2 pb-2 text-[10px] font-semibold text-muted uppercase tracking-wider">{t('commandPalette.quickNav')}</p>
                                         {QUICK_LINKS.map((link, i) => {
                                             const meta = CATEGORY_META[link.category];
                                             const isSelected = i === selectedIdx;
@@ -225,7 +229,7 @@ export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandP
                                                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-surface-hover text-foreground'}`}
                                                 >
                                                     <span className={`flex-shrink-0 ${meta.color}`}>{meta.icon}</span>
-                                                    <span className="flex-1 text-sm font-medium">{link.label}</span>
+                                                    <span className="flex-1 text-sm font-medium">{t(link.labelKey)}</span>
                                                     <ChevronRight size={14} className={`flex-shrink-0 transition-opacity ${isSelected ? 'opacity-60' : 'opacity-0'}`} />
                                                 </button>
                                             );
@@ -260,7 +264,7 @@ export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandP
                                                 });
                                                 return (
                                                     <div key={cat} className="pt-2">
-                                                        <p className="px-2 pb-1 text-[10px] font-semibold text-muted uppercase tracking-wider">{cat}</p>
+                                                        <p className="px-2 pb-1 text-[10px] font-semibold text-muted uppercase tracking-wider">{t(`commandPalette.categories.${cat}`)}</p>
                                                         {nodes}
                                                     </div>
                                                 );
@@ -272,9 +276,9 @@ export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandP
 
                             {/* Footer hint */}
                             <div className="px-4 py-2.5 border-t border-border flex items-center gap-4 text-[10px] text-muted font-medium bg-surface/50">
-                                <span className="flex items-center gap-1"><kbd className="border border-border rounded px-1 py-0.5 text-[9px] bg-surface">↑↓</kbd> navigate</span>
-                                <span className="flex items-center gap-1"><kbd className="border border-border rounded px-1 py-0.5 text-[9px] bg-surface">↵</kbd> select</span>
-                                <span className="flex items-center gap-1"><kbd className="border border-border rounded px-1 py-0.5 text-[9px] bg-surface">ESC</kbd> close</span>
+                                <span className="flex items-center gap-1"><kbd className="border border-border rounded px-1 py-0.5 text-[9px] bg-surface">↑↓</kbd> {t('commandPalette.navigate')}</span>
+                                <span className="flex items-center gap-1"><kbd className="border border-border rounded px-1 py-0.5 text-[9px] bg-surface">↵</kbd> {t('commandPalette.select')}</span>
+                                <span className="flex items-center gap-1"><kbd className="border border-border rounded px-1 py-0.5 text-[9px] bg-surface">ESC</kbd> {t('commandPalette.close')}</span>
                                 <span className="ml-auto flex items-center gap-1 opacity-70">
                                     <Command size={10} /> K
                                 </span>

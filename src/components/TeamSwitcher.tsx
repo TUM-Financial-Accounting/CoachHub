@@ -19,7 +19,7 @@ export default function TeamSwitcher({ collapsed }: { collapsed: boolean }) {
 
   const options = teams.map(t => ({ label: t.name, value: t.id }));
   // Add a special "Create New Team" option
-  options.push({ label: '+ Create Team', value: 'CREATE_NEW' });
+  options.push({ label: `+ ${t('modals.createTeamBtn')}`, value: 'CREATE_NEW' });
 
   return (
      <div className="px-3 py-2 border-b border-border">
@@ -29,7 +29,7 @@ export default function TeamSwitcher({ collapsed }: { collapsed: boolean }) {
            </span>
         </div>
         <Select 
-           placeholder={teams.length === 0 ? "No teams yet" : "Select Team"}
+           placeholder={teams.length === 0 ? t('nav.noTeamsYet') : t('nav.selectTeam')}
            value={activeTeam?.id || ''}
            options={options}
            onChange={(val) => {

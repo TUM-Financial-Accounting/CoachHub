@@ -27,6 +27,12 @@ export interface Player {
   imageUrl: string;
   attendance: number;
   performance: number;
+  // Trial players ("Probespieler"): tracked with their current club and a
+  // short scouting evaluation until they are signed to a squad.
+  isTrial: boolean;
+  homeClub: string;
+  trialRating: number; // 0 = unrated, 1-5 stars
+  trialNotes: string;
   teams?: Team[];
 }
 
@@ -82,6 +88,9 @@ export interface MatchEvent {
 export interface Exercise {
   id: string;
   name: string;
+  // Training focus / drill type (technique, tactical, athletic, game form…).
+  // Empty string for exercises created before this field existed.
+  category: string;
   intensity: 'Low' | 'Medium' | 'High';
   description: string;
   setup: string;

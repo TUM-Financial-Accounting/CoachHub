@@ -15,6 +15,30 @@ import uuid, os, shutil, secrets
 
 models.Base.metadata.create_all(bind=database.engine)
 
+# --- Lightweight column backfill ---
+# create_all() only creates missing *tables* — it never adds new columns to a
+# table that already exists. This project has no migration tool (no Alembic),
+# so newly-introduced nullable columns are added here instead. Postgres'
+# "ADD COLUMN IF NOT EXISTS" makes this safe to run on every startup, and a
+# failure must never take the API down.
+def _ensure_columns():
+    from sqlalchemy import text
+    statements = [
+        "ALTER TABLE exercises ADD COLUMN IF NOT EXISTS category VARCHAR",
+        "ALTER TABLE players ADD COLUMN IF NOT EXISTS is_trial BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE players ADD COLUMN IF NOT EXISTS home_club VARCHAR",
+        "ALTER TABLE players ADD COLUMN IF NOT EXISTS trial_rating INTEGER DEFAULT 0",
+        "ALTER TABLE players ADD COLUMN IF NOT EXISTS trial_notes TEXT",
+    ]
+    try:
+        with database.engine.begin() as conn:
+            for stmt in statements:
+                conn.execute(text(stmt))
+    except Exception as exc:  # pragma: no cover - best-effort startup migration
+        print(f"[startup] column backfill skipped: {exc}")
+
+_ensure_columns()
+
 # Resolve the uploads directory. Defaults to ./static/uploads but can be
 # pointed at a mounted persistent volume via the UPLOAD_DIR env var. This
 # matters in production: the container filesystem on Railway (and similar
@@ -543,6 +567,7 @@ def update_exercise(exercise_id: str, item: schemas.ExerciseCreate, db: Session 
     
     # Manually update fields to ensure safety
     db_ex.name = item.name
+    db_ex.category = item.category
     db_ex.description = item.description
     db_ex.intensity = item.intensity
     db_ex.setup = item.setup
@@ -1138,11 +1163,19 @@ def get_players(team_id: Optional[str] = None, season_id: Optional[str] = None, 
                 "image_url": p.image_url,
                 "height": p.height,
                 "weight": p.weight,
+                # clothing_size / strong_foot were missing here, so editing a
+                # player from the squad view wiped both fields on save.
+                "clothing_size": p.clothing_size,
+                "strong_foot": p.strong_foot,
                 "mother_name": p.mother_name,
                 "mother_phone": p.mother_phone,
                 "father_name": p.father_name,
                 "father_phone": p.father_phone,
                 "attendance": p.attendance,
+                "is_trial": p.is_trial,
+                "home_club": p.home_club,
+                "trial_rating": p.trial_rating,
+                "trial_notes": p.trial_notes,
                 "performance": team_perf,
                 "teams": p.teams
             }
@@ -1230,6 +1263,10 @@ def update_player(id: str, item: schemas.PlayerCreate, db: Session = Depends(dat
     db_item.father_name = item.father_name
     db_item.father_phone = item.father_phone
     db_item.attendance = item.attendance
+    db_item.is_trial = item.is_trial
+    db_item.home_club = item.home_club
+    db_item.trial_rating = item.trial_rating
+    db_item.trial_notes = item.trial_notes
 
     db.commit()
     db.refresh(db_item)
@@ -1313,17 +1350,24 @@ def get_suggested_formation(team_id: Optional[str] = None, db: Session = Depends
             
         # These are IDs coming from the frontend, so let's call them exercise_ids
         exercise_ids = [x.strip() for x in session.selected_exercises.split(',') if x.strip()]
-        
-        # FIX: Query using .id instead of .name
-        exercises = db.query(models.Exercise).filter(models.Exercise.id.in_(exercise_ids)).all()
-        
+
+        # Scoped to the current coach — without the coach filter this could
+        # match another coach's identically-named tactic or exercise.
+        exercises = db.query(models.Exercise).filter(
+            models.Exercise.id.in_(exercise_ids),
+            models.Exercise.coach_id == current_user.id,
+        ).all()
+
         for exercise in exercises:
             if exercise.linked_tactics:
                 # Tactics are likely stored by Name inside the Exercise object (based on your frontend logic)
                 tactic_names = [t.strip() for t in exercise.linked_tactics.split(',') if t.strip()]
-                
+
                 # Fetch tactics by NAME
-                tactic = db.query(models.Tactic).filter(models.Tactic.name.in_(tactic_names)).first()
+                tactic = db.query(models.Tactic).filter(
+                    models.Tactic.name.in_(tactic_names),
+                    models.Tactic.coach_id == current_user.id,
+                ).first()
                 
                 if tactic and tactic.formation:
                     return {

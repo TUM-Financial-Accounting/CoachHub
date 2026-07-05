@@ -27,6 +27,10 @@ export const mapPlayerFromApi = (p: any): Player => ({
   imageUrl: p.image_url || '',
   attendance: p.attendance || 0,
   performance: p.performance || 0,
+  isTrial: !!p.is_trial,
+  homeClub: p.home_club || '',
+  trialRating: p.trial_rating || 0,
+  trialNotes: p.trial_notes || '',
   teams: p.teams || [],
 });
 
@@ -100,6 +104,7 @@ export const mapTacticFromApi = (t: any): Tactic => ({
 export const mapExerciseFromApi = (e: any): Exercise => ({
   id: e.id,
   name: e.name || '',
+  category: e.category || '',
   intensity: e.intensity || 'Medium',
   description: e.description || '',
   setup: e.setup || '',
@@ -183,6 +188,10 @@ export const mapPlayerToApi = (p: Player) => ({
   father_phone: p.fatherPhone,
   image_url: p.imageUrl,
   attendance: p.attendance,
+  is_trial: p.isTrial,
+  home_club: p.homeClub,
+  trial_rating: p.trialRating,
+  trial_notes: p.trialNotes,
 });
 
 /**
@@ -300,6 +309,7 @@ export const mapSelectorItemFromApi = (item: any): SelectorItem => ({
  */
 export const mapExerciseToApi = (e: Exercise) => ({
   name: e.name,
+  category: e.category,
   intensity: e.intensity,
   description: e.description,
   setup: e.setup,
