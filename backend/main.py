@@ -1437,6 +1437,17 @@ def get_latest_match(team_id: Optional[str] = None, season_id: Optional[str] = N
 
     return match
 
+@app.delete("/matches/{match_id}")
+def delete_match(match_id: str, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    db_match = db.query(models.Match).filter(models.Match.id == match_id, models.Match.team_id.in_(owned_team_ids(db, current_user))).first()
+    if not db_match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    # ORM-level delete so the Match.events cascade also removes recorded
+    # goals/assists — a bulk query delete would trip over the FK instead.
+    db.delete(db_match)
+    db.commit()
+    return {"message": "Deleted"}
+
 @app.put("/matches/{match_id}")
 def update_match(match_id: str, item: schemas.MatchCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
     db_match = db.query(models.Match).filter(models.Match.id == match_id, models.Match.team_id.in_(owned_team_ids(db, current_user))).first()

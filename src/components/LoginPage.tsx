@@ -10,6 +10,7 @@ import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { AuthService, AuthResponse } from '../services';
 import { bootPrefetch } from '../lib/bootPrefetch';
+import { restoreLastSelection } from '../lib/lastSelection';
 
 interface LoginPageProps {
   onLogin: () => void;
@@ -115,6 +116,11 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         localStorage.setItem('isAuthenticated', 'true');
         localStorage.setItem('access_token', response.access_token);
         localStorage.setItem('user', JSON.stringify(response.user));
+
+        // Land this account back on the season/team it had before logging
+        // out. Must happen before the prefetch below (which reads the active
+        // season id) and before the context providers mount.
+        restoreLastSelection(response.user.email);
 
         // Keep the Sign In button in its loading state until the data the
         // dashboard needs has been fetched. Avoids dropping the user into

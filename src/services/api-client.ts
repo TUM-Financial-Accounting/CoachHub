@@ -1,5 +1,6 @@
 // src/services/api-client.ts
 import { API_BASE_URL, JSON_HEADERS } from '../lib/api-config';
+import { saveLastSelection } from '../lib/lastSelection';
 
 // Request-level logging is dev-only noise; keep production consoles clean.
 const DEV = import.meta.env.DEV;
@@ -50,6 +51,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
         } else {
           sessionStorage.setItem('last_api_reload', now.toString());
           console.warn(`[API] 401 on ${endpoint} - Session likely expired. Clearing local state and reloading.`);
+          // Stash the active season/team per account before clearing, so the
+          // user returns to the same view after re-authenticating.
+          saveLastSelection();
           localStorage.removeItem('isAuthenticated');
           localStorage.removeItem('user');
           localStorage.removeItem('access_token');

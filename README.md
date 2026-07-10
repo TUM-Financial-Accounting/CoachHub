@@ -220,7 +220,7 @@ IDPDashboard/
 | PUT / DELETE | `/events/{id}` | Update / delete a calendar event |
 | GET / POST | `/matches` | List / create matches |
 | GET | `/matches/latest` | Get next upcoming match |
-| PUT | `/matches/{id}` | Update a match |
+| PUT / DELETE | `/matches/{id}` | Update / delete a match (delete removes its events too) |
 | PUT | `/matches/{id}/lineup` | Save lineup and formation |
 | PUT | `/matches/{id}/stats` | Record final score and notes |
 | GET / POST | `/matches/{match_id}/events` | List / add goals and assists |

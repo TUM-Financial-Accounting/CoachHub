@@ -62,6 +62,13 @@ export const MatchService = {
   },
 
   /**
+   * Deletes a match (and its recorded events) by ID.
+   */
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/matches/${id}`);
+  },
+
+  /**
    * Fetches a suggested formation based on recent training data.
    */
   async getSuggestedFormation(teamId?: string): Promise<SuggestedFormation> {

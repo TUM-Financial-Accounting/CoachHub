@@ -34,6 +34,7 @@ import { AuthService } from './services';
 import { useTeam } from './contexts/TeamContext';
 import { useTheme } from './contexts/ThemeContext';
 import { bootPrefetch } from './lib/bootPrefetch';
+import { saveLastSelection } from './lib/lastSelection';
 
 export default function App() {
   // 1. Initialize Auth State from LocalStorage
@@ -59,6 +60,10 @@ export default function App() {
   const toasterTheme = theme === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme;
 
   const handleLogout = () => {
+    // Stash the active season/team per account (before the keys below are
+    // cleared) so this user lands back on the same view at next login.
+    saveLastSelection();
+
     // 1. Instant local logout for snappy UX
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('user');

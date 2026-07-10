@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Save, X, Calendar, MapPin, Users, Plus, Trophy, Edit2, ChevronRight, ChevronDown } from 'lucide-react';
+import { Save, X, Calendar, MapPin, Users, Plus, Trophy, Edit2, ChevronRight, ChevronDown, Trash2 } from 'lucide-react';
 import { useDrag, useDrop } from 'react-dnd';
 import { toast } from 'sonner';
 import { formatDate } from '../lib/utils';
@@ -13,6 +13,7 @@ import { Input } from "./ui/Input";
 import { MatchStatsModal } from './MatchStatsModal';
 import { DatePicker } from "./ui/DatePicker";
 import { TimePicker } from "./ui/TimePicker";
+import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { useTeam } from '../contexts/TeamContext';
 import { useSeason } from '../contexts/SeasonContext';
 import { Player, MatchDetails, PositionSlot, LineupPlayer } from "../types/models";
@@ -228,6 +229,7 @@ export default function MatchLineup() {
   
   const [isEditingMatch, setIsEditingMatch] = useState(false);
   const [matchForm, setMatchForm] = useState({ opponent: '', date: '', time: '', location: '' });
+  const [confirmDeleteMatch, setConfirmDeleteMatch] = useState<MatchDetails | null>(null);
   const [showPastMatches, setShowPastMatches] = useState(false);
   const [showCustomFormationModal, setShowCustomFormationModal] = useState(false);
   const [customFormations, setCustomFormations] = useState<any[]>([]);
@@ -353,6 +355,11 @@ useEffect(() => {
           if (isUpcomingSoon && aiSuggestedFormation && FORMATIONS[aiSuggestedFormation]) {
               setCurrentFormation(aiSuggestedFormation);
               setFormationSource(aiSourceLabel); // "Based on..."
+          } else if (matchDetails.formation && matchDetails.formation !== '4-4-2') {
+              // Respect the formation stored on the match (e.g. corrected
+              // retroactively on a past game) instead of forcing the default.
+              setCurrentFormation(matchDetails.formation);
+              setFormationSource(t('matches.savedStrategy'));
           } else {
               setCurrentFormation('4-4-2');
               setFormationSource('Default'); // Far future match -> Default
@@ -381,7 +388,6 @@ useEffect(() => {
   };
 
   const handleChangeFormation = (formation: string) => {
-    if (isMatchPast) return;
     if (formation === currentFormation) return;
     if (lineup.size > 0) {
       if (!window.confirm(t('matches.switchFormationConfirm', { formation }))) return;
@@ -389,6 +395,19 @@ useEffect(() => {
     setCurrentFormation(formation);
     setFormationSource(t('matches.manualSelection'));
     setLineup(new Map());
+
+    // Past matches have no "save lineup" step, so a retroactive formation
+    // correction is persisted immediately. Any stored lineup is cleared —
+    // its slots belong to the old formation (the confirm above covers this).
+    if (isMatchPast && matchDetails) {
+      MatchService.update(matchDetails.id, { ...matchDetails, formation, lineup: undefined })
+        .then(saved => {
+          setMatches(prev => prev.map(m => m.id === saved.id ? saved : m));
+          setMatchDetails(saved);
+          toast.success(t('matches.formationSaved', { formation }));
+        })
+        .catch(() => toast.error(t('matches.matchSaveFailed')));
+    }
   };
 
   const handleSaveMatch = async () => {
@@ -411,6 +430,29 @@ useEffect(() => {
         setShowCreateMatchModal(false);
         toast.success(isEditingMatch ? t('matches.matchUpdated') : t('matches.matchCreated'));
     } catch (e) { toast.error(t('matches.matchSaveFailed')); }
+  };
+
+  // Optimistic match delete with rollback. If the deleted match was the one
+  // being viewed, fall back to the nearest match in the visible tab.
+  const handleDeleteMatch = async (target: MatchDetails) => {
+    const matchesBefore = matches;
+    const detailsBefore = matchDetails;
+    const next = matches.filter(m => m.id !== target.id);
+    setMatches(next);
+    if (matchDetails?.id === target.id) {
+      const todayStr = new Date().toLocaleDateString('en-CA');
+      const upcomingNext = next.filter(m => m.date >= todayStr).sort((a, b) => a.date.localeCompare(b.date));
+      const pastNext = next.filter(m => m.date < todayStr).sort((a, b) => b.date.localeCompare(a.date));
+      setMatchDetails(showPastMatches ? (pastNext[0] ?? upcomingNext[0] ?? null) : (upcomingNext[0] ?? pastNext[0] ?? null));
+    }
+    toast.success(t('matches.matchDeleted'));
+    try {
+      await MatchService.delete(target.id);
+    } catch {
+      setMatches(matchesBefore);
+      setMatchDetails(detailsBefore);
+      toast.error(t('matches.matchDeleteFailed'));
+    }
   };
 
   const availablePlayers = allPlayers.filter(player =>
@@ -613,19 +655,19 @@ useEffect(() => {
             <p className="text-[10px] uppercase tracking-widest text-muted font-bold mb-1">{t('libraries.formationLabel')}</p>
             <div className="flex items-center gap-2">
               <span className="text-3xl font-bold text-emerald-400 font-mono tracking-tight">{currentFormation}</span>
-              {!isMatchPast && (
-                  <button
-                    ref={formationBtnRef}
-                    onClick={handleToggleFormationPicker}
-                    className={`p-1.5 rounded-lg border transition-colors ${
-                      showFormationPicker
-                        ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400'
-                        : 'border-border text-muted hover:text-foreground hover:border-border'
-                    }`}
-                  >
-                    <ChevronDown size={14} className={`transition-transform duration-200 ${showFormationPicker ? 'rotate-180' : ''}`} />
-                  </button>
-                )}
+              {/* Also shown for past matches so the played formation can be
+                  recorded retroactively. */}
+              <button
+                ref={formationBtnRef}
+                onClick={handleToggleFormationPicker}
+                className={`p-1.5 rounded-lg border transition-colors ${
+                  showFormationPicker
+                    ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400'
+                    : 'border-border text-muted hover:text-foreground hover:border-border'
+                }`}
+              >
+                <ChevronDown size={14} className={`transition-transform duration-200 ${showFormationPicker ? 'rotate-180' : ''}`} />
+              </button>
               </div>
               <p className="text-[10px] text-muted mt-0.5">{formationSource === 'Default' ? t('matches.defaultStrategy') : formationSource}</p>
             </div>
@@ -670,7 +712,16 @@ useEffect(() => {
                             </div>
                             <p className="text-[10px] text-muted">{formatDate(match.date)}</p>
                           </div>
-                          {matchDetails?.id === match.id && <ChevronRight size={14} className="text-blue-400" />}
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={e => { e.stopPropagation(); setConfirmDeleteMatch(match); }}
+                              className="p-1.5 rounded-lg text-muted/50 hover:text-rose-500 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-all"
+                              title={t('common.delete')}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                            {matchDetails?.id === match.id && <ChevronRight size={14} className="text-blue-400" />}
+                          </div>
                       </div>
                     ))
                   ) : (
@@ -947,7 +998,16 @@ useEffect(() => {
         </div>
       )}
 
-      <CustomFormationModal 
+      <ConfirmDialog
+        isOpen={confirmDeleteMatch !== null}
+        title={t('matches.deleteMatchTitle')}
+        message={t('matches.deleteMatchMsg', { opponent: confirmDeleteMatch?.opponent ?? '' })}
+        confirmLabel={t('common.delete')}
+        onConfirm={() => { if (confirmDeleteMatch) handleDeleteMatch(confirmDeleteMatch); setConfirmDeleteMatch(null); }}
+        onCancel={() => setConfirmDeleteMatch(null)}
+      />
+
+      <CustomFormationModal
         isOpen={showCustomFormationModal}
         onClose={() => setShowCustomFormationModal(false)}
         onSuccess={handleCustomFormationCreated}

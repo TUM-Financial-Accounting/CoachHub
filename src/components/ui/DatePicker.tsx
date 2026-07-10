@@ -10,12 +10,12 @@ type ViewMode = 'calendar' | 'month' | 'year';
 
 export function DatePicker({ value, onChange, label }: DatePickerProps) {
   const { t, i18n } = useTranslation();
-  // Locale-aware month and weekday labels (grid starts on Sunday;
-  // 2026-01-04 is a Sunday, used as the anchor for weekday names).
+  // Locale-aware month and weekday labels (grid starts on Monday;
+  // 2026-01-05 is a Monday, used as the anchor for weekday names).
   const monthNames = Array.from({ length: 12 }, (_, i) =>
     new Date(2026, i, 15).toLocaleDateString(i18n.language, { month: 'short' }));
   const weekdayLabels = Array.from({ length: 7 }, (_, i) =>
-    new Date(2026, 0, 4 + i).toLocaleDateString(i18n.language, { weekday: 'short' }).slice(0, 2));
+    new Date(2026, 0, 5 + i).toLocaleDateString(i18n.language, { weekday: 'short' }).slice(0, 2));
   const [isOpen, setIsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
   const [displayMonth, setDisplayMonth] = useState(value ? new Date(value + 'T12:00:00') : new Date());
@@ -92,11 +92,13 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
     }
   }, [viewMode]);
 
-  // Calendar grid
+  // Calendar grid. Weeks run Monday–Sunday, so convert JS's Sunday-based
+  // getDay() (0 = Sun) to a Monday-based offset (0 = Mon) — same convention
+  // as the week calendar's mondayOf helper.
   const firstDay = new Date(displayMonth.getFullYear(), displayMonth.getMonth(), 1);
   const lastDay = new Date(displayMonth.getFullYear(), displayMonth.getMonth() + 1, 0);
   const daysInMonth = lastDay.getDate();
-  const startingDayOfWeek = firstDay.getDay();
+  const startingDayOfWeek = (firstDay.getDay() + 6) % 7;
 
   const days: (number | null)[] = [];
   for (let i = 0; i < startingDayOfWeek; i++) days.push(null);
