@@ -26,8 +26,8 @@ A modern, coach-centric web dashboard for managing sports teams, training sessio
 
 ## Prerequisites
 
-- **Node.js** 16 or higher
-- **Python** 3.8 or higher
+- **Node.js** 20.19+ or 22.12+ (required by Vite 7)
+- **Python** 3.9 or higher
 - **PostgreSQL** running locally or remotely
 
 ---
@@ -36,14 +36,28 @@ A modern, coach-centric web dashboard for managing sports teams, training sessio
 
 ### 1. Database
 
-Create a PostgreSQL database, then configure the connection in `backend/.env`:
+Create a PostgreSQL database, then copy `backend/.env.example` to `backend/.env` and fill it in:
+
+```bash
+cp backend/.env.example backend/.env
+```
 
 ```bash
 DATABASE_URL=postgresql://<user>:<password>@localhost/<db_name>
-SECRET_KEY=<any long random string>   # required — used to sign JWTs
+SECRET_KEY=<any long random string>   # required — the API refuses to boot without it
 FRONTEND_URL=http://localhost:5173    # optional, defaults shown
 UPLOAD_DIR=/path/to/persistent/volume # optional — where uploaded media is stored
                                       # (defaults to backend/static/uploads)
+
+# Email (all optional). With none of these set, verification and password-reset
+# links are printed to the API console instead of being sent.
+RESEND_API_KEY=<resend api key>       # preferred: Resend HTTP API
+RESEND_FROM="CoachHub <onboarding@resend.dev>"
+SMTP_HOST=<smtp host>                 # fallback: plain SMTP
+SMTP_PORT=587
+SMTP_USER=<smtp user>
+SMTP_PASSWORD=<smtp password>
+SMTP_FROM=noreply@coachhub.com
 ```
 
 ### 2. Backend
@@ -69,16 +83,28 @@ uvicorn main:app --reload
 API available at `http://localhost:8000`.
 Interactive docs at `http://localhost:8000/docs`.
 
-### 3. Seed Data (optional but recommended)
+### 3. Seed Demo Data (optional but recommended)
 
-Run these from inside the `backend/` directory (same as uvicorn):
+`seed.py` creates a complete demo account — two seasons, two squads, a populated
+exercise library, recurring training series, played matches with goals and
+assists (so the statistics views have real data), upcoming fixtures, and
+calendar events. Run it from inside `backend/`:
 
 ```bash
 cd backend
-python seed_libraries.py
-python seed_players.py
-python seed_past_matches.py
+python seed.py           # refuses to run if the demo account already exists
+python seed.py --reset   # delete the demo coach's data first, then re-seed
 ```
+
+`--reset` only ever touches rows belonging to the demo account. It never drops
+tables and never touches other users' data.
+
+Then log in with **`demo@coachhub.app`** / **`demo1234`**.
+
+> `seed_libraries.py`, `seed_players.py`, and `seed_past_matches.py` are the
+> building blocks `seed.py` imports. Running them standalone requires the demo
+> user (and, for some, teams and seasons) to already exist — use `seed.py`
+> unless you specifically want one slice of the data.
 
 ### 4. Frontend
 
@@ -113,6 +139,8 @@ Alternatively call `POST /register` via the interactive API docs at `/docs`.
 | Sonner | Toast notifications |
 | React Hook Form | Form handling |
 | jsPDF + jspdf-autotable | PDF export of training plans |
+| i18next + react-i18next | English / German localization |
+| Vitest + jsdom | Test runner |
 
 ### Backend
 
@@ -122,7 +150,10 @@ Alternatively call `POST /register` via the interactive API docs at `/docs`.
 | SQLAlchemy | ORM |
 | PostgreSQL | Relational database |
 | Pydantic | Request / response validation |
+| passlib + bcrypt | Password hashing |
+| python-jose | JWT signing and verification |
 | python-multipart | File upload support |
+| python-dotenv | Loads `backend/.env` |
 
 ---
 
@@ -137,9 +168,11 @@ IDPDashboard/
     database.py          # DB engine and session config
     security.py          # Password hashing, JWT creation/validation
     email_service.py     # Verification / password-reset emails
-    seed_libraries.py    # Seed Basics, Principles, Tactics
-    seed_players.py      # Seed player data
-    seed_past_matches.py # Seed past match data
+    seed.py              # One-shot demo seeder (run this one)
+    seed_libraries.py    # Building block: Basics, Principles, Tactics
+    seed_players.py      # Building block: player data
+    seed_past_matches.py # Building block: sessions and past matches
+    .env.example         # Copy to .env and fill in
  src/
     components/
        Dashboard.tsx          # Overview cards, attendance chart, week widget
@@ -172,6 +205,7 @@ IDPDashboard/
                               # exercise categories, boot prefetch, utils
     locales/                  # en.ts / de.ts translation dictionaries
     types/                    # Shared TypeScript models and UI types
+    test/                     # Vitest setup (storage reset between tests)
     styles/
        globals.css
     App.tsx
@@ -182,7 +216,10 @@ IDPDashboard/
  tailwind.config.js
  tsconfig.json
  vite.config.ts
+ vitest.config.ts
 ```
+
+Tests live next to the code they cover as `*.test.ts`.
 
 ---
 
@@ -240,11 +277,144 @@ IDPDashboard/
 
 ## Available Scripts
 
+### Frontend
+
 ```bash
-npm run dev       # Start frontend dev server (Vite, port 5173)
-npm run build     # Build frontend for production
-npm run preview   # Preview production build
+npm run dev            # Start frontend dev server (Vite, port 5173)
+npm run build          # Type-check (tsc) and build for production
+npm run preview        # Preview the production build locally
+npm start              # Serve the built dist/ folder (used by the Railway deploy)
+npm run test           # Run the Vitest suite once
+npm run test:watch     # Run Vitest in watch mode
+npm run test:coverage  # Run with a coverage report
 ```
+
+### Backend
+
+```bash
+cd backend
+uvicorn main:app --reload   # Start the API on :8000
+python seed.py              # Seed the demo account
+```
+
+---
+
+## Testing
+
+The frontend has a [Vitest](https://vitest.dev) suite covering the pure logic
+where a regression is most expensive — the API boundary and the browser-storage
+behaviour that survives reloads and logouts:
+
+| File | Covers |
+|------|--------|
+| `src/lib/data-mappers.test.ts` | `snake_case` ⇄ `camelCase` mapping in both directions |
+| `src/services/api-client.test.ts` | Headers, auth token, 204 bodies, error surfacing, 401 session teardown |
+| `src/lib/bootPrefetch.test.ts` | Boot-phase parallel prefetch and the single-consumer handover |
+| `src/lib/lastSelection.test.ts` | Per-account season/team stash across logout → login |
+| `src/lib/api-config.test.ts` | Base-URL resolution |
+| `src/lib/utils.test.ts` | Class merging and timezone-safe date formatting |
+
+```bash
+npm install   # first time only
+npm run test
+```
+
+Config lives in `vitest.config.ts`; `src/test/setup.ts` clears `localStorage`
+and `sessionStorage` around every test.
+
+**Not covered yet** — React components and contexts have no render tests, and
+the backend has no `pytest` suite. The highest-value place to start on the
+backend is the ownership helpers in `main.py` (`owned_team_ids`,
+`require_owned_team`) and the recurring-series scope semantics, since those
+carry the most risk.
+
+---
+
+## Deployment
+
+The app is deployed on **Railway** as two services (frontend + backend) plus a
+PostgreSQL instance. There is **no deploy config committed to this repo** — no
+`railway.json`, `Procfile`, or `nixpacks.toml`. Everything is configured in the
+Railway dashboard, so the settings below are the contract the code expects.
+
+**Backend service**
+
+| Setting | Value |
+|---|---|
+| Root directory | `backend/` |
+| Start command | `uvicorn main:app --host 0.0.0.0 --port $PORT` |
+| Required env | `DATABASE_URL`, `SECRET_KEY` |
+| Important env | `FRONTEND_URL`, `UPLOAD_DIR` |
+
+- `SECRET_KEY` is mandatory — `security.py` raises at import if it is unset, so
+  the service will crash-loop rather than start with a default.
+- `FRONTEND_URL` drives CORS *and* the login cookie flags: an `https://` value
+  is treated as a cross-origin deploy, which switches the cookie to
+  `SameSite=None; Secure`. CORS additionally allows any `*.railway.app` origin
+  via a regex.
+- `UPLOAD_DIR` **must** point at a mounted volume. The container filesystem is
+  ephemeral, so with the default (`backend/static/uploads`) every uploaded
+  player photo and vision PDF disappears on the next redeploy.
+
+**Frontend service**
+
+| Setting | Value |
+|---|---|
+| Build | `npm run build` |
+| Start command | `npm start` (`npx serve -s dist -l $PORT`) |
+| Required env | `VITE_API_URL` — the backend service's public URL |
+
+`VITE_API_URL` is baked in at **build** time, not read at runtime — changing it
+requires a rebuild, not just a restart.
+
+**Schema changes.** There is no migration tool. New tables are created by
+`Base.metadata.create_all()` at startup, and new *columns* on existing tables
+must be added to the `_ensure_columns()` list in `main.py`, which runs
+idempotent `ADD COLUMN IF NOT EXISTS` statements on every boot. That function
+is Postgres-specific and deliberately swallows its own errors so a bad
+statement can never take the API down — which also means a failed backfill is
+silent. Check the startup logs after adding one.
+
+---
+
+## Authorization Model
+
+**The most important invariant in this codebase.** Every resource belongs to a
+coach, and isolation is enforced *manually, endpoint by endpoint*. One
+forgotten filter is a data breach, so read this before adding a route.
+
+Top-level resources (seasons, teams, players, exercises, the libraries, custom
+formations, visions, events, feedback) carry a `coach_id` and are filtered
+directly:
+
+```python
+db.query(models.Team).filter(models.Team.coach_id == current_user.id)
+```
+
+Nested resources (matches, training sessions, series, match events) have **no**
+`coach_id` of their own — they are scoped *through* the owning team using the
+two helpers in `main.py`:
+
+```python
+def owned_team_ids(db, user) -> list[str]      # every team id this coach owns
+def require_owned_team(db, user, team_id)      # the team, or raise 404
+```
+
+```python
+db.query(models.Match).filter(
+    models.Match.id == id,
+    models.Match.team_id.in_(owned_team_ids(db, current_user)),
+).first()
+```
+
+Unauthorized access returns **404, not 403** — deliberately, so the API never
+confirms that someone else's id exists.
+
+**Deletes are cascaded in Python, not by the database.** `delete_team_cascade()`
+tears down matches (via the ORM, so `Match.events` cascades) → sessions →
+series → events → team, in that order. The foreign keys have no
+`ON DELETE CASCADE`, so a delete written in the wrong order aborts the
+transaction.
 
 ---
 
@@ -273,8 +443,35 @@ Images and videos can be attached to Basics, Principles, and Exercises. Files ar
 
 ### Data Conventions
 
-- Backend uses `snake_case`; frontend uses `camelCase`. Conversion helpers are in `src/lib/utils.ts`.
+- Backend uses `snake_case`; frontend uses `camelCase`. Conversion happens in exactly one place: `src/lib/data-mappers.ts`.
 - Several fields (e.g. `selected_players`, `linked_tactics`) are stored as comma-separated strings in PostgreSQL and parsed on both sides.
+
+---
+
+## Known Limitations
+
+Honest list of the sharp edges, for whoever picks this up next.
+
+| Area | Limitation |
+|---|---|
+| Logout | The JWT blacklist is an in-memory `set()` in `security.py`. It empties on restart and is not shared across workers, so a logged-out token becomes valid again after a redeploy. Move it to Redis. |
+| Tokens | 4-hour access tokens, no refresh tokens. Coaches get logged out mid-session; shortening the window makes that worse. |
+| Email verification | Registration sets `is_verified=True` unconditionally (`main.py`), so the verification email is informational only. This is a deployment gap — there was no DNS for a sending domain — not a design decision. Re-enable by removing that flag. |
+| Rate limiting | None. `/login` and `/forgot-password` are unbounded and brute-forceable. |
+| Isolation | Ownership is enforced correctly but by hand at every endpoint (see Authorization Model). A scoped-session dependency or Postgres row-level security would make it structural. |
+| Migrations | No Alembic. Column additions go in `_ensure_columns()`, which is Postgres-only and fails silently. |
+| Data model | Multi-value fields (`selected_players`, `selected_exercises`, `linked_tactics`, `linked_basics`, `linked_principles`, `equipment`) are comma-separated strings, not join tables. They cannot be queried or joined on. |
+| Routing | `backend/main.py` is ~1,470 lines of routes in one file. It should be split into per-resource FastAPI routers. |
+| Caching | The season/team contexts are a hand-rolled cache. `cache:seasons:v1` / `cache:teams:v1` never expire — a schema change needs a manual key bump. TanStack Query would remove roughly 200 lines. |
+| Bundle | No route-level code splitting; one bundle ships everything, so the login page pulls in Recharts and jsPDF. |
+| Tests | Frontend logic only (see Testing). No component tests, no backend tests, no CI. |
+| Monitoring | No error tracking or CI gate in front of deploys. |
+
+One concrete bug worth knowing about: `create_player` (`backend/main.py`) looks
+up `item.team_id` **without** a `coach_id` filter, unlike every other endpoint.
+A coach can attach a newly created player to another coach's team. Reads are
+filtered by `coach_id`, so the other coach never sees the player — but the
+assignment row is written. Add the filter.
 
 ---
 

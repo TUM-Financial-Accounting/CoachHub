@@ -53,3 +53,10 @@ coverage/
 
 .claude/
 backend/static/uploads/
+
+# ============================================================
+#  Personal presentation material — not part of the handover
+# ============================================================
+PRESENTATION_OUTLINE.md
+CoachHub-Presentation.pptx
+build-deck.js
