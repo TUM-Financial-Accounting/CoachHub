@@ -15,6 +15,9 @@ import { Page } from "../types/ui";
 import { PlayerService, TrainingService, MatchService, EventService } from '../services';
 import { useTeam } from '../contexts/TeamContext';
 import { useSeason } from '../contexts/SeasonContext';
+import { useSettings } from '../contexts/SettingsContext';
+import { weekStartOf } from '../lib/settings';
+import { birthdaysInWeek } from '../lib/birthdays';
 import WeekCalendar, { CalendarItem } from './WeekCalendar';
 import DeleteTeamModal from './DeleteTeamModal';
 
@@ -22,12 +25,6 @@ interface DashboardProps {
   onNavigate: (page: Page) => void;
 }
 
-const mondayOfDate = (input: Date): Date => {
-  const d = new Date(input);
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-  d.setHours(0, 0, 0, 0);
-  return d;
-};
 const addMins = (time: string, mins: number): string => {
   const [h, m] = (time || '').split(':').map(Number);
   if (Number.isNaN(h)) return time;
@@ -39,6 +36,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const { t, i18n } = useTranslation();
   const { activeTeam } = useTeam();
   const { activeSeason } = useSeason();
+  const { settings } = useSettings();
   const [players, setPlayers] = useState<Player[]>([]);
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -192,18 +190,40 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     return lastMonthAvg > 0 ? Math.round(thisMonthAvg - lastMonthAvg) : null;
   }, [sessions, players]);
 
-  // Combined items for the "This Week" calendar widget.
-  const weekStart = useMemo(() => mondayOfDate(new Date()), []);
+  const weekStart = useMemo(
+    () => weekStartOf(new Date(), settings.weekStartsOn),
+    [settings.weekStartsOn]
+  );
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }), [weekStart]);
+
   const calendarItems = useMemo<CalendarItem[]>(() => {
     const out: CalendarItem[] = [];
-    sessions.forEach(s => out.push({ id: s.id, kind: 'training', title: s.focus || t('nav.training'), date: s.date, startTime: s.startTime, endTime: s.endTime, subtitle: s.intensity }));
-    matches.forEach(m => {
+    if (settings.showTrainings) sessions.forEach(s => out.push({ id: s.id, kind: 'training', title: s.focus || t('nav.training'), date: s.date, startTime: s.startTime, endTime: s.endTime, subtitle: s.intensity }));
+    if (settings.showMatches) matches.forEach(m => {
       const start = m.time && m.time.includes(':') ? m.time : '15:00';
       out.push({ id: m.id, kind: 'match', title: `vs ${m.opponent}`, date: m.date, startTime: start, endTime: addMins(start, 120), subtitle: m.location });
     });
-    events.forEach(ev => out.push({ id: ev.id, kind: 'event', title: ev.title, date: ev.date, startTime: ev.startTime, endTime: ev.endTime, subtitle: ev.location }));
+    if (settings.showEvents) events.forEach(ev => out.push({ id: ev.id, kind: 'event', title: ev.title, date: ev.date, startTime: ev.startTime, endTime: ev.endTime, subtitle: ev.location }));
+    if (settings.showBirthdays) {
+      birthdaysInWeek(players, weekDays).forEach(b => out.push({
+        id: b.playerId,
+        kind: 'birthday',
+        title: b.age === null
+          ? t('settings.birthdayOf', { name: `${b.firstName} ${b.lastName}` })
+          : t('settings.birthdayTurns', { name: `${b.firstName} ${b.lastName}`, age: b.age }),
+        date: b.date,
+        startTime: '',
+        endTime: '',
+        allDay: true,
+      }));
+    }
     return out;
-  }, [sessions, matches, events, t]);
+  }, [sessions, matches, events, players, weekDays, settings, t]);
 
   return (
     <div className="h-full w-full flex flex-col p-3 sm:p-6 lg:p-8 max-w-[1600px] mx-auto overflow-y-auto custom-scrollbar gap-4 sm:gap-6">
@@ -492,6 +512,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             <WeekCalendar
               weekStart={weekStart}
               items={calendarItems}
+              startHour={settings.dayStartHour}
+              endHour={settings.dayEndHour}
               compact
               onItemClick={() => onNavigate('calendar')}
               onSlotClick={() => onNavigate('calendar')}

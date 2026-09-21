@@ -28,6 +28,7 @@ import StatisticsView from './components/StatisticsView';
 import FeedbackView from './components/FeedbackView';
 import CalendarView from './components/CalendarView';
 import AdminView from './components/AdminView';
+import SettingsView from './components/SettingsView';
 import { Page } from './types/ui';
 
 // Services
@@ -36,6 +37,8 @@ import { useTeam } from './contexts/TeamContext';
 import { useTheme } from './contexts/ThemeContext';
 import { bootPrefetch } from './lib/bootPrefetch';
 import { saveLastSelection } from './lib/lastSelection';
+import { SettingsProvider } from './contexts/SettingsContext';
+import { loadSettings } from './lib/settings';
 import { clearAdminUnlock } from './lib/adminUnlock';
 
 export default function App() {
@@ -55,7 +58,7 @@ export default function App() {
 
   // 3. Initialize Page State
   const [currentPage, setCurrentPage] = useState<Page>(() => {
-    return localStorage.getItem('isAuthenticated') === 'true' ? 'dashboard' : 'login';
+    return localStorage.getItem('isAuthenticated') === 'true' ? loadSettings().startPage : 'login';
   });
 
   const { theme } = useTheme();
@@ -133,7 +136,8 @@ export default function App() {
     // Save to browser memory
     localStorage.setItem('isAuthenticated', 'true');
     setIsAuthenticated(true);
-    setCurrentPage('dashboard');
+    // LoginPage writes `user` first, so this reads the new account's settings.
+    setCurrentPage(loadSettings().startPage);
   };
 
   const navigateToPage = (page: Page) => {
@@ -166,14 +170,16 @@ export default function App() {
   }
 
   return (
-    <SeasonProvider isAuthenticated={isAuthenticated}>
-      <TeamProvider isAuthenticated={isAuthenticated}>
-        <DndProvider backend={HTML5Backend}>
-          <AppLayout currentPage={currentPage} navigateToPage={navigateToPage} handleLogout={handleLogout} />
-          <Toaster position="bottom-right" theme={toasterTheme} />
-        </DndProvider>
-      </TeamProvider>
-    </SeasonProvider>
+    <SettingsProvider>
+      <SeasonProvider isAuthenticated={isAuthenticated}>
+        <TeamProvider isAuthenticated={isAuthenticated}>
+          <DndProvider backend={HTML5Backend}>
+            <AppLayout currentPage={currentPage} navigateToPage={navigateToPage} handleLogout={handleLogout} />
+            <Toaster position="bottom-right" theme={toasterTheme} />
+          </DndProvider>
+        </TeamProvider>
+      </SeasonProvider>
+    </SettingsProvider>
   );
 }
 
@@ -229,10 +235,11 @@ function AppLayout({ currentPage, navigateToPage, handleLogout }: { currentPage:
     statistics:     <StatisticsView />,
     feedback:       <FeedbackView />,
     admin:          <AdminView />,
+    settings:       <SettingsView />,
   };
 
   const isLoading = teamLoading || seasonLoading;
-  const guardExempt = currentPage === 'feedback' || currentPage === 'admin';
+  const guardExempt = currentPage === 'feedback' || currentPage === 'admin' || currentPage === 'settings';
   const showNoSeasonGuard = !isLoading && !activeSeason && !guardExempt;
   const showNoTeamGuard = !isLoading && activeSeason && !activeTeam && !guardExempt;
 

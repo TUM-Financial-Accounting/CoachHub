@@ -11,11 +11,14 @@ import { DatePicker } from './ui/DatePicker';
 import { TimePicker } from './ui/TimePicker';
 import WeekCalendar, { CalendarItem } from './WeekCalendar';
 
-import { TrainingSession, MatchDetails, CalendarEvent } from '../types/models';
+import { TrainingSession, MatchDetails, CalendarEvent, Player } from '../types/models';
 import { Page } from '../types/ui';
-import { TrainingService, MatchService, EventService } from '../services';
+import { TrainingService, MatchService, EventService, PlayerService } from '../services';
 import { useTeam } from '../contexts/TeamContext';
 import { useSeason } from '../contexts/SeasonContext';
+import { useSettings } from '../contexts/SettingsContext';
+import { weekStartOf } from '../lib/settings';
+import { birthdaysInWeek } from '../lib/birthdays';
 
 interface CalendarViewProps {
   onNavigate: (page: Page) => void;
@@ -24,14 +27,6 @@ interface CalendarViewProps {
 type EventType = 'event' | 'training' | 'match';
 
 const ymd = (d: Date): string => d.toLocaleDateString('en-CA');
-
-const mondayOf = (input: Date): Date => {
-  const d = new Date(input);
-  const offset = (d.getDay() + 6) % 7; // 0 = Monday
-  d.setDate(d.getDate() - offset);
-  d.setHours(0, 0, 0, 0);
-  return d;
-};
 
 const addMinutes = (time: string, mins: number): string => {
   const [h, m] = (time || '').split(':').map(Number);
@@ -64,11 +59,13 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
   const { t, i18n } = useTranslation();
   const { activeTeam } = useTeam();
   const { activeSeason } = useSeason();
+  const { settings } = useSettings();
 
-  const [weekStart, setWeekStart] = useState<Date>(() => mondayOf(new Date()));
+  const [weekStart, setWeekStart] = useState<Date>(() => weekStartOf(new Date(), settings.weekStartsOn));
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [matches, setMatches] = useState<MatchDetails[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
 
   const [showModal, setShowModal] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
@@ -99,6 +96,22 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
     return () => el.removeEventListener('wheel', onWheel);
   }, []);
 
+  useEffect(() => {
+    setWeekStart(prev => weekStartOf(prev, settings.weekStartsOn));
+  }, [settings.weekStartsOn]);
+
+  useEffect(() => {
+    if (!activeTeam || !activeSeason || !settings.showBirthdays) {
+      setPlayers([]);
+      return;
+    }
+    let cancelled = false;
+    PlayerService.getAll(activeTeam.id, activeSeason.id)
+      .then(p => { if (!cancelled) setPlayers(p); })
+      .catch(() => { if (!cancelled) setPlayers([]); });
+    return () => { cancelled = true; };
+  }, [activeTeam, activeSeason, settings.showBirthdays]);
+
   // --- Load data for the active team/season ---
   useEffect(() => {
     if (!activeTeam || !activeSeason) {
@@ -126,10 +139,16 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
     return () => { cancelled = true; };
   }, [activeTeam, activeSeason]);
 
-  // --- Combine the three sources into calendar items ---
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }), [weekStart]);
+
   const items = useMemo<CalendarItem[]>(() => {
     const out: CalendarItem[] = [];
-    sessions.forEach(s => out.push({
+    if (settings.showTrainings) sessions.forEach(s => out.push({
       id: s.id,
       kind: 'training',
       title: s.focus || t('nav.training'),
@@ -138,7 +157,7 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
       endTime: s.endTime,
       subtitle: s.intensity,
     }));
-    matches.forEach(m => {
+    if (settings.showMatches) matches.forEach(m => {
       const start = m.time && m.time.includes(':') ? m.time : '15:00';
       out.push({
         id: m.id,
@@ -150,7 +169,7 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
         subtitle: m.location,
       });
     });
-    events.forEach(ev => out.push({
+    if (settings.showEvents) events.forEach(ev => out.push({
       id: ev.id,
       kind: 'event',
       title: ev.title,
@@ -159,8 +178,21 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
       endTime: ev.endTime,
       subtitle: ev.location,
     }));
+    if (settings.showBirthdays) {
+      birthdaysInWeek(players, weekDays).forEach(b => out.push({
+        id: b.playerId,
+        kind: 'birthday',
+        title: b.age === null
+          ? t('settings.birthdayOf', { name: `${b.firstName} ${b.lastName}` })
+          : t('settings.birthdayTurns', { name: `${b.firstName} ${b.lastName}`, age: b.age }),
+        date: b.date,
+        startTime: '',
+        endTime: '',
+        allDay: true,
+      }));
+    }
     return out;
-  }, [sessions, matches, events, t]);
+  }, [sessions, matches, events, players, weekDays, settings, t]);
 
   // --- Week navigation ---
   const shiftWeek = (deltaWeeks: number) => {
@@ -170,7 +202,7 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
       return next;
     });
   };
-  const goToday = () => setWeekStart(mondayOf(new Date()));
+  const goToday = () => setWeekStart(weekStartOf(new Date(), settings.weekStartsOn));
 
   const weekLabel = useMemo(() => {
     const end = new Date(weekStart);
@@ -215,6 +247,8 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
       if (ev) openEditEvent(ev);
     } else if (item.kind === 'training') {
       onNavigate('session-planner');
+    } else if (item.kind === 'birthday') {
+      onNavigate('team');
     } else {
       onNavigate('match');
     }
@@ -307,10 +341,11 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
   };
 
   const legend: { kind: string; label: string; dot: string }[] = [
-    { kind: 'training', label: t('calendar.legendTraining'), dot: 'bg-cyan-500' },
-    { kind: 'match', label: t('calendar.legendMatch'), dot: 'bg-rose-500' },
-    { kind: 'event', label: t('calendar.legendEvent'), dot: 'bg-violet-500' },
-  ];
+    settings.showTrainings && { kind: 'training', label: t('calendar.legendTraining'), dot: 'bg-cyan-500' },
+    settings.showMatches && { kind: 'match', label: t('calendar.legendMatch'), dot: 'bg-rose-500' },
+    settings.showEvents && { kind: 'event', label: t('calendar.legendEvent'), dot: 'bg-violet-500' },
+    settings.showBirthdays && { kind: 'birthday', label: t('calendar.legendBirthday'), dot: 'bg-amber-500' },
+  ].filter(Boolean) as { kind: string; label: string; dot: string }[];
 
   return (
     <div className="h-full w-full flex flex-col p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto gap-5 overflow-hidden">
@@ -357,6 +392,8 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
         <WeekCalendar
           weekStart={weekStart}
           items={items}
+          startHour={settings.dayStartHour}
+          endHour={settings.dayEndHour}
           onSlotClick={(date, hour) => openCreate(date, hour)}
           onItemClick={handleItemClick}
         />

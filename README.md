@@ -11,6 +11,7 @@ A modern, coach-centric web dashboard for managing sports teams, training sessio
 - Exercises Library - Create and manage reusable training exercises with media and categories (technique, tactical, athletic, game form, …)
 - Training Manager - Build and schedule training sessions (incl. weekly recurring series) with PDF export
 - Calendar - Week view combining trainings, matches, and custom team events
+- Settings - Personalisation: theme, language, which item types the calendar draws, player birthdays as all-day entries, first day of the week, visible hours, and the start page (stored per account in the browser)
 - Libraries - Manage Basics, Principles (with media upload), and Tactics
 - Match & Lineup - Visual drag-and-drop field positioning, lineup builder, and custom formations; supports 11v11 plus 7v7 / 9v9 youth formats
 - Match Stats & Statistics - Record results, goals, and assists; season statistics with charts and leaderboards

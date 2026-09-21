@@ -1,15 +1,26 @@
 import { useState } from 'react';
-import { Home, Users, Calendar, CalendarDays, BookOpen, Lightbulb, Trophy, Target, LogOut, Clipboard, ChevronLeft, ChevronRight, Sun, Moon, Monitor, BarChart2, MessageSquare, Globe } from 'lucide-react';
+import { Home, Users, Calendar, CalendarDays, BookOpen, Lightbulb, Trophy, Target, LogOut, Clipboard, ChevronLeft, ChevronRight, ChevronDown, Sun, Moon, Monitor, BarChart2, MessageSquare, Globe, ShieldCheck, Settings } from 'lucide-react';
 import { Page, NavigationProps } from '../types/ui';
 import { motion, AnimatePresence } from 'framer-motion';
 import TeamSwitcher from './TeamSwitcher';
 import SeasonSwitcher from './SeasonSwitcher';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from 'react-i18next';
+import { getStoredUserRole } from '../lib/utils';
 
-const NAV_GROUPS: { 
-  labelKey: 'nav.sectionTeam' | 'nav.sectionPlaybook' | 'nav.sectionVision'; 
-  items: { id: Page; labelKey: 'nav.dashboard' | 'nav.statistics' | 'nav.squadRoster' | 'nav.calendar' | 'nav.training' | 'nav.matches' | 'nav.exercises' | 'nav.basics' | 'nav.principles' | 'nav.tactics' | 'nav.visionLibrary'; icon: React.ElementType; color: string; activeBar: string; activeBg: string }[]
+type NavGroupKey = 'nav.sectionTeam' | 'nav.sectionPlaybook' | 'nav.sectionVision' | 'nav.sectionSystem';
+
+const NAV_GROUPS: {
+  labelKey: NavGroupKey;
+  items: {
+    id: Page;
+    labelKey: 'nav.dashboard' | 'nav.statistics' | 'nav.squadRoster' | 'nav.calendar' | 'nav.training' | 'nav.matches' | 'nav.exercises' | 'nav.basics' | 'nav.principles' | 'nav.tactics' | 'nav.visionLibrary' | 'nav.settings' | 'nav.feedback' | 'nav.admin';
+    icon: React.ElementType;
+    color: string;
+    activeBar: string;
+    activeBg: string;
+    superuserOnly?: boolean;
+  }[]
 }[] = [
   {
     labelKey: 'nav.sectionTeam',
@@ -36,8 +47,18 @@ const NAV_GROUPS: {
     items: [
       { id: 'vision',          labelKey: 'nav.visionLibrary', icon: Target,    color: 'text-pink-500',    activeBar: 'bg-pink-500',    activeBg: 'bg-pink-500/15 dark:bg-pink-500/25' },
     ]
+  },
+  {
+    labelKey: 'nav.sectionSystem',
+    items: [
+      { id: 'settings',        labelKey: 'nav.settings',     icon: Settings,    color: 'text-slate-400',   activeBar: 'bg-slate-400',   activeBg: 'bg-slate-500/15 dark:bg-slate-500/25' },
+      { id: 'feedback',        labelKey: 'nav.feedback',     icon: MessageSquare, color: 'text-teal-500',  activeBar: 'bg-teal-500',    activeBg: 'bg-teal-500/15 dark:bg-teal-500/25' },
+      { id: 'admin',           labelKey: 'nav.admin',        icon: ShieldCheck, color: 'text-violet-500',  activeBar: 'bg-violet-500',  activeBg: 'bg-violet-500/15 dark:bg-violet-500/25', superuserOnly: true },
+    ]
   }
 ];
+
+const GROUPS_STORAGE_KEY = 'nav-collapsed-groups';
 
 export default function Navigation({ currentPage, onNavigate, onLogout, isMobileOpen, onMobileClose }: NavigationProps) {
   const { t, i18n } = useTranslation();
@@ -45,6 +66,34 @@ export default function Navigation({ currentPage, onNavigate, onLogout, isMobile
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem('sidebar-collapsed') === 'true';
   });
+
+  const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(GROUPS_STORAGE_KEY) || '{}');
+    } catch {
+      return {};
+    }
+  });
+
+  const toggleGroup = (key: NavGroupKey) => {
+    setClosedGroups(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      try {
+        localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+      }
+      return next;
+    });
+  };
+
+  // Must stay above visibleGroups, which reads it during render.
+  const isSuperuser = getStoredUserRole() === 'superuser';
+
+  const showHeaders = !collapsed || isMobileOpen;
+
+  const visibleGroups = NAV_GROUPS
+    .map(group => ({ ...group, items: group.items.filter(item => !item.superuserOnly || isSuperuser) }))
+    .filter(group => group.items.length > 0);
 
   const toggleSidebar = () => {
     const next = !collapsed;
@@ -112,16 +161,27 @@ export default function Navigation({ currentPage, onNavigate, onLogout, isMobile
 
       {/* Nav Items */}
       <nav className="flex-1 flex flex-col gap-6 px-2 py-4 overflow-y-auto overflow-x-hidden custom-scrollbar">
-        {NAV_GROUPS.map((group) => (
+        {visibleGroups.map((group) => {
+          const isOpen = !showHeaders || !closedGroups[group.labelKey];
+          return (
           <div key={group.labelKey} className="flex flex-col gap-1">
-            {!collapsed && (
-              <div className="px-3 mb-1">
-                <span className="text-[10px] font-bold text-muted uppercase tracking-widest leading-none">
+            {showHeaders && (
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.labelKey)}
+                aria-expanded={isOpen}
+                className="flex items-center justify-between px-3 mb-1 py-0.5 rounded-lg text-muted hover:text-foreground transition-colors group/header"
+              >
+                <span className="text-[10px] font-bold uppercase tracking-widest leading-none">
                   {t(group.labelKey)}
                 </span>
-              </div>
+                <ChevronDown
+                  size={12}
+                  className={`flex-shrink-0 transition-transform duration-200 opacity-0 group-hover/header:opacity-100 ${isOpen ? '' : '-rotate-90 opacity-100'}`}
+                />
+              </button>
             )}
-            {group.items.map((item) => {
+            {isOpen && group.items.map((item) => {
               const Icon = item.icon;
               const isActive = currentPage === item.id;
               return (
@@ -170,7 +230,8 @@ export default function Navigation({ currentPage, onNavigate, onLogout, isMobile
               );
             })}
           </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* ⌘K hint */}
@@ -254,36 +315,6 @@ export default function Navigation({ currentPage, onNavigate, onLogout, isMobile
             </AnimatePresence>
           </button>
         </div>
-
-        {/* Feedback */}
-        <button
-          type="button"
-          onClick={() => {
-            onNavigate('feedback');
-            if (onMobileClose) onMobileClose();
-          }}
-          title={collapsed && !isMobileOpen ? t('nav.feedback') : undefined}
-          className={`flex items-center gap-3 w-full rounded-xl px-3 py-2 border border-transparent transition-all duration-150 group ${
-            currentPage === 'feedback'
-              ? 'bg-teal-500/15 dark:bg-teal-500/25 text-foreground'
-              : 'text-muted hover:text-teal-500 hover:bg-teal-500/10'
-          }`}
-        >
-          <MessageSquare className={`w-[18px] h-[18px] flex-shrink-0 ${currentPage === 'feedback' ? 'text-teal-500' : ''}`} />
-          <AnimatePresence>
-            {(!collapsed || isMobileOpen) && (
-              <motion.span
-                initial={{ opacity: 0, x: -6 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -6 }}
-                transition={{ duration: 0.12 }}
-                className="text-sm font-medium whitespace-nowrap"
-              >
-                {t('nav.feedback')}
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </button>
 
         {/* Logout */}
         <button
