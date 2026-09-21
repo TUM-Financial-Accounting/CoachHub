@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Edit2, Trash2, FileText, Video as VideoIcon, Dumbbell, Users, Layers, BookOpen, Target, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {ExerciseSlideOverProps} from "../types/ui"
-import { API_BASE_URL } from '../lib/api-config';
+import { getMediaType, resolveMediaUrl } from '../lib/media';
 import { getCategoryStyles } from '../lib/exerciseCategories';
 import { parseDrawing } from '../lib/drillDrawing';
 import { DrillCanvas } from './drill/DrillCanvas';
@@ -11,24 +11,6 @@ import { intensityMeta } from '../lib/domain';
 // Only http(s)/data/blob pass through untouched; anything else (including a
 // javascript: URL smuggled in via playbook import) is treated as a relative
 // API path, which renders it inert.
-const resolveMediaUrl = (url: string) =>
-    url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')
-        ? url
-        : `${API_BASE_URL}${url}`;
-
-const getMediaType = (url?: string) => {
-    if (!url) return null;
-    const normalized = url.toLowerCase();
-    const cleanUrl = normalized.split('#')[0].split('?')[0];
-
-    if (normalized.startsWith('data:image')) return 'image';
-    if (normalized.startsWith('data:video')) return 'video';
-    if (normalized.startsWith('data:application/pdf')) return 'pdf';
-    if (cleanUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i)) return 'image';
-    if (cleanUrl.match(/\.(mp4|webm|ogg|ogv|mov|m4v|mkv)$/i)) return 'video';
-    if (cleanUrl.endsWith('.pdf')) return 'pdf';
-    return 'unknown';
-};
 
 export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete }: ExerciseSlideOverProps) {
     const { t } = useTranslation();

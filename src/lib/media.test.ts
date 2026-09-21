@@ -1,5 +1,24 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { getMediaType, resolveMediaUrl, fitInside, loadImageForPdf } from './media';
+import { getMediaType, resolveMediaUrl, fitInside, loadImageForPdf, validateMediaFile, MAX_UPLOAD_BYTES } from './media';
+
+const fakeFile = (type: string, size = 1024) => ({ type, size }) as File;
+
+describe('validateMediaFile', () => {
+  it('names the kind of an accepted file', () => {
+    expect(validateMediaFile(fakeFile('image/webp'))).toBe('image');
+    expect(validateMediaFile(fakeFile('video/mp4'))).toBe('video');
+    expect(validateMediaFile(fakeFile('application/pdf'))).toBe('pdf');
+  });
+
+  it('rejects other types before looking at the size', () => {
+    expect(validateMediaFile(fakeFile('text/html', MAX_UPLOAD_BYTES + 1))).toBe('unsupported');
+  });
+
+  it('rejects files over the limit', () => {
+    expect(validateMediaFile(fakeFile('image/png', MAX_UPLOAD_BYTES))).toBe('image');
+    expect(validateMediaFile(fakeFile('image/png', MAX_UPLOAD_BYTES + 1))).toBe('tooLarge');
+  });
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();

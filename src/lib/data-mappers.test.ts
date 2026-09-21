@@ -277,6 +277,12 @@ describe('exercise mappers', () => {
     expect(exercise.linkedBasics).toEqual([]);
   });
 
+  it('trims items and drops blanks in multi-value columns', () => {
+    const exercise = mapExerciseFromApi({ id: 'e1', equipment: 'a, b,', linked_tactics: ' 4-4-2 ,,' });
+    expect(exercise.equipment).toEqual(['a', 'b']);
+    expect(exercise.linkedTactics).toEqual(['4-4-2']);
+  });
+
   it('joins arrays back into comma-separated strings', () => {
     const exercise: Exercise = {
       id: 'e1',

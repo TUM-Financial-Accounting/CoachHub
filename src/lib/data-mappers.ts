@@ -1,6 +1,7 @@
 // src/lib/data-mappers.ts
 import { Player, TrainingSession, Basic, Principle, Tactic, Exercise, Match, MatchDetails, SelectorItem, CalendarEvent, AdminFeedbackItem, AdminUser, AdminStats, GoogleStatus, GoogleSyncResult } from '../types/models';
 import { DEFAULT_INTENSITY } from './domain';
+import { joinCsv, splitCsv } from './csv';
 import { DEFAULT_FORMATION } from './formations';
 
 /**
@@ -113,10 +114,10 @@ export const mapExerciseFromApi = (e: any): Exercise => ({
   variations: e.variations || '',
   coachingPoints: e.coaching_points || '',
   goalkeepers: e.goalkeepers || 0,
-  equipment: e.equipment ? e.equipment.split(',') : [],
-  linkedBasics: e.linked_basics ? e.linked_basics.split(',') : [],
-  linkedPrinciples: e.linked_principles ? e.linked_principles.split(',') : [],
-  linkedTactics: e.linked_tactics ? e.linked_tactics.split(',') : [],
+  equipment: splitCsv(e.equipment),
+  linkedBasics: splitCsv(e.linked_basics),
+  linkedPrinciples: splitCsv(e.linked_principles),
+  linkedTactics: splitCsv(e.linked_tactics),
   mediaUrl: e.media_url || '',
   drawing: e.drawing || '',
   isCustom: e.is_custom !== undefined ? e.is_custom : true,
@@ -319,10 +320,10 @@ export const mapExerciseToApi = (e: Exercise) => ({
   variations: e.variations,
   coaching_points: e.coachingPoints,
   goalkeepers: e.goalkeepers,
-  equipment: e.equipment.join(','),
-  linked_basics: e.linkedBasics.join(','),
-  linked_principles: e.linkedPrinciples.join(','),
-  linked_tactics: e.linkedTactics.join(','),
+  equipment: joinCsv(e.equipment),
+  linked_basics: joinCsv(e.linkedBasics),
+  linked_principles: joinCsv(e.linkedPrinciples),
+  linked_tactics: joinCsv(e.linkedTactics),
   media_url: e.mediaUrl,
   drawing: e.drawing || null,
 });

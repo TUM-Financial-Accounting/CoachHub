@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Calendar, Users, TrendingUp, Plus, Clock, MapPin, Activity, Trash2 } from 'lucide-react';
-import { formatDate } from '../lib/dates';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
@@ -21,7 +20,8 @@ import { birthdaysInWeek } from '../lib/birthdays';
 import WeekCalendar, { CalendarItem } from './WeekCalendar';
 import DeleteTeamModal from './DeleteTeamModal';
 import { PLAYER_STATUS } from '../lib/domain';
-import { addMinutes, parseLocalDate, todayISO } from '../lib/dates';
+import { addMinutes, formatDate, parseLocalDate, todayISO } from '../lib/dates';
+import { splitCsv } from '../lib/csv';
 
 interface DashboardProps {
   onNavigate: (page: Page) => void;
@@ -48,10 +48,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     
     // Count how many sessions each player was selected for
     sessionList.forEach(session => {
-      const playerIds = session.selectedPlayers
-        .split(',')
-        .map(id => id.trim())
-        .filter(id => id.length > 0);
+      const playerIds = splitCsv(session.selectedPlayers);
       
       playerIds.forEach(playerId => {
         playerAttendanceCount[playerId] = (playerAttendanceCount[playerId] || 0) + 1;
@@ -113,10 +110,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             }
 
             // Count selected players for this session
-            const playerIds = session.selectedPlayers
-              .split(',')
-              .map(id => id.trim())
-              .filter(id => id.length > 0);
+            const playerIds = splitCsv(session.selectedPlayers);
 
             const sessionAttendance = (playerIds.length / playersData.length) * 100;
             monthMap[yearMonth].total += sessionAttendance;
@@ -175,7 +169,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     const avgAttendanceForGroup = (group: TrainingSession[]) => {
       if (group.length === 0 || players.length === 0) return 0;
       const total = group.reduce((sum, s) => {
-        const count = s.selectedPlayers.split(',').filter(id => id.trim()).length;
+        const count = splitCsv(s.selectedPlayers).length;
         return sum + (count / players.length) * 100;
       }, 0);
       return total / group.length;

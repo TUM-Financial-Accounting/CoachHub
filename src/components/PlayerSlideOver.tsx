@@ -8,6 +8,7 @@ import { TrainingSession } from '../types/models';
 import { PlayerSlideOverProps } from '../types/ui';
 import { TrainingService } from '../services';
 import { intensityMeta, perfStyle as perfStyleFor, statusStyle } from '../lib/domain';
+import { splitCsv } from '../lib/csv';
 
 export default function PlayerSlideOver({ player, computedAttendance, onClose, onEdit, onDelete }: PlayerSlideOverProps) {
     const { t, i18n } = useTranslation();
@@ -21,7 +22,7 @@ export default function PlayerSlideOver({ player, computedAttendance, onClose, o
             .then((data) => {
                 const mapped = data
                     .filter(s => {
-                        const playerIds = s.selectedPlayers ? s.selectedPlayers.split(',').map(id => id.trim()) : [];
+                        const playerIds = splitCsv(s.selectedPlayers);
                         return playerIds.includes(player.id);
                     })
                     .sort((a, b) => b.date.localeCompare(a.date));

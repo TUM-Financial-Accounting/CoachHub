@@ -18,6 +18,20 @@ export const getMediaType = (url?: string): MediaType => {
   return 'other';
 };
 
+export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+
+export type MediaFileCheck = 'image' | 'video' | 'pdf' | 'unsupported' | 'tooLarge';
+
+export const validateMediaFile = (file: File): MediaFileCheck => {
+  const kind = file.type.startsWith('image/') ? 'image'
+    : file.type.startsWith('video/') ? 'video'
+    : file.type === 'application/pdf' ? 'pdf'
+    : null;
+  if (!kind) return 'unsupported';
+  if (file.size > MAX_UPLOAD_BYTES) return 'tooLarge';
+  return kind;
+};
+
 export interface PdfImage {
   dataUrl: string;
   format: 'PNG' | 'JPEG';

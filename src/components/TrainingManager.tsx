@@ -26,6 +26,7 @@ import { TimePicker } from "./ui/TimePicker";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import SessionSlideOver from "./ui/SessionSlideOver";
 import { DEFAULT_INTENSITY, INTENSITIES, intensityMeta } from '../lib/domain';
+import { joinCsv, splitCsv } from '../lib/csv';
 
 export default function TrainingManager() {
     const { t, i18n } = useTranslation();
@@ -131,8 +132,8 @@ export default function TrainingManager() {
                     endTime: formData.endTime,
                     focus: formData.focus,
                     intensity: formData.intensity,
-                    selectedPlayers: formData.selectedPlayerIds.join(','),
-                    selectedExercises: formData.selectedExerciseIds.join(','),
+                    selectedPlayers: joinCsv(formData.selectedPlayerIds),
+                    selectedExercises: joinCsv(formData.selectedExerciseIds),
                 });
                 // Refetch the session list so every materialised occurrence
                 // shows up. (We don't have the inserted rows in the response.)
@@ -155,8 +156,8 @@ export default function TrainingManager() {
             endTime: formData.endTime,
             focus: formData.focus,
             intensity: formData.intensity,
-            selectedPlayers: formData.selectedPlayerIds.join(','),
-            selectedExercises: formData.selectedExerciseIds.join(','),
+            selectedPlayers: joinCsv(formData.selectedPlayerIds),
+            selectedExercises: joinCsv(formData.selectedExerciseIds),
         };
 
         try {
@@ -350,11 +351,11 @@ export default function TrainingManager() {
         try {
         const doc = new jsPDF({ orientation: "landscape" });
 
-        const exerciseIds = session.selectedExercises ? session.selectedExercises.split(',').filter(id => id.trim() !== '') : [];
+        const exerciseIds = splitCsv(session.selectedExercises);
         const sessionExercises = exerciseIds
             .map(id => allExercises.find(ex => ex.id === id))
             .filter((ex): ex is Exercise => ex !== undefined);
-        const playerIds = session.selectedPlayers ? session.selectedPlayers.split(',').filter(id => id.trim() !== '') : [];
+        const playerIds = splitCsv(session.selectedPlayers);
         const sessionPlayers = allPlayers.filter(p => playerIds.includes(p.id));
 
         const loaded = await Promise.all(
@@ -471,8 +472,8 @@ export default function TrainingManager() {
             endTime: s.endTime,
             focus: s.focus,
             intensity: s.intensity,
-            selectedPlayerIds: s.selectedPlayers ? s.selectedPlayers.split(',').filter(id => id.trim() !== '') : [],
-            selectedExerciseIds: s.selectedExercises ? s.selectedExercises.split(',').filter(id => id.trim() !== '') : [],
+            selectedPlayerIds: splitCsv(s.selectedPlayers),
+            selectedExerciseIds: splitCsv(s.selectedExercises),
             isRecurring: false,
             recurrenceEndDate: '',
         });
@@ -579,8 +580,8 @@ export default function TrainingManager() {
                                 <div className="grid grid-cols-1 gap-4">
                                     <AnimatePresence>
                                         {group.items.map((s, idx) => {
-                                            const exerciseCount = s.selectedExercises ? s.selectedExercises.split(',').filter(id => id.trim() !== '').length : 0;
-                                            const playerCount = s.selectedPlayers ? s.selectedPlayers.split(',').filter(id => id.trim() !== '').length : 0;
+                                            const exerciseCount = splitCsv(s.selectedExercises).length;
+                                            const playerCount = splitCsv(s.selectedPlayers).length;
                                             return (
                                                 <Card
                                                     key={s.id}
@@ -633,8 +634,8 @@ export default function TrainingManager() {
                         <div className="grid grid-cols-1 gap-4">
                             <AnimatePresence>
                                 {displaySessions.map((s, idx) => {
-                                    const exerciseCount = s.selectedExercises ? s.selectedExercises.split(',').filter(id => id.trim() !== '').length : 0;
-                                    const playerCount = s.selectedPlayers ? s.selectedPlayers.split(',').filter(id => id.trim() !== '').length : 0;
+                                    const exerciseCount = splitCsv(s.selectedExercises).length;
+                                    const playerCount = splitCsv(s.selectedPlayers).length;
                                     return (
                                         <Card
                                             key={s.id}

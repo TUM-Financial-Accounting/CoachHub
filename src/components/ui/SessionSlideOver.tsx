@@ -2,25 +2,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Edit2, Trash2, Download, Calendar, Clock, Users, Activity, Dumbbell, Zap, BookOpen, Layers, Target, Image as ImageIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatDate } from '../../lib/dates';
-import { API_BASE_URL } from '../../lib/api-config';
+import { getMediaType, resolveMediaUrl } from '../../lib/media';
 import { Exercise } from '../../types/models';
 
 import { SessionSlideOverProps } from "../../types/ui";
 import { parseDrawing } from '../../lib/drillDrawing';
 import { DrillCanvas } from '../drill/DrillCanvas';
 import { intensityMeta } from '../../lib/domain';
-
-const getMediaType = (url?: string) => {
-    if (!url) return null;
-    if (url.startsWith('data:image') || url.match(/\.(jpeg|jpg|gif|png)$/i)) return 'image';
-    if (url.startsWith('data:video') || url.match(/\.(mp4|webm)$/i)) return 'video';
-    return null;
-};
-
-const resolveMediaUrl = (url: string) =>
-    url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')
-        ? url
-        : `${API_BASE_URL}${url}`;
+import { splitCsv } from '../../lib/csv';
 
 export default function SessionSlideOver({
     session, allPlayers, allExercises, isPast, onClose, onEdit, onDelete, onExportPDF,
@@ -30,8 +19,8 @@ export default function SessionSlideOver({
     // All derived values are null-safe so the component can keep rendering
     // while AnimatePresence plays the exit animation after `session` clears.
     const style = intensityMeta(session?.intensity);
-    const playerIds = (session?.selectedPlayers ?? '').split(',').map(id => id.trim()).filter(Boolean);
-    const exerciseIds = (session?.selectedExercises ?? '').split(',').map(id => id.trim()).filter(Boolean);
+    const playerIds = splitCsv(session?.selectedPlayers);
+    const exerciseIds = splitCsv(session?.selectedExercises);
 
     const players = allPlayers.filter(p => playerIds.includes(p.id));
     const exercises = exerciseIds

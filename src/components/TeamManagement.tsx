@@ -22,6 +22,7 @@ import { useTeam } from '../contexts/TeamContext';
 import { useSeason } from '../contexts/SeasonContext';
 import { uuid } from '../lib/uuid';
 import { PLAYER_POSITIONS, PLAYER_STATUSES, emptyPlayer, perfStyle, statusStyle } from '../lib/domain';
+import { splitCsv } from '../lib/csv';
 
 export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page) => void }) {
     const { t } = useTranslation();
@@ -89,9 +90,8 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                     }
                     const countMap: Record<string, number> = {};
                     sessions.forEach(s => {
-                        (s.selectedPlayers || '').split(',').forEach((id: string) => {
-                            const trimmed = id.trim();
-                            if (trimmed) countMap[trimmed] = (countMap[trimmed] || 0) + 1;
+                        splitCsv(s.selectedPlayers).forEach(id => {
+                            countMap[id] = (countMap[id] || 0) + 1;
                         });
                     });
                     const pctMap: Record<string, number> = {};

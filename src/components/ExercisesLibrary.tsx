@@ -4,7 +4,7 @@ import { Plus, X, Search, Upload, Check, Image as ImageIcon, FileText, Video as 
 import { toast } from 'sonner';
 import { AnimatePresence, motion } from 'framer-motion';
 import { uploadFile } from '../lib/uploadFile';
-import { API_BASE_URL } from '../lib/api-config';
+import { getMediaType, resolveMediaUrl, validateMediaFile } from '../lib/media';
 
 // UI Components
 import { Card } from "./ui/Card";
@@ -28,28 +28,6 @@ import DrillEditor from './drill/DrillEditor';
 import { EQUIPMENT_OPTIONS, INTENSITIES, emptyExercise, intensityMeta } from '../lib/domain';
 
 // --- Helpers ---
-const resolveMediaUrl = (url: string) =>
-    url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')
-        ? url
-        : `${API_BASE_URL}${url}`;
-
-const getMediaType = (url?: string) => {
-    if (!url) return null;
-    const normalized = url.toLowerCase();
-    // Strip query params/fragments before extension checks.
-    const cleanUrl = normalized.split('#')[0].split('?')[0];
-
-    if (normalized.startsWith('data:image') || cleanUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i)) return 'image';
-    if (normalized.startsWith('data:video') || cleanUrl.match(/\.(mp4|webm|ogg|ogv|mov|m4v|mkv)$/i)) return 'video';
-    if (normalized.startsWith('data:application/pdf') || cleanUrl.endsWith('.pdf')) return 'pdf';
-    if (url.startsWith('/static/')) {
-        const ext = cleanUrl.split('.').pop()?.toLowerCase();
-        if (['jpg','jpeg','png','gif','webp'].includes(ext||'')) return 'image';
-        if (['mp4','webm','ogg','ogv','mov','m4v','mkv'].includes(ext||'')) return 'video';
-        if (ext === 'pdf') return 'pdf';
-    }
-    return 'unknown';
-};
 
 export default function ExercisesLibrary() {
     const { t } = useTranslation();
@@ -177,18 +155,11 @@ export default function ExercisesLibrary() {
         if (!file) return;
         // Reset so picking the same file again re-triggers onChange.
         e.target.value = '';
-        const isImage = file.type.startsWith('image/');
-        const isVideo = file.type.startsWith('video/');
-        const isPdf = file.type === 'application/pdf';
-
-        if (!isImage && !isVideo && !isPdf) {
-            toast.error(t('libraries.unsupportedMedia'));
-            return;
-        }
-
-        if (file.size > 100 * 1024 * 1024) return toast.error(t('libraries.fileTooLarge'));
+        const check = validateMediaFile(file);
+        if (check === 'unsupported') return toast.error(t('libraries.unsupportedMedia'));
+        if (check === 'tooLarge') return toast.error(t('libraries.fileTooLarge'));
         // Show a local object-URL preview immediately while the upload runs
-        if (isImage) {
+        if (check === 'image') {
             setMediaPreview(URL.createObjectURL(file));
         }
         try {
