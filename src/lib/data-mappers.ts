@@ -1,5 +1,5 @@
 // src/lib/data-mappers.ts
-import { Player, TrainingSession, Basic, Principle, Tactic, Exercise, Match, MatchDetails, SelectorItem, CalendarEvent, AdminFeedbackItem, AdminUser, AdminStats } from '../types/models';
+import { Player, TrainingSession, Basic, Principle, Tactic, Exercise, Match, MatchDetails, SelectorItem, CalendarEvent, AdminFeedbackItem, AdminUser, AdminStats, GoogleStatus, GoogleSyncResult } from '../types/models';
 
 /**
  * Maps a raw player object from the snake_case API response
@@ -323,6 +323,23 @@ export const mapExerciseToApi = (e: Exercise) => ({
   linked_tactics: e.linkedTactics.join(','),
   media_url: e.mediaUrl,
   drawing: e.drawing || null,
+});
+
+export const mapGoogleStatusFromApi = (s: any): GoogleStatus => ({
+  configured: !!s.configured,
+  connected: !!s.connected,
+  googleEmail: s.google_email || '',
+  calendarId: s.calendar_id || '',
+  timeZone: s.time_zone || '',
+  pushEnabled: !!s.push_enabled,
+  lastSyncedAt: s.last_synced_at || '',
+  lastError: s.last_error || '',
+});
+
+export const mapGoogleSyncResultFromApi = (s: any): GoogleSyncResult => ({
+  pulled: s.pulled || 0,
+  pushed: s.pushed || 0,
+  removed: s.removed || 0,
 });
 
 export const mapAdminFeedbackFromApi = (f: any): AdminFeedbackItem => ({

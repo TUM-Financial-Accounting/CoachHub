@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, Trophy, Users, Plus } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
+import i18n from './i18n';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { TeamProvider } from './contexts/TeamContext';
@@ -131,6 +132,19 @@ export default function App() {
     })();
     return () => { cancelled = true; };
   }, [bootChecking]);
+
+  // Google redirects back to the app root, so the connect result is read here.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('google');
+    if (!result) return;
+    window.history.replaceState({}, document.title, window.location.pathname);
+    if (result === 'connected') toast.success(i18n.t('settings.googleReturnConnected'));
+    else if (result === 'denied') toast.error(i18n.t('settings.googleReturnDenied'));
+    else toast.error(i18n.t('settings.googleReturnFailed'));
+    setCurrentPage('settings');
+  }, [isAuthenticated]);
 
   const handleLogin = () => {
     // Save to browser memory

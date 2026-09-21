@@ -118,8 +118,8 @@ export const apiClient = {
     });
   },
 
-  delete(endpoint: string): Promise<void> {
-    return request<void>(endpoint, {
+  delete<T = void>(endpoint: string): Promise<T> {
+    return request<T>(endpoint, {
       method: 'DELETE',
     });
   }

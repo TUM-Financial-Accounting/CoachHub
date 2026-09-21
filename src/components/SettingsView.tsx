@@ -1,15 +1,20 @@
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
-  CalendarDays, Layout, Link2, Monitor, Moon, Palette, RotateCcw, Sun,
+  AlertCircle, CalendarDays, Check, Layout, Link2, Monitor, Moon, Palette,
+  RefreshCw, RotateCcw, Sun, Unlink,
 } from 'lucide-react';
 
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
+import { ConfirmDialog } from './ui/ConfirmDialog';
 import { useSettings } from '../contexts/SettingsContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { START_PAGES, StartPage, WeekStart } from '../lib/settings';
+import { GoogleService } from '../services';
+import { GoogleStatus } from '../types/models';
 
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
@@ -87,6 +92,123 @@ const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => ({
   value: String(h),
   label: `${String(h).padStart(2, '0')}:00`,
 }));
+
+function GoogleCalendarRow() {
+  const { t, i18n } = useTranslation();
+  const [status, setStatus] = useState<GoogleStatus | null>(null);
+  const [busy, setBusy] = useState<'connect' | 'sync' | 'disconnect' | null>(null);
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    GoogleService.getStatus()
+      .then(s => { if (!cancelled) setStatus(s); })
+      .catch(() => { if (!cancelled) setStatus(null); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const connect = async () => {
+    setBusy('connect');
+    try {
+      // Full navigation, not a popup: Google refuses to render consent in a frame.
+      window.location.href = await GoogleService.getAuthUrl();
+    } catch (err: any) {
+      toast.error(err?.message || t('settings.googleConnectFailed'));
+      setBusy(null);
+    }
+  };
+
+  const sync = async () => {
+    setBusy('sync');
+    try {
+      const r = await GoogleService.sync();
+      toast.success(t('settings.googleSynced', { pushed: r.pushed, pulled: r.pulled }));
+      setStatus(await GoogleService.getStatus());
+    } catch (err: any) {
+      toast.error(err?.message || t('settings.googleSyncFailed'));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const disconnect = async () => {
+    setBusy('disconnect');
+    try {
+      setStatus(await GoogleService.disconnect());
+      toast.success(t('settings.googleDisconnected'));
+    } catch (err: any) {
+      toast.error(err?.message || t('settings.googleSyncFailed'));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const lastSync = status?.lastSyncedAt
+    ? new Date(status.lastSyncedAt.endsWith('Z') ? status.lastSyncedAt : `${status.lastSyncedAt}Z`)
+        .toLocaleString(i18n.language, { dateStyle: 'medium', timeStyle: 'short' })
+    : null;
+
+  const description = !status
+    ? t('settings.googleCalendarDesc')
+    : !status.configured
+      ? t('settings.googleNotConfigured')
+      : status.connected
+        ? [status.googleEmail, lastSync ? t('settings.googleLastSync', { when: lastSync }) : null]
+            .filter(Boolean).join(' · ')
+        : t('settings.googleCalendarDesc');
+
+  return (
+    <div>
+      <Row title={t('settings.googleCalendar')} description={description}>
+        <div className="flex items-center gap-3">
+          {status?.connected && (
+            <span className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold uppercase tracking-wider text-emerald-500">
+              <Check size={11} /> {t('settings.googleConnected')}
+            </span>
+          )}
+          {status?.connected ? (
+            <>
+              <Button variant="secondary" onClick={sync} isLoading={busy === 'sync'} icon={<RefreshCw size={14} />}>
+                {t('settings.googleSyncNow')}
+              </Button>
+              <Button variant="ghost" onClick={() => setConfirmDisconnect(true)} isLoading={busy === 'disconnect'} icon={<Unlink size={14} />}>
+                {t('settings.googleDisconnect')}
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="secondary"
+              onClick={connect}
+              isLoading={busy === 'connect'}
+              disabled={!status?.configured}
+              icon={<Link2 size={14} />}
+            >
+              {t('settings.connect')}
+            </Button>
+          )}
+        </div>
+      </Row>
+
+      {status?.connected && !status.pushEnabled && (
+        <p className="text-[11px] text-muted pb-3 leading-relaxed">{t('settings.googlePushOff')}</p>
+      )}
+      {status?.lastError && (
+        <p className="flex items-start gap-1.5 text-[11px] text-amber-500 pb-3 leading-relaxed">
+          <AlertCircle size={12} className="mt-0.5 flex-shrink-0" /> {status.lastError}
+        </p>
+      )}
+
+      <ConfirmDialog
+        isOpen={confirmDisconnect}
+        title={t('settings.googleDisconnectTitle')}
+        message={t('settings.googleDisconnectMsg')}
+        confirmLabel={t('settings.googleDisconnect')}
+        onConfirm={() => { setConfirmDisconnect(false); disconnect(); }}
+        onCancel={() => setConfirmDisconnect(false)}
+      />
+    </div>
+  );
+}
 
 export default function SettingsView() {
   const { t, i18n } = useTranslation();
@@ -213,16 +335,7 @@ export default function SettingsView() {
       </Section>
 
       <Section icon={<Link2 size={18} />} title={t('settings.integrations')} z={1}>
-        <Row title={t('settings.googleCalendar')} description={t('settings.googleCalendarDesc')}>
-          <div className="flex items-center gap-3">
-            <span className="px-2 py-1 rounded-md bg-surface-raised border border-border text-[10px] font-bold uppercase tracking-wider text-muted">
-              {t('settings.comingSoon')}
-            </span>
-            <Button variant="secondary" disabled icon={<Link2 size={14} />}>
-              {t('settings.connect')}
-            </Button>
-          </div>
-        </Row>
+        <GoogleCalendarRow />
       </Section>
 
       <div className="flex justify-end pb-2 flex-shrink-0">

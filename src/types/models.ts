@@ -156,6 +156,23 @@ export interface CustomFormation {
 
 export interface LineupPlayer extends Player { positionSlot: string; isStarter: boolean; }
 
+export interface GoogleStatus {
+  configured: boolean;
+  connected: boolean;
+  googleEmail: string;
+  calendarId: string;
+  timeZone: string;
+  pushEnabled: boolean;
+  lastSyncedAt: string;
+  lastError: string;
+}
+
+export interface GoogleSyncResult {
+  pulled: number;
+  pushed: number;
+  removed: number;
+}
+
 export interface AdminFeedbackItem {
   id: string;
   type: 'bug' | 'feature' | 'question';

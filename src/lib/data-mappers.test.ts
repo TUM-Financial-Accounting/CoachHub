@@ -20,6 +20,8 @@ import {
   mapAdminFeedbackFromApi,
   mapAdminUserFromApi,
   mapAdminStatsFromApi,
+  mapGoogleStatusFromApi,
+  mapGoogleSyncResultFromApi,
 } from './data-mappers';
 import type { Player, TrainingSession, Exercise, Tactic, MatchDetails, CalendarEvent } from '../types/models';
 
@@ -436,5 +438,41 @@ describe('admin mappers', () => {
     expect(mapped.feedbackNew).toBe(1);
     expect(mapped.teams).toBe(0);
     expect(mapped.feedbackResolved).toBe(0);
+  });
+});
+
+describe('google calendar mappers', () => {
+  it('maps a connected account', () => {
+    const mapped = mapGoogleStatusFromApi({
+      configured: true,
+      connected: true,
+      google_email: 'coach@gmail.com',
+      calendar_id: 'abc@group.calendar.google.com',
+      time_zone: 'Europe/Berlin',
+      push_enabled: true,
+      last_synced_at: '2026-09-09T10:00:00',
+      last_error: null,
+    });
+    expect(mapped).toEqual({
+      configured: true,
+      connected: true,
+      googleEmail: 'coach@gmail.com',
+      calendarId: 'abc@group.calendar.google.com',
+      timeZone: 'Europe/Berlin',
+      pushEnabled: true,
+      lastSyncedAt: '2026-09-09T10:00:00',
+      lastError: '',
+    });
+  });
+
+  it('never leaves a field undefined when the server sends nothing', () => {
+    const mapped = mapGoogleStatusFromApi({ configured: false, connected: false });
+    expect(mapped.googleEmail).toBe('');
+    expect(mapped.lastSyncedAt).toBe('');
+    expect(mapped.pushEnabled).toBe(false);
+  });
+
+  it('defaults sync counts to zero', () => {
+    expect(mapGoogleSyncResultFromApi({ pushed: 4 })).toEqual({ pulled: 0, pushed: 4, removed: 0 });
   });
 });

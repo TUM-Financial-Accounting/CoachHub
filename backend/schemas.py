@@ -348,6 +348,30 @@ class AdminUserItem(BaseModel):
     team_count: int = 0
     feedback_count: int = 0
 
+# ==========================
+#     GOOGLE CALENDAR
+# ==========================
+class GoogleConnectRequest(BaseModel):
+    time_zone: Optional[str] = None
+
+class GoogleAuthUrl(BaseModel):
+    auth_url: str
+
+class GoogleStatus(BaseModel):
+    configured: bool
+    connected: bool
+    google_email: Optional[str] = None
+    calendar_id: Optional[str] = None
+    time_zone: Optional[str] = None
+    push_enabled: bool = False
+    last_synced_at: Optional[datetime] = None
+    last_error: Optional[str] = None
+
+class GoogleSyncResult(BaseModel):
+    pulled: int = 0
+    pushed: int = 0
+    removed: int = 0
+
 class AdminStats(BaseModel):
     users: int
     teams: int

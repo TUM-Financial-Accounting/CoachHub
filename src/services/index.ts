@@ -13,3 +13,4 @@ export * from './playbook-service';
 export * from './feedback-service';
 export * from './event-service';
 export * from './admin-service';
+export * from './google-service';

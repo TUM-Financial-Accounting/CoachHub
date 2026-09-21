@@ -3,13 +3,14 @@ load_dotenv()
 
 from datetime import date, datetime, timedelta
 from typing import Optional
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Response, Request
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Response, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
-import models, schemas, database, security, email_service
+import models, schemas, database, security, email_service, google_calendar
 import uuid, os, shutil, secrets
 
 # ... (rest of imports)
@@ -348,7 +349,7 @@ def create_season(item: schemas.SeasonCreate, db: Session = Depends(database.get
     return db_item
 
 @app.delete("/seasons/{season_id}")
-def delete_season(season_id: str, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+def delete_season(season_id: str, background: BackgroundTasks, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
     season = db.query(models.Season).filter(models.Season.id == season_id, models.Season.coach_id == current_user.id).first()
     if not season:
         raise HTTPException(status_code=404, detail="Season not found")
@@ -367,6 +368,7 @@ def delete_season(season_id: str, db: Session = Depends(database.get_db), curren
 
     db.delete(season)
     db.commit()
+    _gcal_resync(background, current_user)
     return {"message": "Season deleted successfully"}
 
 # ==========================
@@ -541,6 +543,138 @@ def admin_update_feedback_status(feedback_id: str, item: schemas.AdminFeedbackSt
     )
 
 # ==========================
+#     GOOGLE CALENDAR
+# ==========================
+
+def _google_account(db: Session, user: models.User) -> Optional[models.GoogleAccount]:
+    return db.query(models.GoogleAccount).filter(models.GoogleAccount.coach_id == user.id).first()
+
+def _google_status(db: Session, user: models.User) -> schemas.GoogleStatus:
+    account = _google_account(db, user)
+    return schemas.GoogleStatus(
+        configured=google_calendar.is_configured(),
+        connected=bool(account and account.refresh_token),
+        google_email=account.google_email if account else None,
+        calendar_id=account.calendar_id if account else None,
+        time_zone=account.time_zone if account else None,
+        push_enabled=bool(account and account.channel_id),
+        last_synced_at=account.last_synced_at if account else None,
+        last_error=account.last_error if account else None,
+    )
+
+@app.get("/google/status", response_model=schemas.GoogleStatus)
+def google_status(db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    return _google_status(db, current_user)
+
+@app.post("/google/auth-url", response_model=schemas.GoogleAuthUrl)
+def google_auth_url(item: schemas.GoogleConnectRequest, current_user: models.User = Depends(get_current_user)):
+    if not google_calendar.is_configured():
+        raise HTTPException(status_code=503, detail="Google Calendar is not configured on the server")
+    state = google_calendar.make_state(current_user.email, item.time_zone or "UTC")
+    return schemas.GoogleAuthUrl(auth_url=google_calendar.build_auth_url(state))
+
+@app.get("/auth/google/callback")
+def google_callback(request: Request, background: BackgroundTasks, db: Session = Depends(database.get_db)):
+    # Google redirects the browser here, so the coach comes from the signed state, not the cookie.
+    def back(status: str):
+        return RedirectResponse(f"{frontend_url}/?google={status}", status_code=302)
+
+    if request.query_params.get("error"):
+        return back("denied")
+    code = request.query_params.get("code")
+    payload = google_calendar.read_state(request.query_params.get("state") or "")
+    if not code or not payload:
+        return back("failed")
+
+    user = db.query(models.User).filter(models.User.email == payload.get("sub")).first()
+    if not user:
+        return back("failed")
+
+    try:
+        tokens = google_calendar.exchange_code(code)
+    except google_calendar.GoogleError:
+        return back("failed")
+
+    refresh = tokens.get("refresh_token")
+    access = tokens.get("access_token")
+    if not access:
+        return back("failed")
+
+    account = _google_account(db, user)
+    if not account:
+        account = models.GoogleAccount(coach_id=user.id)
+        db.add(account)
+    # Google omits the refresh token on re-consent; keep the stored one.
+    if refresh:
+        account.refresh_token = google_calendar.encrypt(refresh)
+    if not account.refresh_token:
+        return back("failed")
+    account.access_token = google_calendar.encrypt(access)
+    account.token_expires_at = datetime.utcnow() + timedelta(seconds=int(tokens.get("expires_in", 3600)))
+    account.time_zone = payload.get("tz") or "UTC"
+    account.google_email = google_calendar.userinfo_email(access) or account.google_email
+    account.last_error = None
+    db.commit()
+
+    # Don't hold the browser on the redirect for the first sync.
+    background.add_task(google_calendar.sync_in_background, user.id)
+    return back("connected")
+
+@app.post("/google/sync", response_model=schemas.GoogleSyncResult)
+def google_sync(db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    account = _google_account(db, current_user)
+    if not account or not account.refresh_token:
+        raise HTTPException(status_code=400, detail="Google Calendar is not connected")
+    try:
+        result = google_calendar.sync(db, account)
+    except google_calendar.GoogleError as exc:
+        account.last_error = str(exc)[:500]
+        db.commit()
+        raise HTTPException(status_code=502, detail=str(exc))
+    return schemas.GoogleSyncResult(**result)
+
+@app.delete("/google/disconnect", response_model=schemas.GoogleStatus)
+def google_disconnect(db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    account = _google_account(db, current_user)
+    if account:
+        try:
+            token = google_calendar.access_token_for(db, account)
+            google_calendar.stop_watch(account, token)
+        except Exception:
+            pass
+        refresh = google_calendar.decrypt(account.refresh_token)
+        if refresh:
+            google_calendar.revoke(refresh)
+        db.delete(account)
+        db.commit()
+    return _google_status(db, current_user)
+
+@app.post("/google/webhook")
+def google_webhook(request: Request, background: BackgroundTasks, db: Session = Depends(database.get_db)):
+    # The channel token proves the ping belongs to our watch.
+    channel_id = request.headers.get("X-Goog-Channel-ID")
+    if not channel_id:
+        return {"ok": True}
+    account = db.query(models.GoogleAccount).filter(models.GoogleAccount.channel_id == channel_id).first()
+    if not account or account.channel_token != request.headers.get("X-Goog-Channel-Token"):
+        return {"ok": True}
+    if request.headers.get("X-Goog-Resource-State") != "sync":
+        background.add_task(google_calendar.sync_in_background, account.coach_id)
+    return {"ok": True}
+
+def _gcal_push(background: BackgroundTasks, user: models.User, kind: str, item_id: str):
+    if google_calendar.is_configured():
+        background.add_task(google_calendar.push_item, user.id, kind, item_id)
+
+def _gcal_delete(background: BackgroundTasks, user: models.User, kind: str, item_id: str):
+    if google_calendar.is_configured():
+        background.add_task(google_calendar.delete_item, user.id, kind, item_id)
+
+def _gcal_resync(background: BackgroundTasks, user: models.User):
+    if google_calendar.is_configured():
+        background.add_task(google_calendar.sync_in_background, user.id)
+
+# ==========================
 #      CALENDAR EVENTS
 # ==========================
 @app.get("/events", response_model=list[schemas.Event])
@@ -553,7 +687,7 @@ def get_events(team_id: Optional[str] = None, season_id: Optional[str] = None, d
     return query.all()
 
 @app.post("/events", response_model=schemas.Event)
-def create_event(item: schemas.EventCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+def create_event(item: schemas.EventCreate, background: BackgroundTasks, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
     if item.team_id:
         require_owned_team(db, current_user, item.team_id)
     date_obj = parse_iso_date(item.date)
@@ -571,10 +705,11 @@ def create_event(item: schemas.EventCreate, db: Session = Depends(database.get_d
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
+    _gcal_push(background, current_user, "event", db_item.id)
     return db_item
 
 @app.put("/events/{id}", response_model=schemas.Event)
-def update_event(id: str, item: schemas.EventCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+def update_event(id: str, item: schemas.EventCreate, background: BackgroundTasks, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
     db_item = db.query(models.Event).filter(models.Event.id == id, models.Event.coach_id == current_user.id).first()
     if not db_item:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -586,15 +721,17 @@ def update_event(id: str, item: schemas.EventCreate, db: Session = Depends(datab
     db_item.end_time = item.end_time
     db.commit()
     db.refresh(db_item)
+    _gcal_push(background, current_user, "event", db_item.id)
     return db_item
 
 @app.delete("/events/{id}")
-def delete_event(id: str, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+def delete_event(id: str, background: BackgroundTasks, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
     db_item = db.query(models.Event).filter(models.Event.id == id, models.Event.coach_id == current_user.id).first()
     if not db_item:
         raise HTTPException(status_code=404, detail="Event not found")
     db.delete(db_item)
     db.commit()
+    _gcal_delete(background, current_user, "event", id)
     return {"message": "Deleted"}
 
 # ==========================
@@ -649,15 +786,19 @@ def create_team(item: schemas.TeamCreate, db: Session = Depends(database.get_db)
     return db_item
 
 @app.put("/teams/{id}", response_model=schemas.Team)
-def update_team(id: str, item: schemas.TeamCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+def update_team(id: str, item: schemas.TeamCreate, background: BackgroundTasks, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
     db_item = db.query(models.Team).filter(models.Team.id == id, models.Team.coach_id == current_user.id).first()
     if not db_item:
         raise HTTPException(status_code=404, detail="Team not found")
-    
+
+    renamed = db_item.name != item.name
     db_item.name = item.name
     db_item.formation = item.formation
     db.commit()
     db.refresh(db_item)
+    # The team name is the title prefix on every one of its events.
+    if renamed:
+        _gcal_resync(background, current_user)
     return db_item
 
 @app.post("/teams/{id}/clone")
@@ -692,13 +833,14 @@ def clone_team(id: str, target_season_id: str, db: Session = Depends(database.ge
     return new_team
 
 @app.delete("/teams/{id}")
-def delete_team(id: str, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+def delete_team(id: str, background: BackgroundTasks, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
     db_item = db.query(models.Team).filter(models.Team.id == id, models.Team.coach_id == current_user.id).first()
     if not db_item:
         raise HTTPException(status_code=404, detail="Team not found")
 
     delete_team_cascade(db, db_item)
     db.commit()
+    _gcal_resync(background, current_user)
     return {"message": "Deleted"}
 
 # --- GET ALL EXERCISES ---
@@ -1008,7 +1150,7 @@ def get_sessions(team_id: Optional[str] = None, season_id: Optional[str] = None,
     return query.all()
 
 @app.post("/training_sessions")
-def create_session(item: schemas.TrainingSessionCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+def create_session(item: schemas.TrainingSessionCreate, background: BackgroundTasks, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
     if item.team_id:
         require_owned_team(db, current_user, item.team_id)
     date_obj = parse_iso_date(item.date)
@@ -1027,12 +1169,14 @@ def create_session(item: schemas.TrainingSessionCreate, db: Session = Depends(da
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
+    _gcal_push(background, current_user, "training", db_item.id)
     return db_item
 
 @app.put("/training_sessions/{id}")
 def update_session(
     id: str,
     item: schemas.TrainingSessionCreate,
+    background: BackgroundTasks,
     scope: str = "this",  # "this" | "future"
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(get_current_user),
@@ -1073,6 +1217,7 @@ def update_session(
             row.selected_exercises = item.selected_exercises
         db.commit()
         db.refresh(db_item)
+        _gcal_resync(background, current_user)
         return db_item
 
     # Default "this only" — full edit on the single row, mark as detached
@@ -1089,11 +1234,13 @@ def update_session(
 
     db.commit()
     db.refresh(db_item)
+    _gcal_push(background, current_user, "training", db_item.id)
     return db_item
 
 @app.delete("/training_sessions/{id}")
 def delete_session(
     id: str,
+    background: BackgroundTasks,
     scope: str = "this",  # "this" | "future"
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(get_current_user),
@@ -1122,10 +1269,12 @@ def delete_session(
             else:
                 series.series_end_date = previous_day
         db.commit()
+        _gcal_resync(background, current_user)
         return {"message": "Future occurrences deleted"}
 
     db.delete(db_item)
     db.commit()
+    _gcal_delete(background, current_user, "training", id)
     return {"message": "Deleted"}
 
 
@@ -1136,6 +1285,7 @@ def delete_session(
 @app.post("/training_series")
 def create_training_series(
     item: schemas.TrainingSeriesCreate,
+    background: BackgroundTasks,
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -1191,12 +1341,14 @@ def create_training_series(
 
     db.commit()
     db.refresh(series)
+    _gcal_resync(background, current_user)
     return {"series": series, "occurrences_created": created}
 
 
 @app.delete("/training_series/{id}")
 def delete_training_series(
     id: str,
+    background: BackgroundTasks,
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -1205,6 +1357,7 @@ def delete_training_series(
     db.query(models.TrainingSession).filter(models.TrainingSession.series_id == id).delete()
     db.delete(series)
     db.commit()
+    _gcal_resync(background, current_user)
     return {"message": "Series deleted"}
 
 # ==========================
@@ -1541,7 +1694,7 @@ def get_suggested_formation(team_id: Optional[str] = None, db: Session = Depends
 #      MATCH MANAGEMENT
 # ==========================
 @app.post("/matches", response_model=schemas.Match)
-def create_match(item: schemas.MatchCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+def create_match(item: schemas.MatchCreate, background: BackgroundTasks, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
     if item.team_id:
         require_owned_team(db, current_user, item.team_id)
     date_obj = parse_iso_date(item.date)
@@ -1559,6 +1712,7 @@ def create_match(item: schemas.MatchCreate, db: Session = Depends(database.get_d
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
+    _gcal_push(background, current_user, "match", db_item.id)
     return db_item
 
 @app.get("/matches")
@@ -1596,7 +1750,7 @@ def get_latest_match(team_id: Optional[str] = None, season_id: Optional[str] = N
     return match
 
 @app.delete("/matches/{match_id}")
-def delete_match(match_id: str, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+def delete_match(match_id: str, background: BackgroundTasks, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
     db_match = db.query(models.Match).filter(models.Match.id == match_id, models.Match.team_id.in_(owned_team_ids(db, current_user))).first()
     if not db_match:
         raise HTTPException(status_code=404, detail="Match not found")
@@ -1604,10 +1758,11 @@ def delete_match(match_id: str, db: Session = Depends(database.get_db), current_
     # goals/assists — a bulk query delete would trip over the FK instead.
     db.delete(db_match)
     db.commit()
+    _gcal_delete(background, current_user, "match", match_id)
     return {"message": "Deleted"}
 
 @app.put("/matches/{match_id}")
-def update_match(match_id: str, item: schemas.MatchCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+def update_match(match_id: str, item: schemas.MatchCreate, background: BackgroundTasks, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
     db_match = db.query(models.Match).filter(models.Match.id == match_id, models.Match.team_id.in_(owned_team_ids(db, current_user))).first()
     if not db_match:
         raise HTTPException(status_code=404, detail="Match not found")
@@ -1620,7 +1775,8 @@ def update_match(match_id: str, item: schemas.MatchCreate, db: Session = Depends
     db_match.location = item.location
     db_match.formation = item.formation
     db_match.lineup = item.lineup
-    
+
     db.commit()
     db.refresh(db_match)
+    _gcal_push(background, current_user, "match", db_match.id)
     return db_match

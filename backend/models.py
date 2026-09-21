@@ -278,6 +278,28 @@ class Event(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 
+# --- GOOGLE CALENDAR ---
+# Tokens are encrypted with a key derived from SECRET_KEY.
+class GoogleAccount(Base):
+    __tablename__ = "google_accounts"
+    coach_id = Column(String, ForeignKey("users.id"), primary_key=True)
+    google_email = Column(String, nullable=True)
+    refresh_token = Column(Text, nullable=True)
+    access_token = Column(Text, nullable=True)
+    token_expires_at = Column(DateTime, nullable=True)
+    calendar_id = Column(String, nullable=True)
+    time_zone = Column(String, nullable=True)
+
+    channel_id = Column(String, nullable=True)
+    channel_token = Column(String, nullable=True)
+    channel_resource_id = Column(String, nullable=True)
+    channel_expires_at = Column(DateTime, nullable=True)
+
+    last_synced_at = Column(DateTime, nullable=True)
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
 # --- FEEDBACK ---
 class FeedbackRequest(Base):
     __tablename__ = "feedback_requests"

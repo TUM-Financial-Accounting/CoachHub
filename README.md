@@ -12,6 +12,7 @@ A modern, coach-centric web dashboard for managing sports teams, training sessio
 - Training Manager - Build and schedule training sessions (incl. weekly recurring series) with PDF export. The export opens with a printable session sheet: an info column (ISO calendar week, date, focus, times, numbered squad, colour key) next to one card per drill. A drill shows the picture uploaded under its Visualisierungen when it has one, otherwise the diagram drawn in the exercise's drill editor (rendered to PNG at export time), and only as a last resort an auto-generated pitch diagram derived from its title/setup (see `Uebungsbenennung.md`). The written detail table follows
 - Calendar - Week view combining trainings, matches, and custom team events; drag & drop to reschedule (15-minute snapping, duration preserved)
 - Settings - Personalisation: theme, language, which item types the calendar draws, player birthdays as all-day entries, first day of the week, visible hours, and the start page (stored per account in the browser)
+- Google Calendar - Each coach connects their own Google account from Settings. CoachHub creates a "CoachHub" calendar and keeps trainings, matches and events in it, pushing on every change and pulling dates/times back from Google. Setup and behaviour: `GOOGLE_CALENDAR.md`
 - Libraries - Manage Basics, Principles (with media upload), and Tactics
 - Match & Lineup - Visual drag-and-drop field positioning, lineup builder, and custom formations; supports 11v11 plus 7v7 / 9v9 youth formats
 - Match Stats & Statistics - Record results, goals, and assists; season statistics with charts and leaderboards
@@ -158,6 +159,7 @@ Alternatively call `POST /register` via the interactive API docs at `/docs`.
 | python-jose | JWT signing and verification |
 | python-multipart | File upload support |
 | python-dotenv | Loads `backend/.env` |
+| cryptography | Fernet encryption for stored Google refresh tokens |
 
 ---
 
@@ -273,6 +275,12 @@ Tests live next to the code they cover as `*.test.ts`.
 | GET / POST | `/visions` | List / upload vision documents |
 | DELETE | `/visions/{id}` | Delete a vision document |
 | GET / POST | `/feedback` | List / submit feedback |
+| GET | `/google/status` | Google Calendar connection state for the current coach |
+| POST | `/google/auth-url` | Build the Google consent URL (takes the browser's time zone) |
+| GET | `/auth/google/callback` | OAuth redirect target; must match the URI registered in Google Cloud |
+| POST | `/google/sync` | Pull dates/times from Google, then push everything else |
+| DELETE | `/google/disconnect` | Revoke the token and forget the account |
+| POST | `/google/webhook` | Google push notification receiver (no auth; verified by channel token) |
 | GET | `/admin/stats` | Superuser: global aggregate counts |
 | GET | `/admin/users` | Superuser: account metadata list |
 | GET | `/admin/feedback` | Superuser: all feedback with author identity |
@@ -355,6 +363,7 @@ Railway dashboard, so the settings below are the contract the code expects.
 | Start command | `uvicorn main:app --host 0.0.0.0 --port $PORT` |
 | Required env | `DATABASE_URL`, `SECRET_KEY` |
 | Admin env | `ADMIN_ACCESS_CODE` — step-up code for `/admin/*`; unset means the admin area is unreachable |
+| Google env | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `BACKEND_PUBLIC_URL` — unset means the Settings row stays disabled (see `GOOGLE_CALENDAR.md`) |
 | Important env | `FRONTEND_URL`, `UPLOAD_DIR` |
 
 - `SECRET_KEY` is mandatory — `security.py` raises at import if it is unset, so
