@@ -186,6 +186,9 @@ export const de: TranslationDict = {
   calendar: {
     newEvent: 'Neuer Termin',
     today: 'Heute',
+    itemMoved: 'Verschoben',
+    movedDetached: 'Verschoben – diese Einheit ist jetzt unabhängig von ihrer wöchentlichen Serie',
+    moveFailed: 'Verschieben fehlgeschlagen – Änderung zurückgesetzt',
     typeEvent: 'Termin',
     typeTraining: 'Training',
     typeMatch: 'Spiel',

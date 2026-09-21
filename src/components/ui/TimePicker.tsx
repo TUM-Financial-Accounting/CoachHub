@@ -118,11 +118,11 @@ function Wheel({ items, selectedValue, onSelect, label }: WheelProps) {
           {/* 80px padding at top/bottom centers the items in the 200px container */}
           <div className="flex flex-col py-[80px]">
             {displayItems.map((item, idx) => (
-              <div 
+              <div
                 key={idx}
                 className="h-10 flex-shrink-0 flex items-center justify-center snap-center cursor-pointer select-none group"
                 onClick={() => {
-                   isInternalScroll.current = true;
+                   // No isInternalScroll here: unlike a scroll, a click must re-center the wheel.
                    onSelect(item);
                 }}
               >

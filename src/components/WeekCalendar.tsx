@@ -1,4 +1,5 @@
 import { useMemo, useRef, useEffect, useState } from 'react';
+import { useDrag, useDrop } from 'react-dnd';
 import { useTranslation } from 'react-i18next';
 
 export type CalendarKind = 'training' | 'match' | 'event' | 'birthday';
@@ -22,6 +23,8 @@ interface WeekCalendarProps {
   compact?: boolean;               // denser layout for the dashboard widget
   onSlotClick?: (date: string, hour: number) => void;
   onItemClick?: (item: CalendarItem) => void;
+  // Makes items draggable. Called on drop with the target date and start minutes (snapped to 15); the caller keeps the duration.
+  onItemMove?: (item: CalendarItem, date: string, startMinutes: number) => void;
 }
 
 const KIND_STYLES: Record<CalendarKind, string> = {
@@ -94,6 +97,174 @@ function layoutDay(items: CalendarItem[]): { item: CalendarItem; lane: number; l
   return out;
 }
 
+const DND_CALENDAR_ITEM = 'calendar-item';
+
+const minutesToLabel = (m: number): string =>
+  `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+
+// An end at or before the start means the block runs past midnight.
+export const itemDuration = (item: CalendarItem): number => {
+  const s = toMinutes(item.startTime);
+  const e = toMinutes(item.endTime);
+  if (Number.isNaN(s) || Number.isNaN(e)) return 60;
+  const raw = e - s;
+  if (raw > 0) return Math.min(raw, 24 * 60);
+  if (raw === 0) return 60;
+  return raw + 24 * 60;
+};
+
+export function snapStartMinutes(opts: {
+  offsetY: number;
+  rowHeight: number;
+  effStart: number;
+  effEnd: number;
+  duration: number;
+}): number {
+  const { offsetY, rowHeight, effStart, effEnd, duration } = opts;
+  const earliest = Math.max(0, effStart * 60);
+  if (!(rowHeight > 0)) return earliest;
+  const snapped = Math.round((effStart * 60 + (offsetY / rowHeight) * 60) / 15) * 15;
+  // A block longer than the window would put latest before earliest; clamp to earliest.
+  const latest = Math.max(earliest, Math.min(effEnd, 24) * 60 - duration);
+  return Math.max(earliest, Math.min(snapped, latest));
+}
+
+function EventBlock({ item, top, height, left, width, compact, onItemClick, canDrag }: {
+  item: CalendarItem;
+  top: number;
+  height: number;
+  left: string;
+  width: string;
+  compact: boolean;
+  onItemClick?: (item: CalendarItem) => void;
+  canDrag: boolean;
+}) {
+  const [{ isDragging }, drag] = useDrag(() => ({
+    type: DND_CALENDAR_ITEM,
+    item,
+    canDrag,
+    collect: (monitor) => ({ isDragging: !!monitor.isDragging() }),
+  }), [item, canDrag]);
+
+  return (
+    <button
+      ref={drag}
+      onClick={onItemClick ? () => onItemClick(item) : undefined}
+      style={{ top, height, left, width, opacity: isDragging ? 0.35 : undefined }}
+      className={`absolute rounded-md border px-1.5 py-0.5 text-left overflow-hidden flex gap-1 transition-colors ${KIND_STYLES[item.kind]} ${
+        canDrag ? 'cursor-grab active:cursor-grabbing' : onItemClick ? 'cursor-pointer' : 'cursor-default'
+      }`}
+    >
+      <span className={`w-1 rounded-full flex-shrink-0 ${KIND_BAR[item.kind]}`} />
+      <span className="min-w-0">
+        <span className="block text-[11px] font-semibold leading-tight truncate">{item.title || '—'}</span>
+        {!compact && height > 32 && (
+          <span className="block text-[10px] opacity-80 leading-tight truncate">
+            {item.startTime}{item.subtitle ? ` · ${item.subtitle}` : ''}
+          </span>
+        )}
+      </span>
+    </button>
+  );
+}
+
+function DayColumn({ dayKey, laid, hours, rowHeight, effStart, effEnd, gridHeight, compact, onSlotClick, onItemClick, onItemMove }: {
+  dayKey: string;
+  laid: { item: CalendarItem; lane: number; lanes: number }[];
+  hours: number[];
+  rowHeight: number;
+  effStart: number;
+  effEnd: number;
+  gridHeight: number;
+  compact: boolean;
+  onSlotClick?: (date: string, hour: number) => void;
+  onItemClick?: (item: CalendarItem) => void;
+  onItemMove?: (item: CalendarItem, date: string, startMinutes: number) => void;
+}) {
+  const colRef = useRef<HTMLDivElement>(null);
+  const [preview, setPreview] = useState<{ start: number; duration: number } | null>(null);
+
+  const startFromMonitor = (dragged: CalendarItem, monitor: { getClientOffset: () => { x: number; y: number } | null }): number | null => {
+    const offset = monitor.getClientOffset();
+    // Read fresh each time so scrolling mid-drag stays accurate.
+    const rect = colRef.current?.getBoundingClientRect();
+    if (!offset || !rect) return null;
+    return snapStartMinutes({
+      offsetY: offset.y - rect.top,
+      rowHeight,
+      effStart,
+      effEnd,
+      duration: itemDuration(dragged),
+    });
+  };
+
+  const [{ isOver }, drop] = useDrop(() => ({
+    accept: DND_CALENDAR_ITEM,
+    canDrop: () => !!onItemMove,
+    hover: (dragged: CalendarItem, monitor) => {
+      const start = startFromMonitor(dragged, monitor);
+      if (start == null) return;
+      const duration = itemDuration(dragged);
+      setPreview(prev => (prev && prev.start === start && prev.duration === duration) ? prev : { start, duration });
+    },
+    drop: (dragged: CalendarItem, monitor) => {
+      const start = startFromMonitor(dragged, monitor);
+      if (start != null) onItemMove?.(dragged, dayKey, start);
+    },
+    collect: (monitor) => ({ isOver: !!monitor.isOver() }),
+  }), [onItemMove, dayKey, effStart, effEnd, rowHeight]);
+
+  drop(colRef);
+
+  return (
+    <div ref={colRef} className="flex-1 min-w-0 relative border-l border-border">
+      {hours.map((h, i) => (
+        <div
+          key={h}
+          style={{ top: i * rowHeight, height: rowHeight }}
+          onClick={onSlotClick ? () => onSlotClick(dayKey, h) : undefined}
+          onContextMenu={onSlotClick ? (e) => { e.preventDefault(); onSlotClick(dayKey, h); } : undefined}
+          className={`absolute inset-x-0 border-t border-border/60 ${onSlotClick ? 'cursor-pointer hover:bg-surface-hover/50' : ''}`}
+        />
+      ))}
+
+      {isOver && preview && (
+        <div
+          style={{
+            top: ((preview.start - effStart * 60) / 60) * rowHeight,
+            height: Math.max(18, (preview.duration / 60) * rowHeight),
+          }}
+          className="absolute inset-x-0.5 z-10 rounded-md border-2 border-dashed border-primary/60 bg-primary/10 pointer-events-none flex items-start px-1.5 py-0.5"
+        >
+          <span className="text-[10px] font-bold text-primary">{minutesToLabel(preview.start)}</span>
+        </div>
+      )}
+
+      {laid.map(({ item, lane, lanes }) => {
+        const s = toMinutes(item.startTime);
+        const e = Math.max(toMinutes(item.endTime), s + 30);
+        const top = Math.max(0, ((s - effStart * 60) / 60) * rowHeight);
+        const rawHeight = ((e - s) / 60) * rowHeight;
+        const height = Math.max(18, Math.min(rawHeight, gridHeight - top));
+        const widthPct = 100 / lanes;
+        return (
+          <EventBlock
+            key={`${item.kind}-${item.id}`}
+            item={item}
+            top={top + 1}
+            height={height - 2}
+            left={`calc(${lane * widthPct}% + 2px)`}
+            width={`calc(${widthPct}% - 4px)`}
+            compact={compact}
+            onItemClick={onItemClick}
+            canDrag={!!onItemMove}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 export default function WeekCalendar({
   weekStart,
   items,
@@ -102,6 +273,7 @@ export default function WeekCalendar({
   compact = false,
   onSlotClick,
   onItemClick,
+  onItemMove,
 }: WeekCalendarProps) {
   const { i18n } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -270,53 +442,21 @@ export default function WeekCalendar({
           {/* Day columns */}
           {days.map(day => {
             const key = ymdLocal(day);
-            const laid = perDay[key] ?? [];
             return (
-              <div key={key} className="flex-1 min-w-0 relative border-l border-border">
-                {/* Background hour cells (clickable to create) */}
-                {hours.map((h, i) => (
-                  <div
-                    key={h}
-                    style={{ top: i * rowHeight, height: rowHeight }}
-                    onClick={onSlotClick ? () => onSlotClick(key, h) : undefined}
-                    onContextMenu={onSlotClick ? (e) => { e.preventDefault(); onSlotClick(key, h); } : undefined}
-                    className={`absolute inset-x-0 border-t border-border/60 ${onSlotClick ? 'cursor-pointer hover:bg-surface-hover/50' : ''}`}
-                  />
-                ))}
-
-                {/* Event blocks */}
-                {laid.map(({ item, lane, lanes }) => {
-                  const s = toMinutes(item.startTime);
-                  const e = Math.max(toMinutes(item.endTime), s + 30);
-                  const top = Math.max(0, ((s - effStart * 60) / 60) * rowHeight);
-                  const rawHeight = ((e - s) / 60) * rowHeight;
-                  const height = Math.max(18, Math.min(rawHeight, gridHeight - top));
-                  const widthPct = 100 / lanes;
-                  return (
-                    <button
-                      key={`${item.kind}-${item.id}`}
-                      onClick={onItemClick ? () => onItemClick(item) : undefined}
-                      style={{
-                        top: top + 1,
-                        height: height - 2,
-                        left: `calc(${lane * widthPct}% + 2px)`,
-                        width: `calc(${widthPct}% - 4px)`,
-                      }}
-                      className={`absolute rounded-md border px-1.5 py-0.5 text-left overflow-hidden flex gap-1 transition-colors ${KIND_STYLES[item.kind]} ${onItemClick ? 'cursor-pointer' : 'cursor-default'}`}
-                    >
-                      <span className={`w-1 rounded-full flex-shrink-0 ${KIND_BAR[item.kind]}`} />
-                      <span className="min-w-0">
-                        <span className="block text-[11px] font-semibold leading-tight truncate">{item.title || '—'}</span>
-                        {!compact && height > 32 && (
-                          <span className="block text-[10px] opacity-80 leading-tight truncate">
-                            {item.startTime}{item.subtitle ? ` · ${item.subtitle}` : ''}
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              <DayColumn
+                key={key}
+                dayKey={key}
+                laid={perDay[key] ?? []}
+                hours={hours}
+                rowHeight={rowHeight}
+                effStart={effStart}
+                effEnd={effEnd}
+                gridHeight={gridHeight}
+                compact={compact}
+                onSlotClick={onSlotClick}
+                onItemClick={onItemClick}
+                onItemMove={onItemMove}
+              />
             );
           })}
         </div>

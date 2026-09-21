@@ -184,6 +184,9 @@ export const en = {
   calendar: {
     newEvent: 'New Event',
     today: 'Today',
+    itemMoved: 'Rescheduled',
+    movedDetached: 'Moved — this session is now independent of its weekly series',
+    moveFailed: 'Failed to move — change reverted',
     typeEvent: 'Event',
     typeTraining: 'Training',
     typeMatch: 'Match',

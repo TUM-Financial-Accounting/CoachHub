@@ -254,6 +254,68 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
     }
   };
 
+  const minToTime = (m: number): string =>
+    `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+
+  // An end at or before the start means the block runs past midnight.
+  const durationOf = (start: string, end: string): number => {
+    const raw = toMin(end) - toMin(start);
+    if (raw > 0) return raw;
+    if (raw === 0) return 60;
+    return raw + 24 * 60;
+  };
+
+  // Roll back only the moved row: a list snapshot would undo a concurrent drag or a team switch.
+  const handleItemMove = async (item: CalendarItem, newDate: string, newStartMin: number) => {
+    if (item.kind === 'birthday') return;
+    const newStart = minToTime(newStartMin);
+    if (item.date === newDate && item.startTime === newStart) return;
+
+    if (item.kind === 'event') {
+      const ev = events.find(e => e.id === item.id);
+      if (!ev) return;
+      const dur = durationOf(ev.startTime, ev.endTime);
+      const updated: CalendarEvent = { ...ev, date: newDate, startTime: newStart, endTime: addMinutes(newStart, dur) };
+      setEvents(prev => prev.map(e => e.id === ev.id ? updated : e));
+      try {
+        const saved = await EventService.update(ev.id, updated);
+        setEvents(prev => prev.map(e => e.id === saved.id ? saved : e));
+        toast.success(t('calendar.itemMoved'));
+      } catch {
+        setEvents(prev => prev.map(e => e.id === ev.id ? ev : e));
+        toast.error(t('calendar.moveFailed'));
+      }
+    } else if (item.kind === 'training') {
+      const s = sessions.find(x => x.id === item.id);
+      if (!s) return;
+      const dur = durationOf(s.startTime, s.endTime);
+      const updated: TrainingSession = { ...s, date: newDate, startTime: newStart, endTime: addMinutes(newStart, dur) };
+      setSessions(prev => prev.map(x => x.id === s.id ? updated : x));
+      try {
+        // 'this' detaches the occurrence from its series instead of moving the whole series.
+        const saved = await TrainingService.update(s.id, updated, 'this');
+        setSessions(prev => prev.map(x => x.id === saved.id ? saved : x));
+        toast.success(s.seriesId ? t('calendar.movedDetached') : t('calendar.itemMoved'));
+      } catch {
+        setSessions(prev => prev.map(x => x.id === s.id ? s : x));
+        toast.error(t('calendar.moveFailed'));
+      }
+    } else {
+      const m = matches.find(x => x.id === item.id);
+      if (!m) return;
+      const updated: MatchDetails = { ...m, date: newDate, time: newStart };
+      setMatches(prev => prev.map(x => x.id === m.id ? updated : x));
+      try {
+        const saved = await MatchService.update(m.id, updated);
+        setMatches(prev => prev.map(x => x.id === saved.id ? saved : x));
+        toast.success(t('calendar.itemMoved'));
+      } catch {
+        setMatches(prev => prev.map(x => x.id === m.id ? m : x));
+        toast.error(t('calendar.moveFailed'));
+      }
+    }
+  };
+
   const handleSave = async () => {
     if (!activeTeam || !activeSeason) return;
 
@@ -396,6 +458,7 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
           endHour={settings.dayEndHour}
           onSlotClick={(date, hour) => openCreate(date, hour)}
           onItemClick={handleItemClick}
+          onItemMove={handleItemMove}
         />
       </div>
 
