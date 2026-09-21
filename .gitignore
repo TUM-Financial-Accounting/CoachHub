@@ -10,6 +10,8 @@ dist-ssr/
 #  Python / Backend
 # ============================================================
 venv/
+.venv/
+**/.venv/
 __pycache__/
 **/__pycache__/
 *.py[cod]
@@ -51,7 +53,16 @@ Thumbs.db
 coverage/
 .nyc_output/
 
-.claude/
+# ============================================================
+#  Claude Code — share the config, keep personal overrides local
+# ============================================================
+.claude/settings.local.json
+.claude/*.local.json
+CLAUDE.local.md
+CLAUDE.md
+REFACTORING_PLAN.md
+SUPERUSER.md
+
 backend/static/uploads/
 
 # ============================================================
@@ -60,3 +71,8 @@ backend/static/uploads/
 PRESENTATION_OUTLINE.md
 CoachHub-Presentation.pptx
 build-deck.js
+
+# ============================================================
+#  Internal security notes
+# ============================================================
+SECURITY.md
