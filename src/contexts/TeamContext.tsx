@@ -3,6 +3,7 @@ import { TeamService } from '../services';
 import { Team } from '../types/models';
 import { useSeason } from './SeasonContext';
 import { bootPrefetch } from '../lib/bootPrefetch';
+import { STORAGE_KEYS } from '../lib/storageKeys';
 
 interface TeamContextProps {
   teams: Team[];
@@ -27,7 +28,7 @@ export const useTeam = () => useContext(TeamContext);
 // Hydrated from localStorage so it also survives a full reload.
 const teamCache = new Map<string, Team[]>();
 const NO_SEASON_KEY = '__no_season__';
-const TEAMS_CACHE_KEY = 'cache:teams:v1';
+const TEAMS_CACHE_KEY = STORAGE_KEYS.teamsCache;
 
 (function hydrateTeamCache() {
   try {
@@ -56,10 +57,10 @@ export const TeamProvider: React.FC<{ children: React.ReactNode, isAuthenticated
   const { activeSeason, loading: seasonsLoading } = useSeason();
   // Seed from the persisted cache if we can — this is what makes the team
   // list show up immediately on reload instead of waiting for /teams.
-  const initialSeasonKey = (typeof localStorage !== 'undefined' && localStorage.getItem('activeSeasonId')) || NO_SEASON_KEY;
+  const initialSeasonKey = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.activeSeasonId)) || NO_SEASON_KEY;
   const initialTeams = teamCache.get(initialSeasonKey) ?? [];
   const [teams, setTeams] = useState<Team[]>(initialTeams);
-  const [activeTeamIdState, setActiveTeamIdState] = useState<string | null>(() => localStorage.getItem('activeTeamId'));
+  const [activeTeamIdState, setActiveTeamIdState] = useState<string | null>(() => localStorage.getItem(STORAGE_KEYS.activeTeamId));
   const [loading, setLoading] = useState(initialTeams.length === 0);
 
   // Track the in-flight request so a fast season switch doesn't overwrite
@@ -68,7 +69,7 @@ export const TeamProvider: React.FC<{ children: React.ReactNode, isAuthenticated
 
   const setActiveTeamId = (id: string) => {
     setActiveTeamIdState(id);
-    localStorage.setItem('activeTeamId', id);
+    localStorage.setItem(STORAGE_KEYS.activeTeamId, id);
   };
 
   const applyTeams = (data: Team[]) => {
@@ -79,12 +80,12 @@ export const TeamProvider: React.FC<{ children: React.ReactNode, isAuthenticated
       setActiveTeamIdState(prev => {
         if (prev && data.find(t => t.id === prev)) return prev;
         const next = data[0].id;
-        localStorage.setItem('activeTeamId', next);
+        localStorage.setItem(STORAGE_KEYS.activeTeamId, next);
         return next;
       });
     } else {
       setActiveTeamIdState(null);
-      localStorage.removeItem('activeTeamId');
+      localStorage.removeItem(STORAGE_KEYS.activeTeamId);
     }
   };
 

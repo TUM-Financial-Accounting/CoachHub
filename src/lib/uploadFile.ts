@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './api-config';
+import { STORAGE_KEYS } from './storageKeys';
 
 /**
  * Upload a file to the backend and return a fully-qualified URL to the saved file.
@@ -12,7 +13,7 @@ export async function uploadFile(file: File): Promise<string> {
   const form = new FormData();
   form.append('file', file);
 
-  const token = localStorage.getItem('access_token');
+  const token = localStorage.getItem(STORAGE_KEYS.accessToken);
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
 

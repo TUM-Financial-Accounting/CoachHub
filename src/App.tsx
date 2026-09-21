@@ -37,16 +37,16 @@ import { AuthService } from './services';
 import { useTeam } from './contexts/TeamContext';
 import { useTheme } from './contexts/ThemeContext';
 import { bootPrefetch } from './lib/bootPrefetch';
-import { saveLastSelection } from './lib/lastSelection';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { loadSettings } from './lib/settings';
-import { clearAdminUnlock } from './lib/adminUnlock';
+import { clearSession } from './lib/session';
+import { STORAGE_KEYS } from './lib/storageKeys';
 
 export default function App() {
   // 1. Initialize Auth State from LocalStorage
   // If 'isAuthenticated' exists in browser memory, start as true.
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('isAuthenticated') === 'true';
+    return localStorage.getItem(STORAGE_KEYS.isAuthenticated) === 'true';
   });
 
   // 2. Boot session-validation gate. If we *claim* to be authenticated,
@@ -54,33 +54,20 @@ export default function App() {
   // This prevents the dashboard from flashing before we redirect to login
   // when the stored session has expired.
   const [bootChecking, setBootChecking] = useState(() => {
-    return localStorage.getItem('isAuthenticated') === 'true';
+    return localStorage.getItem(STORAGE_KEYS.isAuthenticated) === 'true';
   });
 
   // 3. Initialize Page State
   const [currentPage, setCurrentPage] = useState<Page>(() => {
-    return localStorage.getItem('isAuthenticated') === 'true' ? loadSettings().startPage : 'login';
+    return localStorage.getItem(STORAGE_KEYS.isAuthenticated) === 'true' ? loadSettings().startPage : 'login';
   });
 
   const { theme } = useTheme();
   const toasterTheme = theme === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme;
 
   const handleLogout = () => {
-    // Stash the active season/team per account (before the keys below are
-    // cleared) so this user lands back on the same view at next login.
-    saveLastSelection();
-
     // 1. Instant local logout for snappy UX
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('user');
-    localStorage.removeItem('access_token');
-    // Clear cached lists so the next user doesn't briefly see the previous
-    // user's seasons / teams during their initial paint.
-    localStorage.removeItem('cache:seasons:v1');
-    localStorage.removeItem('cache:teams:v1');
-    localStorage.removeItem('activeTeamId');
-    localStorage.removeItem('activeSeasonId');
-    clearAdminUnlock();
+    clearSession();
     setIsAuthenticated(false);
     setCurrentPage('login');
     toast.success("Logged out successfully");
@@ -105,10 +92,10 @@ export default function App() {
         // Merge so a role change shows up without signing in again.
         if (me && me.email) {
           try {
-            const prev = JSON.parse(localStorage.getItem('user') || '{}');
-            localStorage.setItem('user', JSON.stringify({ ...prev, ...me }));
+            const prev = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
+            localStorage.setItem(STORAGE_KEYS.user, JSON.stringify({ ...prev, ...me }));
           } catch {
-            localStorage.setItem('user', JSON.stringify(me));
+            localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(me));
           }
         }
       } catch (error: any) {
@@ -120,9 +107,7 @@ export default function App() {
           console.warn("[App] Boot session check failed due to network error, staying logged in:", error.message);
         } else {
           // Invalid / expired session — clear and route to login.
-          localStorage.removeItem('isAuthenticated');
-          localStorage.removeItem('user');
-          localStorage.removeItem('access_token');
+          clearSession();
           setIsAuthenticated(false);
           setCurrentPage('login');
         }
@@ -148,7 +133,7 @@ export default function App() {
 
   const handleLogin = () => {
     // Save to browser memory
-    localStorage.setItem('isAuthenticated', 'true');
+    localStorage.setItem(STORAGE_KEYS.isAuthenticated, 'true');
     setIsAuthenticated(true);
     // LoginPage writes `user` first, so this reads the new account's settings.
     setCurrentPage(loadSettings().startPage);

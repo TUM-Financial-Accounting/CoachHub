@@ -7,6 +7,7 @@ import SeasonSwitcher from './SeasonSwitcher';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import { getStoredUserRole } from '../lib/utils';
+import { STORAGE_KEYS } from '../lib/storageKeys';
 
 type NavGroupKey = 'nav.sectionTeam' | 'nav.sectionPlaybook' | 'nav.sectionVision' | 'nav.sectionSystem';
 
@@ -58,13 +59,13 @@ const NAV_GROUPS: {
   }
 ];
 
-const GROUPS_STORAGE_KEY = 'nav-collapsed-groups';
+const GROUPS_STORAGE_KEY = STORAGE_KEYS.navCollapsedGroups;
 
 export default function Navigation({ currentPage, onNavigate, onLogout, isMobileOpen, onMobileClose }: NavigationProps) {
   const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(() => {
-    return localStorage.getItem('sidebar-collapsed') === 'true';
+    return localStorage.getItem(STORAGE_KEYS.sidebarCollapsed) === 'true';
   });
 
   const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>(() => {
@@ -98,7 +99,7 @@ export default function Navigation({ currentPage, onNavigate, onLogout, isMobile
   const toggleSidebar = () => {
     const next = !collapsed;
     setCollapsed(next);
-    localStorage.setItem('sidebar-collapsed', String(next));
+    localStorage.setItem(STORAGE_KEYS.sidebarCollapsed, String(next));
   };
 
   const cycleTheme = () => {

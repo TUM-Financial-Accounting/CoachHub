@@ -1,6 +1,7 @@
 // Account-scoped key, so logout needn't clear it. Theme and language are owned by ThemeContext and i18next.
 
 import { Page } from '../types/ui';
+import { STORAGE_KEYS } from './storageKeys';
 
 export type WeekStart = 'monday' | 'sunday';
 
@@ -33,7 +34,7 @@ const KEY_PREFIX = 'settings:';
 
 const accountKey = (): string => {
   try {
-    const raw = localStorage.getItem('user');
+    const raw = localStorage.getItem(STORAGE_KEYS.user);
     const email: string = raw ? JSON.parse(raw)?.email || '' : '';
     return KEY_PREFIX + (email.trim().toLowerCase() || 'anonymous');
   } catch {

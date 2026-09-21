@@ -1,3 +1,4 @@
+import { STORAGE_KEYS } from './storageKeys';
 // Remembers each user's last active season and team ("Altersklasse") across
 // logout/login cycles.
 //
@@ -18,13 +19,13 @@ const stashKey = (email: string) => `lastSelection:${email.trim().toLowerCase()}
  */
 export function saveLastSelection(): void {
   try {
-    const rawUser = localStorage.getItem('user');
+    const rawUser = localStorage.getItem(STORAGE_KEYS.user);
     if (!rawUser) return;
     const email: string = JSON.parse(rawUser)?.email || '';
     if (!email) return;
 
-    const seasonId = localStorage.getItem('activeSeasonId');
-    const teamId = localStorage.getItem('activeTeamId');
+    const seasonId = localStorage.getItem(STORAGE_KEYS.activeSeasonId);
+    const teamId = localStorage.getItem(STORAGE_KEYS.activeTeamId);
     if (!seasonId && !teamId) return;
 
     localStorage.setItem(stashKey(email), JSON.stringify({ seasonId, teamId }));
@@ -43,8 +44,8 @@ export function restoreLastSelection(email: string): void {
     const raw = localStorage.getItem(stashKey(email));
     if (!raw) return;
     const { seasonId, teamId } = JSON.parse(raw) as { seasonId?: string | null; teamId?: string | null };
-    if (seasonId) localStorage.setItem('activeSeasonId', seasonId);
-    if (teamId) localStorage.setItem('activeTeamId', teamId);
+    if (seasonId) localStorage.setItem(STORAGE_KEYS.activeSeasonId, seasonId);
+    if (teamId) localStorage.setItem(STORAGE_KEYS.activeTeamId, teamId);
   } catch {
     // Ignore a corrupt stash — the providers will pick sensible defaults.
   }

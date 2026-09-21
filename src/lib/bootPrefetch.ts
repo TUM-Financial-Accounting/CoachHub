@@ -3,6 +3,7 @@
 // their first refresh, collapsing the boot waterfall into a single round-trip
 // in the common case where the user has a stored active season.
 import { AuthService, SeasonService, TeamService } from '../services';
+import { STORAGE_KEYS } from './storageKeys';
 
 // These are mutable so we can re-prime after a fresh login.
 let mePromise: Promise<any> | null = null;
@@ -23,9 +24,9 @@ function attachSilentCatch(p: Promise<any> | null) {
 // still finishing their cold-start work.
 (function bootPhase() {
   if (typeof window === 'undefined') return;
-  const isAuthed = localStorage.getItem('isAuthenticated') === 'true';
+  const isAuthed = localStorage.getItem(STORAGE_KEYS.isAuthenticated) === 'true';
   if (!isAuthed) return;
-  const storedSeasonId = localStorage.getItem('activeSeasonId');
+  const storedSeasonId = localStorage.getItem(STORAGE_KEYS.activeSeasonId);
 
   mePromise = AuthService.getCurrentUser();
   seasonsPromise = SeasonService.getAll();
@@ -72,7 +73,7 @@ export const bootPrefetch = {
     seasonsTaken = false;
     teamsTaken = false;
     const storedSeasonId = typeof window !== 'undefined'
-      ? localStorage.getItem('activeSeasonId')
+      ? localStorage.getItem(STORAGE_KEYS.activeSeasonId)
       : null;
 
     seasonsPromise = SeasonService.getAll();

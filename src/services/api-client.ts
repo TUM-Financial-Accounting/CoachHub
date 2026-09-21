@@ -1,7 +1,8 @@
 // src/services/api-client.ts
 import { API_BASE_URL, JSON_HEADERS } from '../lib/api-config';
-import { saveLastSelection } from '../lib/lastSelection';
-import { getAdminToken, clearAdminUnlock } from '../lib/adminUnlock';
+import { getAdminToken } from '../lib/adminUnlock';
+import { clearSession } from '../lib/session';
+import { STORAGE_KEYS } from '../lib/storageKeys';
 
 // Request-level logging is dev-only noise; keep production consoles clean.
 const DEV = import.meta.env.DEV;
@@ -14,7 +15,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), 10000); // 10s timeout
   
-  const token = localStorage.getItem('access_token');
+  const token = localStorage.getItem(STORAGE_KEYS.accessToken);
   
   const headers: Record<string, string> = {
     ...JSON_HEADERS,
@@ -45,7 +46,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     clearTimeout(id);
 
     if (response.status === 401) {
-      const wasAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+      const wasAuthenticated = localStorage.getItem(STORAGE_KEYS.isAuthenticated) === 'true';
       if (wasAuthenticated && endpoint !== '/login' && endpoint !== '/register') {
         const lastReload = sessionStorage.getItem('last_api_reload');
         const now = Date.now();
@@ -57,19 +58,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
         } else {
           sessionStorage.setItem('last_api_reload', now.toString());
           console.warn(`[API] 401 on ${endpoint} - Session likely expired. Clearing local state and reloading.`);
-          // Stash the active season/team per account before clearing, so the
-          // user returns to the same view after re-authenticating.
-          saveLastSelection();
-          localStorage.removeItem('isAuthenticated');
-          localStorage.removeItem('user');
-          localStorage.removeItem('access_token');
-          // Clear cached lists too (same as an explicit logout) so the next
-          // user on this browser can't see the previous user's data.
-          localStorage.removeItem('cache:seasons:v1');
-          localStorage.removeItem('cache:teams:v1');
-          localStorage.removeItem('activeTeamId');
-          localStorage.removeItem('activeSeasonId');
-          clearAdminUnlock();
+          clearSession();
           window.location.reload();
           throw new Error('Session expired. Please log in again.');
         }

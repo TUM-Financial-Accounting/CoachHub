@@ -83,9 +83,11 @@ Consequences to respect:
 - **Cache keys are versioned and never expire.** If you change the shape of a
   cached object, bump the key (`cache:seasons:v2`) or stale data from a previous
   build will be parsed as the new shape.
-- **Any key you add to `localStorage` must be cleared in three places:** the 401
-  path in `api-client.ts`, the explicit logout, and the boot path. A leftover
-  key leaks the previous user's data to the next login on the same browser.
+- **Every `localStorage` key lives in `src/lib/storageKeys.ts`.** A key that
+  belongs to the signed-in account also goes in `SESSION_KEYS` there. Logout,
+  the 401 path and the failed boot check all call `clearSession()`
+  (`src/lib/session.ts`), which removes exactly that list. A key missing from it
+  leaks the previous user's data to the next login on the same browser.
 - All `localStorage` reads are wrapped in `try/catch` — private-mode browsers
   throw. Keep that.
 

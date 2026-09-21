@@ -11,6 +11,7 @@ import { Input } from './ui/Input';
 import { AuthService, AuthResponse } from '../services';
 import { bootPrefetch } from '../lib/bootPrefetch';
 import { restoreLastSelection } from '../lib/lastSelection';
+import { STORAGE_KEYS } from '../lib/storageKeys';
 
 interface LoginPageProps {
   onLogin: () => void;
@@ -113,9 +114,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         console.log(`[LoginPage] Welcome back, ${response.user.full_name || 'Coach'}!`);
         toast.success(t('login.toastWelcomeBack', { name: response.user.full_name || 'Coach' }));
 
-        localStorage.setItem('isAuthenticated', 'true');
-        localStorage.setItem('access_token', response.access_token);
-        localStorage.setItem('user', JSON.stringify(response.user));
+        localStorage.setItem(STORAGE_KEYS.isAuthenticated, 'true');
+        localStorage.setItem(STORAGE_KEYS.accessToken, response.access_token);
+        localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(response.user));
 
         // Land this account back on the season/team it had before logging
         // out. Must happen before the prefetch below (which reads the active

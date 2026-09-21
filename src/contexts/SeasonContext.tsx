@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { SeasonService } from '../services/season-service';
 import { bootPrefetch } from '../lib/bootPrefetch';
+import { STORAGE_KEYS } from '../lib/storageKeys';
 
 export interface Season {
   id: string;
@@ -25,7 +26,7 @@ const SeasonContext = createContext<SeasonContextProps>({
 
 export const useSeason = () => useContext(SeasonContext);
 
-const SEASONS_CACHE_KEY = 'cache:seasons:v1';
+const SEASONS_CACHE_KEY = STORAGE_KEYS.seasonsCache;
 
 function readSeasonsCache(): Season[] | null {
   try {
@@ -43,7 +44,7 @@ export const SeasonProvider: React.FC<{ children: React.ReactNode, isAuthenticat
   // render with real data on the very first paint after a reload.
   const cached = readSeasonsCache();
   const [seasons, setSeasons] = useState<Season[]>(cached ?? []);
-  const [activeSeasonIdState, setActiveSeasonIdState] = useState<string | null>(() => localStorage.getItem('activeSeasonId'));
+  const [activeSeasonIdState, setActiveSeasonIdState] = useState<string | null>(() => localStorage.getItem(STORAGE_KEYS.activeSeasonId));
   const [loading, setLoading] = useState(!cached); // already have data → not loading
 
   const refreshSeasons = async () => {
@@ -61,7 +62,7 @@ export const SeasonProvider: React.FC<{ children: React.ReactNode, isAuthenticat
         }
       } else {
          setActiveSeasonIdState(null);
-         localStorage.removeItem('activeSeasonId');
+         localStorage.removeItem(STORAGE_KEYS.activeSeasonId);
       }
     } catch (e) {
        console.error("Failed to load seasons", e);
@@ -76,7 +77,7 @@ export const SeasonProvider: React.FC<{ children: React.ReactNode, isAuthenticat
 
   const setActiveSeasonId = (id: string) => {
     setActiveSeasonIdState(id);
-    localStorage.setItem('activeSeasonId', id);
+    localStorage.setItem(STORAGE_KEYS.activeSeasonId, id);
   }
 
   const activeSeason = seasons.find(s => s.id === activeSeasonIdState) || null;
