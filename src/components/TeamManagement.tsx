@@ -21,6 +21,7 @@ import { PlayerService, TrainingService } from '../services';
 import { useTeam } from '../contexts/TeamContext';
 import { useSeason } from '../contexts/SeasonContext';
 import { uuid } from '../lib/uuid';
+import { PLAYER_POSITIONS, PLAYER_STATUSES, emptyPlayer, perfStyle, statusStyle } from '../lib/domain';
 
 export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page) => void }) {
     const { t } = useTranslation();
@@ -55,9 +56,7 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
         }
     };
 
-    const [formData, setFormData] = useState<Player>({
-        id: '', firstName: '', lastName: '', dateOfBirth: '', position: 'Forward', jerseyNumber: 0, status: 'Active', playerPhone: '', height: 0, weight: 0, clothingSize: '', strongFoot: '', motherName: '', motherPhone: '', fatherName: '', fatherPhone: '', imageUrl: '', attendance: 0, performance: 0, isTrial: false, homeClub: '', trialRating: 0, trialNotes: ''
-    });
+    const [formData, setFormData] = useState<Player>(emptyPlayer);
     // Mirrors formData.weight as a string so the user can type a partial
     // decimal like "72." without us silently dropping the trailing dot.
     const [weightInput, setWeightInput] = useState<string>('');
@@ -306,7 +305,7 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
         setEditingId(null);
         setImagePreview('');
         // Creating from the trial tab pre-selects the trial flag.
-        setFormData({ id: '', firstName: '', lastName: '', dateOfBirth: '', position: 'Forward', jerseyNumber: 0, status: 'Active', playerPhone: '', height: 0, weight: 0, clothingSize: '', strongFoot: '', motherName: '', motherPhone: '', fatherName: '', fatherPhone: '', imageUrl: '', attendance: 0, performance: 0, isTrial: viewMode === 'trial', homeClub: '', trialRating: 0, trialNotes: '' });
+        setFormData({ ...emptyPlayer(), isTrial: viewMode === 'trial' });
         setWeightInput('');
         setShowPlayerModal(true);
     };
@@ -330,21 +329,6 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
         } catch {
             if (!silent) toast.error(t('matches.performanceSaveFailed'));
         }
-    };
-
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'Active': return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
-            case 'Injured': return 'bg-rose-500/10 text-rose-500 border-rose-500/20';
-            case 'Away': return 'bg-amber-500/10 text-amber-500 border-amber-500/20';
-            default: return 'bg-slate-500/10 text-slate-500 border-slate-500/20';
-        }
-    };
-
-    const getPerfColor = (score: number) => {
-        if (score >= 7) return { bar: 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]', text: 'text-emerald-400' };
-        if (score >= 4) return { bar: 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]', text: 'text-amber-400' };
-        return { bar: 'bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]', text: 'text-rose-400' };
     };
 
     // Trial players live in their own tab; squad and pool only show signed players.
@@ -538,7 +522,7 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                                                         <div className="flex items-center gap-3">
                                                             <div className="relative flex-1 w-24 flex items-center h-8">
                                                                 <div className="absolute inset-x-0 h-1.5 bg-surface-hover rounded-full overflow-hidden pointer-events-none">
-                                                                    <div className={`h-full rounded-full transition-all duration-100 ease-out ${getPerfColor(perfDraft).bar}`} style={{ width: `${perfDraft * 10}%` }} />
+                                                                    <div className={`h-full rounded-full transition-all duration-100 ease-out ${perfStyle(perfDraft).bar} ${perfStyle(perfDraft).glow}`} style={{ width: `${perfDraft * 10}%` }} />
                                                                 </div>
                                                                 <input
                                                                     type="range"
@@ -550,7 +534,7 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                                                                     className="perf-slider"
                                                                  />
                                                             </div>
-                                                            <span className={`text-xs font-bold tabular-nums ${getPerfColor(perfDraft).text}`}>{perfDraft}</span>
+                                                            <span className={`text-xs font-bold tabular-nums ${perfStyle(perfDraft).text}`}>{perfDraft}</span>
                                                         </div>
                                                     ) : (
                                                         <div
@@ -559,9 +543,9 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                                                             title={t('team.clickToEdit')}
                                                         >
                                                             <div className="flex-1 w-24 h-1.5 bg-surface-hover rounded-full overflow-hidden">
-                                                                <div className={`h-full rounded-full ${getPerfColor(player.performance).bar}`} style={{ width: `${player.performance * 10}%` }}></div>
+                                                                <div className={`h-full rounded-full ${perfStyle(player.performance).bar} ${perfStyle(player.performance).glow}`} style={{ width: `${player.performance * 10}%` }}></div>
                                                             </div>
-                                                            <span className={`text-xs font-bold ${getPerfColor(player.performance).text}`}>{player.performance}</span>
+                                                            <span className={`text-xs font-bold ${perfStyle(player.performance).text}`}>{player.performance}</span>
                                                             <TrendingUp size={12} className="text-muted/40 group-hover/perf:text-blue-500 transition-colors shrink-0" />
                                                         </div>
                                                     )
@@ -572,12 +556,12 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                                                         ))}
                                                     </div>
                                                 ) : (
-                                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${getStatusColor(player.status)}`}>{t(`status.${player.status}`)}</span>
+                                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${statusStyle(player.status)}`}>{t(`status.${player.status}`)}</span>
                                                 )}
                                             </div>
                                         </td>
                                         {viewMode === 'squad' && (
-                                            <td className="px-6 py-4"><span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${getStatusColor(player.status)}`}>{t(`status.${player.status}`)}</span></td>
+                                            <td className="px-6 py-4"><span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${statusStyle(player.status)}`}>{t(`status.${player.status}`)}</span></td>
                                         )}
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
@@ -640,9 +624,9 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                                 <Input label={t('team.firstName')} value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s'\-]/g, '') })} placeholder="e.g. Marcus" />
                                 <Input label={t('team.lastName')} value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s'\-]/g, '') })} placeholder="e.g. Rashford" />
                                 <DatePicker label={t('team.dateOfBirth')} value={formData.dateOfBirth} onChange={date => setFormData({ ...formData, dateOfBirth: date })} />
-                                <Select label={t('common.position')} value={formData.position} onChange={(value) => setFormData({ ...formData, position: value as string })} options={[{ label: t('positions.Forward'), value: 'Forward' }, { label: t('positions.Midfielder'), value: 'Midfielder' }, { label: t('positions.Defender'), value: 'Defender' }, { label: t('positions.Goalkeeper'), value: 'Goalkeeper' }]} />
+                                <Select label={t('common.position')} value={formData.position} onChange={(value) => setFormData({ ...formData, position: value as string })} options={PLAYER_POSITIONS.map(p => ({ label: t(`positions.${p}`), value: p }))} />
                                 <Input label={t('team.jerseyNumberLabel')} type="text" inputMode="numeric" icon={<Hash size={14} />} value={formData.jerseyNumber || ''} onChange={e => { const raw = e.target.value.replace(/\D/g, ''); const v = raw === '' ? 0 : Math.min(99, parseInt(raw)); setFormData({ ...formData, jerseyNumber: v }); }} className="font-mono font-bold" />
-                                <Select label={t('common.status')} value={formData.status} onChange={(value) => setFormData({ ...formData, status: value as string })} options={[{ label: t('status.Active'), value: 'Active' }, { label: t('status.Injured'), value: 'Injured' }, { label: t('status.Away'), value: 'Away' }]} />
+                                <Select label={t('common.status')} value={formData.status} onChange={(value) => setFormData({ ...formData, status: value as string })} options={PLAYER_STATUSES.map(s => ({ label: t(`status.${s}`), value: s }))} />
                             </div>
                         </div>
 

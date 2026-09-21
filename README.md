@@ -488,6 +488,7 @@ Honest list of the sharp edges, for whoever picks this up next.
 | Isolation | Ownership is enforced correctly but by hand at every endpoint (see Authorization Model). A scoped-session dependency or Postgres row-level security would make it structural. |
 | Migrations | No Alembic. Column additions go in `_ensure_columns()`, which is Postgres-only and fails silently. |
 | Data model | Multi-value fields (`selected_players`, `selected_exercises`, `linked_tactics`, `linked_basics`, `linked_principles`, `equipment`) are comma-separated strings, not join tables. They cannot be queried or joined on. |
+| Equipment names | The equipment choices (`EQUIPMENT_OPTIONS` in `src/lib/domain.ts`) are stored and shown as English text, so German users see English. Translating them means storing a canonical key like the exercise categories do, which needs a migration of existing rows. |
 | Routing | `backend/main.py` is ~1,470 lines of routes in one file. It should be split into per-resource FastAPI routers. |
 | Caching | The season/team contexts are a hand-rolled cache. `cache:seasons:v1` / `cache:teams:v1` never expire — a schema change needs a manual key bump. TanStack Query would remove roughly 200 lines. |
 | Bundle | No route-level code splitting; one bundle ships everything, so the login page pulls in Recharts and jsPDF. |

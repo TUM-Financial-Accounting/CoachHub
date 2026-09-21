@@ -6,6 +6,7 @@ import { Button } from './ui/Button';
 import { toast } from 'sonner';
 import { MatchDetails, MatchEvent, Player } from '../types/models';
 import { MatchService } from '../services/match-service';
+import { MATCH_EVENT, MatchEventType } from '../lib/domain';
 
 interface MatchStatsModalProps {
   isOpen: boolean;
@@ -25,7 +26,7 @@ export function MatchStatsModal({ isOpen, onClose, match, players, onSuccess }: 
 
   // Event form state
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
-  const [eventType, setEventType] = useState<'Goal' | 'Assist'>('Goal');
+  const [eventType, setEventType] = useState<MatchEventType>(MATCH_EVENT.Goal);
   const [minute, setMinute] = useState('');
 
   useEffect(() => {
@@ -96,7 +97,7 @@ export function MatchStatsModal({ isOpen, onClose, match, players, onSuccess }: 
     return player ? `${player.firstName} ${player.lastName}` : t('matchStats.unknownPlayer');
   };
 
-  const eventTypeLabel = (type: string) => type === 'Goal' ? t('matchStats.goal') : t('matchStats.assist');
+  const eventTypeLabel = (type: string) => type === MATCH_EVENT.Goal ? t('matchStats.goal') : t('matchStats.assist');
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={t('matchStats.title', { opponent: match.opponent })} maxWidth="max-w-2xl">
@@ -154,11 +155,11 @@ export function MatchStatsModal({ isOpen, onClose, match, players, onSuccess }: 
               <div>
                 <select
                   value={eventType}
-                  onChange={(e) => setEventType(e.target.value as any)}
+                  onChange={(e) => setEventType(e.target.value as MatchEventType)}
                   className="w-full bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                 >
-                  <option value="Goal">{t('matchStats.goal')}</option>
-                  <option value="Assist">{t('matchStats.assist')}</option>
+                  <option value={MATCH_EVENT.Goal}>{t('matchStats.goal')}</option>
+                  <option value={MATCH_EVENT.Assist}>{t('matchStats.assist')}</option>
                 </select>
               </div>
               <Button onClick={handleAddEvent} className="w-full" variant="secondary" icon={<Plus size={16} />}>
@@ -173,8 +174,8 @@ export function MatchStatsModal({ isOpen, onClose, match, players, onSuccess }: 
                 events.map(event => (
                   <div key={event.id} className="flex items-center justify-between bg-surface-raised p-3 rounded-lg border border-border/50">
                     <div className="flex items-center gap-3">
-                      <div className={`p-1.5 rounded-full ${event.eventType === 'Goal' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}>
-                        {event.eventType === 'Goal' ? <Trophy size={14} /> : <Users size={14} />}
+                      <div className={`p-1.5 rounded-full ${event.eventType === MATCH_EVENT.Goal ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                        {event.eventType === MATCH_EVENT.Goal ? <Trophy size={14} /> : <Users size={14} />}
                       </div>
                       <div>
                         <p className="text-xs font-bold text-foreground">{getPlayerName(event.playerId)}</p>

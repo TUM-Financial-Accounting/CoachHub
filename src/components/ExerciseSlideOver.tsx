@@ -6,6 +6,7 @@ import { API_BASE_URL } from '../lib/api-config';
 import { getCategoryStyles } from '../lib/exerciseCategories';
 import { parseDrawing } from '../lib/drillDrawing';
 import { DrillCanvas } from './drill/DrillCanvas';
+import { intensityMeta } from '../lib/domain';
 
 // Only http(s)/data/blob pass through untouched; anything else (including a
 // javascript: URL smuggled in via playbook import) is treated as a relative
@@ -14,14 +15,6 @@ const resolveMediaUrl = (url: string) =>
     url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')
         ? url
         : `${API_BASE_URL}${url}`;
-
-const getIntensityStyles = (intensity: string) => {
-    switch (intensity) {
-        case 'Low': return { badge: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400', hex: '#10b981', bar: 'bg-emerald-500', width: '33%' };
-        case 'High': return { badge: 'bg-rose-500/10 border-rose-500/20 text-rose-400', hex: '#f43f5e', bar: 'bg-rose-500', width: '100%' };
-        default: return { badge: 'bg-amber-500/10 border-amber-500/20 text-amber-400', hex: '#f59e0b', bar: 'bg-amber-500', width: '66%' };
-    }
-};
 
 const getMediaType = (url?: string) => {
     if (!url) return null;
@@ -39,7 +32,7 @@ const getMediaType = (url?: string) => {
 
 export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete }: ExerciseSlideOverProps) {
     const { t } = useTranslation();
-    const intensity = exercise ? getIntensityStyles(exercise.intensity) : null;
+    const intensity = exercise ? intensityMeta(exercise.intensity) : null;
     const drawing = exercise && !exercise.mediaUrl ? parseDrawing(exercise.drawing) : null;
 
     const renderMedia = (url: string) => {
@@ -109,7 +102,7 @@ export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete 
                                     <h2 className="text-xl font-bold text-foreground truncate">{exercise.name}</h2>
                                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${intensity?.badge}`}>
-                                            {exercise.intensity === 'High' ? t('common.high') : exercise.intensity === 'Low' ? t('common.low') : t('common.medium')}
+                                            {t(intensityMeta(exercise.intensity).labelKey)}
                                         </span>
                                         {exercise.category && (
                                             <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getCategoryStyles(exercise.category)}`}>
@@ -135,8 +128,8 @@ export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete 
                                     <span className="text-[10px] font-semibold text-muted uppercase tracking-wider flex items-center gap-1.5">
                                         <Zap size={10} /> {t('training.intensity')}
                                     </span>
-                                    <span className={`text-xs font-bold ${intensity?.badge.split(' ').find(c => c.startsWith('text-'))}`}>
-                                        {exercise.intensity === 'High' ? t('common.high') : exercise.intensity === 'Low' ? t('common.low') : t('common.medium')}
+                                    <span className={`text-xs font-bold ${intensity?.text}`}>
+                                        {t(intensityMeta(exercise.intensity).labelKey)}
                                     </span>
                                 </div>
                                 <div className="h-1.5 bg-surface-raised rounded-full overflow-hidden">
@@ -144,7 +137,7 @@ export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete 
                                         initial={{ width: 0 }}
                                         animate={{ width: intensity?.width ?? '0%' }}
                                         transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-                                        className={`h-full rounded-full ${intensity?.bar}`}
+                                        className={`h-full rounded-full ${intensity?.dot}`}
                                     />
                                 </div>
                             </div>

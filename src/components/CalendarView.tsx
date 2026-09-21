@@ -19,6 +19,8 @@ import { useSeason } from '../contexts/SeasonContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { weekStartOf } from '../lib/settings';
 import { birthdaysInWeek } from '../lib/birthdays';
+import { DEFAULT_FORMATION } from '../lib/formations';
+import { DEFAULT_INTENSITY, INTENSITIES, intensityMeta } from '../lib/domain';
 
 interface CalendarViewProps {
   onNavigate: (page: Page) => void;
@@ -50,7 +52,7 @@ const emptyForm = {
   title: '',
   location: '',
   description: '',
-  intensity: 'Medium',
+  intensity: DEFAULT_INTENSITY as string,
   opponent: '',
   focus: '',
 };
@@ -378,7 +380,7 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
           date: form.date,
           time: form.startTime,
           location: form.location,
-          formation: '4-4-2',
+          formation: DEFAULT_FORMATION,
         }, activeTeam.id, activeSeason.id);
         setMatches(prev => [...prev, saved]);
         toast.success(t('matches.matchCreated'));
@@ -527,11 +529,7 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
               label={t('training.intensity')}
               value={form.intensity}
               onChange={val => setForm({ ...form, intensity: val as string })}
-              options={[
-                { label: t('common.low'), value: 'Low' },
-                { label: t('common.medium'), value: 'Medium' },
-                { label: t('common.high'), value: 'High' },
-              ]}
+              options={INTENSITIES.map(v => ({ label: t(intensityMeta(v).labelKey), value: v }))}
             />
           )}
           {(form.type === 'event' || form.type === 'match') && (

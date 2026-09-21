@@ -1,5 +1,7 @@
 // src/lib/data-mappers.ts
 import { Player, TrainingSession, Basic, Principle, Tactic, Exercise, Match, MatchDetails, SelectorItem, CalendarEvent, AdminFeedbackItem, AdminUser, AdminStats, GoogleStatus, GoogleSyncResult } from '../types/models';
+import { DEFAULT_INTENSITY } from './domain';
+import { DEFAULT_FORMATION } from './formations';
 
 /**
  * Maps a raw player object from the snake_case API response
@@ -46,7 +48,7 @@ export const mapSessionFromApi = (s: any): TrainingSession => ({
   startTime: s.start_time || '',
   endTime: s.end_time || '',
   focus: s.focus || '',
-  intensity: s.intensity || 'Medium',
+  intensity: s.intensity || DEFAULT_INTENSITY,
   selectedPlayers: s.selected_players || '',
   selectedExercises: s.selected_exercises || '',
   seriesId: s.series_id || null,
@@ -105,7 +107,7 @@ export const mapExerciseFromApi = (e: any): Exercise => ({
   id: e.id,
   name: e.name || '',
   category: e.category || '',
-  intensity: e.intensity || 'Medium',
+  intensity: e.intensity || DEFAULT_INTENSITY,
   description: e.description || '',
   setup: e.setup || '',
   variations: e.variations || '',
@@ -131,7 +133,7 @@ export const mapMatchFromApi = (m: any): Match => ({
   date: m.date || '',
   time: m.time || '',
   location: m.location || '',
-  formation: m.formation || '4-4-2',
+  formation: m.formation || DEFAULT_FORMATION,
 });
 
 /**
@@ -145,7 +147,7 @@ export const mapMatchDetailsFromApi = (m: any): MatchDetails => ({
   date: m.date || '',
   time: m.time || '',
   location: m.location || '',
-  formation: m.formation || '4-4-2',
+  formation: m.formation || DEFAULT_FORMATION,
   lineup: m.lineup,
   // Keep unrecorded scores as undefined — coercing to 0 made every
   // unrecorded past match look like a played 0–0 draw in the statistics.

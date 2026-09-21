@@ -25,6 +25,7 @@ import { DatePicker } from "./ui/DatePicker";
 import { TimePicker } from "./ui/TimePicker";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import SessionSlideOver from "./ui/SessionSlideOver";
+import { DEFAULT_INTENSITY, INTENSITIES, intensityMeta } from '../lib/domain';
 
 export default function TrainingManager() {
     const { t, i18n } = useTranslation();
@@ -44,7 +45,7 @@ export default function TrainingManager() {
         startTime: '09:00',
         endTime: '11:00',
         focus: '',
-        intensity: 'Medium',
+        intensity: DEFAULT_INTENSITY as string,
         selectedPlayerIds: [] as string[],
         selectedExerciseIds: [] as string[],
         // Recurring series fields. Only used when creating (never when
@@ -385,7 +386,7 @@ export default function TrainingManager() {
         doc.setFontSize(10);
         doc.setTextColor(148, 163, 184); // Slate 400
         const focusStr = `${t('training.focus')}: ${session.focus}`;
-        const intensityStr = `${t('training.intensity')}: ${session.intensity === 'High' ? t('common.high') : session.intensity === 'Low' ? t('common.low') : t('common.medium')}`;
+        const intensityStr = `${t('training.intensity')}: ${t(intensityMeta(session.intensity).labelKey)}`;
         doc.text(`${session.date}  |  ${session.startTime} - ${session.endTime}  |  ${focusStr}  |  ${intensityStr}`, 148, 22, { align: "center" });
 
         let finalY = 40;
@@ -500,12 +501,6 @@ export default function TrainingManager() {
     const displaySessions = (activeTab === 'upcoming' ? upcomingSessions : pastSessions)
         .filter(s => activeIntensity === 'All' || s.intensity === activeIntensity);
 
-    const INTENSITY_STYLES: Record<string, string> = {
-        Low:    'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-        Medium: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-        High:   'bg-rose-500/10 text-rose-400 border-rose-500/20',
-    };
-
     const todayDate = new Date(today + 'T12:00:00');
     const weekLater = new Date(todayDate); weekLater.setDate(todayDate.getDate() + 7);
     const twoWeeksLater = new Date(todayDate); twoWeeksLater.setDate(todayDate.getDate() + 14);
@@ -555,11 +550,11 @@ export default function TrainingManager() {
 
             {/* Intensity Filter Tabs */}
             <div className="flex flex-wrap gap-2">
-                {(['All', 'Low', 'Medium', 'High'] as const).map(level => {
+                {(['All', ...INTENSITIES] as const).map(level => {
                     const base = activeTab === 'upcoming' ? upcomingSessions : pastSessions;
                     const count = level === 'All' ? base.length : base.filter(s => s.intensity === level).length;
-                    const dotColor = level === 'Low' ? 'bg-emerald-500' : level === 'Medium' ? 'bg-amber-500' : level === 'High' ? 'bg-rose-500' : '';
-                    const levelLabel = level === 'All' ? t('common.all') : level === 'Low' ? t('common.low') : level === 'Medium' ? t('common.medium') : t('common.high');
+                    const dotColor = level === 'All' ? '' : intensityMeta(level).dot;
+                    const levelLabel = level === 'All' ? t('common.all') : t(intensityMeta(level).labelKey);
                     return (
                         <button
                             key={level}
@@ -606,8 +601,8 @@ export default function TrainingManager() {
                                                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-indigo-600" />
                                                     <div className="flex-1 pl-2">
                                                         <div className="flex items-center gap-3 mb-2 flex-wrap">
-                                                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border ${INTENSITY_STYLES[s.intensity] ?? 'bg-surface text-muted border-border'}`}>
-                                                                {s.intensity === 'High' ? t('common.high') : s.intensity === 'Low' ? t('common.low') : t('common.medium')}
+                                                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border ${intensityMeta(s.intensity).badge}`}>
+                                                                {t(intensityMeta(s.intensity).labelKey)}
                                                             </span>
                                                             {s.id === nextSessionId && (
                                                                 <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded bg-cyan-500/10 text-cyan-500 border border-cyan-500/20">
@@ -660,8 +655,8 @@ export default function TrainingManager() {
                                             <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-muted to-muted/40" />
                                             <div className="flex-1 pl-2">
                                                 <div className="flex items-center gap-3 mb-2 flex-wrap">
-                                                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border ${INTENSITY_STYLES[s.intensity] ?? 'bg-surface text-muted border-border'}`}>
-                                                        {s.intensity === 'High' ? t('common.high') : s.intensity === 'Low' ? t('common.low') : t('common.medium')}
+                                                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border ${intensityMeta(s.intensity).badge}`}>
+                                                        {t(intensityMeta(s.intensity).labelKey)}
                                                     </span>
                                                     <h3 className="text-lg font-bold text-foreground">{s.focus}</h3>
                                                 </div>
@@ -766,11 +761,7 @@ export default function TrainingManager() {
                             label={t('training.intensity')}
                             value={formData.intensity}
                             onChange={(val) => setFormData({ ...formData, intensity: val as string })}
-                            options={[
-                                { label: t('common.low'), value: 'Low' },
-                                { label: t('common.medium'), value: 'Medium' },
-                                { label: t('common.high'), value: 'High' }
-                            ]}
+                            options={INTENSITIES.map(v => ({ label: t(intensityMeta(v).labelKey), value: v }))}
                         />
                         <TimePicker
                             label={t('training.startTime')}
@@ -866,7 +857,7 @@ export default function TrainingManager() {
                                         </div>
                                         <div className="mt-1 flex gap-2">
                                              <span className="text-[10px] text-muted/80 px-1.5 bg-surface-hover rounded border border-border">
-                                                 {ex.intensity === 'High' ? t('common.high') : ex.intensity === 'Low' ? t('common.low') : t('common.medium')}
+                                                 {t(intensityMeta(ex.intensity).labelKey)}
                                              </span>
                                         </div>
                                     </div>

@@ -7,27 +7,7 @@ import { formatDate } from '../lib/utils';
 import { TrainingSession } from '../types/models';
 import { PlayerSlideOverProps } from '../types/ui';
 import { TrainingService } from '../services';
-
-const intensityColor: Record<string, string> = {
-    High: '#f43f5e',
-    Medium: '#f59e0b',
-    Low: '#10b981',
-};
-
-const getPerfColor = (score: number) => {
-    if (score >= 7) return { bg: 'bg-emerald-500', text: 'text-emerald-400', hex: '#10b981' };
-    if (score >= 4) return { bg: 'bg-amber-500', text: 'text-amber-400', hex: '#f59e0b' };
-    return { bg: 'bg-rose-500', text: 'text-rose-400', hex: '#f43f5e' };
-};
-
-const getStatusColor = (status: string) => {
-    switch (status) {
-        case 'Active': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-        case 'Injured': return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
-        case 'Away': return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-        default: return 'bg-slate-500/10 text-slate-400 border-slate-500/20';
-    }
-};
+import { intensityMeta, perfStyle as perfStyleFor, statusStyle } from '../lib/domain';
 
 export default function PlayerSlideOver({ player, computedAttendance, onClose, onEdit, onDelete }: PlayerSlideOverProps) {
     const { t, i18n } = useTranslation();
@@ -72,7 +52,7 @@ export default function PlayerSlideOver({ player, computedAttendance, onClose, o
 
     const attendance = computedAttendance[player?.id ?? ''] ?? player?.attendance ?? 0;
     const perf = player?.performance ?? 0;
-    const perfStyle = getPerfColor(perf);
+    const perfStyle = perfStyleFor(perf);
 
     // Age from DOB
     const age = player?.dateOfBirth
@@ -130,7 +110,7 @@ export default function PlayerSlideOver({ player, computedAttendance, onClose, o
                                         <span className="text-xs font-semibold text-muted font-mono">#{player.jerseyNumber}</span>
                                         <span className="text-border">·</span>
                                         <span className="text-xs text-muted">{t(`positions.${player.position}`)}</span>
-                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${getStatusColor(player.status)}`}>{t(`status.${player.status}`)}</span>
+                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusStyle(player.status)}`}>{t(`status.${player.status}`)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -166,7 +146,7 @@ export default function PlayerSlideOver({ player, computedAttendance, onClose, o
                                         initial={{ width: 0 }}
                                         animate={{ width: `${perf * 10}%` }}
                                         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                                        className={`h-full rounded-full ${perfStyle.bg}`}
+                                        className={`h-full rounded-full ${perfStyle.bar}`}
                                     />
                                 </div>
                             </div>
@@ -292,12 +272,12 @@ export default function PlayerSlideOver({ player, computedAttendance, onClose, o
                                                 <span
                                                     className="text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase"
                                                     style={{
-                                                        backgroundColor: `${intensityColor[s.intensity] ?? '#94a3b8'}15`,
-                                                        borderColor: `${intensityColor[s.intensity] ?? '#94a3b8'}30`,
-                                                        color: intensityColor[s.intensity] ?? '#94a3b8',
+                                                        backgroundColor: `${intensityMeta(s.intensity).hex}15`,
+                                                        borderColor: `${intensityMeta(s.intensity).hex}30`,
+                                                        color: intensityMeta(s.intensity).hex,
                                                     }}
                                                 >
-                                                    {s.intensity === 'High' ? t('common.high') : s.intensity === 'Low' ? t('common.low') : t('common.medium')}
+                                                    {t(intensityMeta(s.intensity).labelKey)}
                                                 </span>
                                             </div>
                                         ))}

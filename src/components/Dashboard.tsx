@@ -20,6 +20,7 @@ import { weekStartOf } from '../lib/settings';
 import { birthdaysInWeek } from '../lib/birthdays';
 import WeekCalendar, { CalendarItem } from './WeekCalendar';
 import DeleteTeamModal from './DeleteTeamModal';
+import { PLAYER_STATUS } from '../lib/domain';
 
 interface DashboardProps {
   onNavigate: (page: Page) => void;
@@ -468,12 +469,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-muted">{t('dashboard.squadAvailability')}</span>
-                  <span className="text-sm font-bold text-foreground">{players.filter(p => p.status === 'Active').length} / {players.length}</span>
+                  <span className="text-sm font-bold text-foreground">{players.filter(p => p.status === PLAYER_STATUS.Active).length} / {players.length}</span>
                 </div>
                 <div className="w-full bg-surface-hover rounded-full h-2 overflow-hidden">
                   <motion.div 
                      initial={{ width: 0 }}
-                     animate={{ width: `${players.length > 0 ? (players.filter(p => p.status === 'Active').length / players.length) * 100 : 0}%` }}
+                     animate={{ width: `${players.length > 0 ? (players.filter(p => p.status === PLAYER_STATUS.Active).length / players.length) * 100 : 0}%` }}
                      transition={{ duration: 1, delay: 0.9 }}
                      className="bg-gradient-to-r from-purple-500 to-purple-600 h-full rounded-full shadow-[0_0_10px_rgba(147,51,234,0.3)]" 
                   />
@@ -483,11 +484,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               <div className="pt-6 mt-2 border-t border-border">
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div className="p-3 rounded-xl bg-surface-hover/50 border border-border hover:bg-surface-hover transition-colors">
-                    <p className="text-2xl font-bold text-emerald-500"><CountUp value={players.filter(p => p.status === 'Active').length} /></p>
+                    <p className="text-2xl font-bold text-emerald-500"><CountUp value={players.filter(p => p.status === PLAYER_STATUS.Active).length} /></p>
                     <p className="text-[10px] font-bold text-muted uppercase tracking-wider">{t('dashboard.activePlayers')}</p>
                   </div>
                   <div className="p-3 rounded-xl bg-surface-hover/50 border border-border hover:bg-surface-hover transition-colors">
-                    <p className="text-2xl font-bold text-muted"><CountUp value={players.filter(p => p.status === 'Injured').length} /></p>
+                    <p className="text-2xl font-bold text-muted"><CountUp value={players.filter(p => p.status === PLAYER_STATUS.Injured).length} /></p>
                     <p className="text-[10px] font-bold text-muted uppercase tracking-wider">{t('dashboard.injuredPlayers')}</p>
                   </div>
                   <div className="p-3 rounded-xl bg-surface-hover/50 border border-border hover:bg-surface-hover transition-colors">

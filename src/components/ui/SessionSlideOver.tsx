@@ -8,12 +8,7 @@ import { Exercise } from '../../types/models';
 import { SessionSlideOverProps } from "../../types/ui";
 import { parseDrawing } from '../../lib/drillDrawing';
 import { DrillCanvas } from '../drill/DrillCanvas';
-
-const intensityStyles: Record<string, { badge: string; bar: string; width: string }> = {
-    Low:    { badge: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400', bar: 'bg-emerald-500', width: '33%' },
-    Medium: { badge: 'bg-amber-500/10 border-amber-500/20 text-amber-400',   bar: 'bg-amber-500',   width: '66%' },
-    High:   { badge: 'bg-rose-500/10 border-rose-500/20 text-rose-400',       bar: 'bg-rose-500',    width: '100%' },
-};
+import { intensityMeta } from '../../lib/domain';
 
 const getMediaType = (url?: string) => {
     if (!url) return null;
@@ -34,7 +29,7 @@ export default function SessionSlideOver({
 
     // All derived values are null-safe so the component can keep rendering
     // while AnimatePresence plays the exit animation after `session` clears.
-    const style = intensityStyles[session?.intensity ?? 'Medium'] ?? intensityStyles.Medium;
+    const style = intensityMeta(session?.intensity);
     const playerIds = (session?.selectedPlayers ?? '').split(',').map(id => id.trim()).filter(Boolean);
     const exerciseIds = (session?.selectedExercises ?? '').split(',').map(id => id.trim()).filter(Boolean);
 
@@ -93,7 +88,7 @@ export default function SessionSlideOver({
                                     <h2 className="text-xl font-bold text-foreground truncate">{session.focus}</h2>
                                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${style.badge}`}>
-                                            {session.intensity === 'High' ? t('common.high') : session.intensity === 'Low' ? t('common.low') : t('common.medium')}
+                                            {t(intensityMeta(session.intensity).labelKey)}
                                         </span>
                                         <span className="flex items-center gap-1 text-[11px] text-muted">
                                             <Calendar size={10} /> {formatDate(session.date)}
@@ -110,8 +105,8 @@ export default function SessionSlideOver({
                             <div>
                                 <div className="flex items-center justify-between mb-1.5">
                                     <span className="text-[10px] font-semibold text-muted uppercase tracking-wider flex items-center gap-1.5"><Zap size={10} /> {t('training.intensity')}</span>
-                                    <span className={`text-xs font-bold ${style.badge.split(' ').find(c => c.startsWith('text-'))}`}>
-                                        {session.intensity === 'High' ? t('common.high') : session.intensity === 'Low' ? t('common.low') : t('common.medium')}
+                                    <span className={`text-xs font-bold ${style.text}`}>
+                                        {t(intensityMeta(session.intensity).labelKey)}
                                     </span>
                                 </div>
                                 <div className="h-1.5 bg-surface-raised rounded-full overflow-hidden">
@@ -119,7 +114,7 @@ export default function SessionSlideOver({
                                         initial={{ width: 0 }}
                                         animate={{ width: style.width }}
                                         transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-                                        className={`h-full rounded-full ${style.bar}`}
+                                        className={`h-full rounded-full ${style.dot}`}
                                     />
                                 </div>
                             </div>
@@ -177,8 +172,8 @@ export default function SessionSlideOver({
                                                                 <p className="text-sm font-semibold text-foreground truncate">{ex.name}</p>
                                                             </div>
                                                             {ex.intensity && (
-                                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase ${intensityStyles[ex.intensity]?.badge ?? 'text-muted border-border'}`}>
-                                                                    {ex.intensity === 'High' ? t('common.high') : ex.intensity === 'Low' ? t('common.low') : t('common.medium')}
+                                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase ${intensityMeta(ex.intensity).badge}`}>
+                                                                    {t(intensityMeta(ex.intensity).labelKey)}
                                                                 </span>
                                                             )}
                                                             {ex.equipment && ex.equipment.length > 0 && ex.equipment[0] !== '' && (

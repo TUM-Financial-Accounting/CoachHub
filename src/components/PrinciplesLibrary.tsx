@@ -15,87 +15,7 @@ import { PlaybookManagementModal } from "./PlaybookManagementModal";
 
 import { Principle } from '../types/models';
 import { LibraryService } from '../services';
-
-const GAME_PHASES = [
-  "In Possession",
-  "Transition After Losing Possession",
-  "Out of Possession",
-  "Transition After Winning Possession",
-  "Set Pieces",
-];
-
-const DEFAULT_PHASE_COLOR = {
-  bg: "bg-zinc-500/10", border: "border-zinc-500/30", text: "text-zinc-400",
-  badge: "text-zinc-300", badgeBg: "bg-zinc-500/10 border-zinc-500/20",
-  dot: "bg-zinc-500", glow: "shadow-[0_0_8px_rgba(113,113,122,0.4)]",
-  tabActive: "bg-zinc-500/15 border-zinc-500/50 text-zinc-400",
-  tabHover: "hover:border-zinc-500/30 hover:text-zinc-400",
-};
-
-const PHASE_COLORS: Record<string, {
-  bg: string; border: string; text: string; badge: string; badgeBg: string;
-  dot: string; glow: string; tabActive: string; tabHover: string;
-}> = {
-  "In Possession": {
-    bg: "bg-emerald-500/10", border: "border-emerald-500/30", text: "text-emerald-400",
-    badge: "text-emerald-300", badgeBg: "bg-emerald-500/10 border-emerald-500/20",
-    dot: "bg-emerald-500", glow: "shadow-[0_0_8px_rgba(52,211,153,0.4)]",
-    tabActive: "bg-emerald-500/15 border-emerald-500/50 text-emerald-400",
-    tabHover: "hover:border-emerald-500/30 hover:text-emerald-400",
-  },
-  "Transition After Losing Possession": {
-    bg: "bg-amber-500/10", border: "border-amber-500/30", text: "text-amber-400",
-    badge: "text-amber-300", badgeBg: "bg-amber-500/10 border-amber-500/20",
-    dot: "bg-amber-500", glow: "shadow-[0_0_8px_rgba(245,158,11,0.4)]",
-    tabActive: "bg-amber-500/15 border-amber-500/50 text-amber-400",
-    tabHover: "hover:border-amber-500/30 hover:text-amber-400",
-  },
-  "Out of Possession": {
-    bg: "bg-rose-500/10", border: "border-rose-500/30", text: "text-rose-400",
-    badge: "text-rose-300", badgeBg: "bg-rose-500/10 border-rose-500/20",
-    dot: "bg-rose-500", glow: "shadow-[0_0_8px_rgba(244,63,94,0.4)]",
-    tabActive: "bg-rose-500/15 border-rose-500/50 text-rose-400",
-    tabHover: "hover:border-rose-500/30 hover:text-rose-400",
-  },
-  "Transition After Winning Possession": {
-    bg: "bg-sky-500/10", border: "border-sky-500/30", text: "text-sky-400",
-    badge: "text-sky-300", badgeBg: "bg-sky-500/10 border-sky-500/20",
-    dot: "bg-sky-500", glow: "shadow-[0_0_8px_rgba(14,165,233,0.4)]",
-    tabActive: "bg-sky-500/15 border-sky-500/50 text-sky-400",
-    tabHover: "hover:border-sky-500/30 hover:text-sky-400",
-  },
-  "Set Pieces": {
-    bg: "bg-violet-500/10", border: "border-violet-500/30", text: "text-violet-400",
-    badge: "text-violet-300", badgeBg: "bg-violet-500/10 border-violet-500/20",
-    dot: "bg-violet-500", glow: "shadow-[0_0_8px_rgba(139,92,246,0.4)]",
-    tabActive: "bg-violet-500/15 border-violet-500/50 text-violet-400",
-    tabHover: "hover:border-violet-500/30 hover:text-violet-400",
-  },
-};
-
-const getPhaseShort = (phase: string, t: (key: string) => string) => {
-  switch (phase) {
-    case "In Possession": return t('phases.inPossessionShort');
-    case "Transition After Losing Possession": return t('phases.transitionLosingShort');
-    case "Out of Possession": return t('phases.outOfPossessionShort');
-    case "Transition After Winning Possession": return t('phases.transitionWinningShort');
-    case "Set Pieces": return t('phases.setPiecesShort');
-    default: return phase;
-  }
-};
-
-const getPhaseLong = (phase: string, t: (key: string) => string) => {
-  switch (phase) {
-    case "In Possession": return t('phases.inPossession');
-    case "Transition After Losing Possession": return t('phases.transitionLosing');
-    case "Out of Possession": return t('phases.outOfPossession');
-    case "Transition After Winning Possession": return t('phases.transitionWinning');
-    case "Set Pieces": return t('phases.setPieces');
-    default: return phase;
-  }
-};
-
-const getPhaseColor = (phase: string) => PHASE_COLORS[phase] ?? DEFAULT_PHASE_COLOR;
+import { GAME_PHASES, DEFAULT_GAME_PHASE, phaseStyle, phaseLabelKeys } from '../lib/domain';
 
 const getMediaType = (url?: string) => {
   if (!url) return null;
@@ -121,6 +41,8 @@ const resolveMediaUrl = (url: string) =>
 
 export default function PrinciplesLibrary() {
   const { t } = useTranslation();
+  const phaseShort = (phase: string) => { const keys = phaseLabelKeys(phase); return keys ? t(keys.shortKey) : phase; };
+  const phaseLong = (phase: string) => { const keys = phaseLabelKeys(phase); return keys ? t(keys.longKey) : phase; };
   const [principles, setPrinciples] = useState<Principle[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activePhase, setActivePhase] = useState<string>('All');
@@ -131,7 +53,7 @@ export default function PrinciplesLibrary() {
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [viewMedia, setViewMedia] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ id: '', name: '', gamePhase: 'In Possession', description: '', coachingNotes: '', implementationTips: '', mediaUrl: '' });
+  const [formData, setFormData] = useState({ id: '', name: '', gamePhase: DEFAULT_GAME_PHASE as string, description: '', coachingNotes: '', implementationTips: '', mediaUrl: '' });
 
   // --- Load Data ---
   const fetchPrinciples = () => {
@@ -223,7 +145,7 @@ export default function PrinciplesLibrary() {
 
   const closeModal = () => {
     setShowCreateModal(false); setIsEditing(false); setMediaPreview(null);
-    setFormData({ id: '', name: '', gamePhase: 'In Possession', description: '', coachingNotes: '', implementationTips: '', mediaUrl: '' });
+    setFormData({ id: '', name: '', gamePhase: DEFAULT_GAME_PHASE, description: '', coachingNotes: '', implementationTips: '', mediaUrl: '' });
   };
 
   const openEdit = (p: Principle) => {
@@ -246,7 +168,7 @@ export default function PrinciplesLibrary() {
   });
 
   const selected = principles.find(p => p.id === selectedId) ?? filtered[0] ?? null;
-  const colors = selected ? getPhaseColor(selected.gamePhase) : null;
+  const colors = selected ? phaseStyle(selected.gamePhase) : null;
   const activePhasesCount = GAME_PHASES.filter(ph => phaseCounts[ph] > 0).length;
 
   return (
@@ -283,7 +205,7 @@ export default function PrinciplesLibrary() {
           {t('common.all')} <span className="ml-1 opacity-60">{principles.length}</span>
         </button>
         {GAME_PHASES.map(phase => {
-          const c = getPhaseColor(phase);
+          const c = phaseStyle(phase);
           const count = phaseCounts[phase];
           const isActive = activePhase === phase;
           return (
@@ -296,7 +218,7 @@ export default function PrinciplesLibrary() {
             >
               <span className="flex items-center gap-1.5">
                 <span className={`w-1.5 h-1.5 rounded-full ${c.dot} ${isActive ? '' : 'opacity-40 group-hover:opacity-70'}`} />
-                {getPhaseShort(phase, t)}
+                {phaseShort(phase)}
                 <span className="opacity-60">{count}</span>
               </span>
             </button>
@@ -322,7 +244,7 @@ export default function PrinciplesLibrary() {
                 </div>
               )}
               {filtered.map(p => {
-                const c = getPhaseColor(p.gamePhase);
+                const c = phaseStyle(p.gamePhase);
                 const isSelected = selectedId === p.id;
                 return (
                   <motion.div
@@ -339,7 +261,7 @@ export default function PrinciplesLibrary() {
                     <div className="pl-3 flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <p className={`text-sm font-bold truncate ${isSelected ? 'text-foreground' : 'text-foreground/90'}`}>{p.name}</p>
-                        <span className={`text-[10px] font-bold uppercase tracking-widest mt-1 inline-block ${c.text}`}>{getPhaseShort(p.gamePhase, t)}</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-widest mt-1 inline-block ${c.text}`}>{phaseShort(p.gamePhase)}</span>
                         <p className="text-xs text-muted mt-1.5 line-clamp-2 leading-relaxed">{p.description}</p>
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
@@ -381,7 +303,7 @@ export default function PrinciplesLibrary() {
                   <div>
                     <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md border mb-3 ${colors.badgeBg} ${colors.badge}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
-                      {getPhaseLong(selected.gamePhase, t)}
+                      {phaseLong(selected.gamePhase)}
                     </span>
                     <h2 className="text-2xl font-bold text-foreground tracking-tight">{selected.name}</h2>
                   </div>
@@ -479,7 +401,7 @@ export default function PrinciplesLibrary() {
       >
         <div className="space-y-5">
           <Input label={t('common.name')} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder={t('libraries.principleNamePlaceholder')} />
-          <Select label={t('libraries.gamePhaseLabel')} value={formData.gamePhase} onChange={val => setFormData({ ...formData, gamePhase: val as string })} options={GAME_PHASES.map(p => ({ label: getPhaseLong(p, t), value: p }))} />
+          <Select label={t('libraries.gamePhaseLabel')} value={formData.gamePhase} onChange={val => setFormData({ ...formData, gamePhase: val as string })} options={GAME_PHASES.map(p => ({ label: phaseLong(p), value: p }))} />
           <div>
             <label className="text-[11px] font-bold text-muted uppercase tracking-widest ml-1 mb-2 block">{t('libraries.visuals')}</label>
             <div className="h-28 bg-surface-hover border-2 border-dashed border-border rounded-xl relative group hover:border-primary/30 transition-colors flex items-center justify-center overflow-hidden cursor-pointer">

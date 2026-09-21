@@ -1,3 +1,4 @@
+import type { Intensity, MatchEventType } from '../lib/domain';
 // src/types/models.ts
 
 export interface Team {
@@ -81,7 +82,7 @@ export interface MatchEvent {
   id: string;
   matchId: string;
   playerId: string;
-  eventType: 'Goal' | 'Assist';
+  eventType: MatchEventType;
   minute?: number;
 }
 
@@ -91,7 +92,7 @@ export interface Exercise {
   // Training focus / drill type (technique, tactical, athletic, game form…).
   // Empty string for exercises created before this field existed.
   category: string;
-  intensity: 'Low' | 'Medium' | 'High';
+  intensity: Intensity;
   description: string;
   setup: string;
   variations: string;

@@ -25,6 +25,7 @@ import { EXERCISE_CATEGORIES, getCategoryStyles } from '../lib/exerciseCategorie
 import { parseDrawing, hasDrawing } from '../lib/drillDrawing';
 import { DrillCanvas } from './drill/DrillCanvas';
 import DrillEditor from './drill/DrillEditor';
+import { EQUIPMENT_OPTIONS, INTENSITIES, emptyExercise, intensityMeta } from '../lib/domain';
 
 // --- Helpers ---
 const resolveMediaUrl = (url: string) =>
@@ -49,16 +50,6 @@ const getMediaType = (url?: string) => {
     }
     return 'unknown';
 };
-
-const getIntensityStyles = (intensity: string) => {
-    switch (intensity) {
-        case 'Low': return 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400';
-        case 'High': return 'bg-rose-500/10 border-rose-500/20 text-rose-400';
-        default: return 'bg-amber-500/10 border-amber-500/20 text-amber-400';
-    }
-};
-
-const equipmentOptions = ['Balls', 'Cones', 'Bibs/Vests', 'Goals', 'Hurdles', 'Poles', 'Agility Ladder', 'Markers', 'Mannequins', 'Mini Goals'];
 
 export default function ExercisesLibrary() {
     const { t } = useTranslation();
@@ -89,11 +80,7 @@ export default function ExercisesLibrary() {
     const [principlesSearch, setPrinciplesSearch] = useState('');
     const [tacticsSearch, setTacticsSearch] = useState('');
 
-    const [formData, setFormData] = useState<Exercise>({
-        id: '', name: '', category: '', intensity: 'Medium', description: '', setup: '',
-        variations: '', coachingPoints: '', goalkeepers: 0,
-        equipment: [], linkedBasics: [], linkedPrinciples: [], linkedTactics: [], isCustom: true, mediaUrl: '', drawing: ''
-    });
+    const [formData, setFormData] = useState<Exercise>(emptyExercise);
 
     // --- 1. LOAD DATA ---
     const fetchExercises = () => {
@@ -172,7 +159,7 @@ export default function ExercisesLibrary() {
 
     // --- UI Helpers ---
     const resetForm = () => {
-        setFormData({ id: '', name: '', category: '', intensity: 'Medium', description: '', setup: '', variations: '', coachingPoints: '', goalkeepers: 0, equipment: [], linkedBasics: [], linkedPrinciples: [], linkedTactics: [], isCustom: true, mediaUrl: '', drawing: '' });
+        setFormData(emptyExercise());
         setMediaPreview(null); setBasicsSearch(''); setPrinciplesSearch(''); setTacticsSearch(''); setOpenSection(null);
     };
 
@@ -305,7 +292,7 @@ export default function ExercisesLibrary() {
                 >
                     {t('common.all')} <span className="ml-1 opacity-60">{exercises.length}</span>
                 </button>
-                {(['Low', 'Medium', 'High'] as const).map(level => {
+                {INTENSITIES.map(level => {
                     const count = exercises.filter(ex => ex.intensity === level).length;
                     const styles = {
                         Low:    { active: 'bg-emerald-500/15 border-emerald-500/50 text-emerald-400', hover: 'hover:border-emerald-500/30 hover:text-emerald-400', dot: 'bg-emerald-500' },
@@ -313,7 +300,7 @@ export default function ExercisesLibrary() {
                         High:   { active: 'bg-rose-500/15 border-rose-500/50 text-rose-400',     hover: 'hover:border-rose-500/30 hover:text-rose-400',     dot: 'bg-rose-500'    },
                     }[level];
                     const isActive = activeIntensity === level;
-                    const levelLabel = level === 'Low' ? t('common.low') : level === 'Medium' ? t('common.medium') : t('common.high');
+                    const levelLabel = t(intensityMeta(level).labelKey);
                     return (
                         <button
                             key={level}
@@ -376,7 +363,7 @@ export default function ExercisesLibrary() {
                             <div className="flex justify-between items-start mb-4 gap-2">
                                 <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">{ex.name}</h3>
                                 <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                                    <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${getIntensityStyles(ex.intensity)}`}>{ex.intensity}</span>
+                                    <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${intensityMeta(ex.intensity).badge}`}>{ex.intensity}</span>
                                     {ex.category && (
                                         <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${getCategoryStyles(ex.category)}`}>
                                             {t(`exerciseCategories.${ex.category}`)}
@@ -436,7 +423,7 @@ export default function ExercisesLibrary() {
                                 ]}
                             />
                             <div className="grid grid-cols-2 gap-4">
-                                <Select label={t('training.intensity')} value={formData.intensity} onChange={val => setFormData({ ...formData, intensity: val as any })} options={['Low', 'Medium', 'High'].map(v => ({ label: v === 'High' ? t('common.high') : v === 'Low' ? t('common.low') : t('common.medium'), value: v }))} />
+                                <Select label={t('training.intensity')} value={formData.intensity} onChange={val => setFormData({ ...formData, intensity: val as Exercise['intensity'] })} options={INTENSITIES.map(v => ({ label: t(intensityMeta(v).labelKey), value: v }))} />
                                 <Input label={t('libraries.goalkeepers')} type="number" value={formData.goalkeepers} onChange={e => setFormData({ ...formData, goalkeepers: parseInt(e.target.value) || 0 })} />
                             </div>
                         </div>
@@ -503,7 +490,7 @@ export default function ExercisesLibrary() {
                     <div>
                         <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-2 block">{t('libraries.equipment')}</label>
                         <div className="flex flex-wrap gap-2">
-                            {equipmentOptions.map(item => (
+                            {EQUIPMENT_OPTIONS.map(item => (
                                 <button key={item} type="button" onClick={() => toggleSelection('equipment', item)}
                                     className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${formData.equipment.includes(item) ? 'bg-primary border-primary text-white' : 'bg-surface-raised border-border text-muted hover:border-border-subtle'}`}>
                                     {item}
