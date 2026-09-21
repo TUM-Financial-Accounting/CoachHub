@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, X, Calendar, Clock, Trash2, Edit2, User, Activity, Download, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { AnimatePresence } from 'framer-motion';
-import { formatDate, isoWeekNumber } from '../lib/utils';
+import { endsAfterStart, formatDate, isoWeekNumber, parseLocalDate, toISODate, todayISO } from '../lib/dates';
 import { deriveDrillSpec, describeDrillSpec } from '../lib/drillDiagram';
 import { drawDrillDiagram, drawDiagramLegend, DRILL_COLORS } from '../lib/drillRenderer';
 import { loadImageForPdf, fitInside, PdfImage } from '../lib/media';
@@ -41,7 +41,7 @@ export default function TrainingManager() {
     const [editingId, setEditingId] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
-        date: new Date().toLocaleDateString('en-CA'),
+        date: todayISO(),
         startTime: '09:00',
         endTime: '11:00',
         focus: '',
@@ -98,16 +98,11 @@ export default function TrainingManager() {
         }
     }, [showCreateModal, isEditing, allPlayers]);
 
-    const toMin = (time: string) => {
-        const [h, m] = (time || '').split(':').map(Number);
-        return Number.isNaN(h) ? 0 : h * 60 + (Number.isNaN(m) ? 0 : m);
-    };
-
     const handleSave = async () => {
         if (!formData.focus) return toast.error(t('training.focusRequired'));
         // Same guard the calendar applies — otherwise a session can be saved
         // with an end time before its start.
-        if (toMin(formData.endTime) <= toMin(formData.startTime)) {
+        if (!endsAfterStart(formData.startTime, formData.endTime)) {
             return toast.error(t('calendar.endAfterStart'));
         }
 
@@ -122,7 +117,7 @@ export default function TrainingManager() {
             }
             // Day-of-week from the first occurrence. JS Sunday=0 → convert
             // to Python convention (Monday=0).
-            const startDate = new Date(formData.date + 'T12:00:00');
+            const startDate = parseLocalDate(formData.date);
             const jsDay = startDate.getDay();              // 0..6, Sun..Sat
             const pyDay = (jsDay + 6) % 7;                 // 0..6, Mon..Sun
             try {
@@ -209,13 +204,9 @@ export default function TrainingManager() {
         }
     };
 
-    const localDate = (iso: string): Date => {
-        const [y, m, d] = (iso || '').split('-').map(Number);
-        return Number.isNaN(y) ? new Date() : new Date(y, (m || 1) - 1, d || 1);
-    };
-
     const drawInfoColumn = (doc: jsPDF, session: TrainingSession, players: Player[], box: { x: number; y: number; w: number; h: number }) => {
-        const day = localDate(session.date);
+        const parsed = parseLocalDate(session.date);
+        const day = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
         const ink = DRILL_COLORS.ink;
         const muted = DRILL_COLORS.muted;
 
@@ -468,7 +459,7 @@ export default function TrainingManager() {
     };
 
     // --- 4. UI HELPERS ---
-    const openCreate = () => { setIsEditing(false); setEditingId(null); setEditScope('this'); setFormData({ date: new Date().toLocaleDateString('en-CA'), startTime: '09:00', endTime: '11:00', focus: '', intensity: 'Medium', selectedPlayerIds: allPlayers.map(p => p.id), selectedExerciseIds: [], isRecurring: false, recurrenceEndDate: '' }); setShowCreateModal(true); };
+    const openCreate = () => { setIsEditing(false); setEditingId(null); setEditScope('this'); setFormData({ date: todayISO(), startTime: '09:00', endTime: '11:00', focus: '', intensity: DEFAULT_INTENSITY, selectedPlayerIds: allPlayers.map(p => p.id), selectedExerciseIds: [], isRecurring: false, recurrenceEndDate: '' }); setShowCreateModal(true); };
     const openEdit = (s: TrainingSession) => {
         setSelectedSession(null);
         setIsEditing(true);
@@ -491,7 +482,7 @@ export default function TrainingManager() {
     const togglePlayer = (id: string) => { setFormData(prev => { const exists = prev.selectedPlayerIds.includes(id); return { ...prev, selectedPlayerIds: exists ? prev.selectedPlayerIds.filter(pid => pid !== id) : [...prev.selectedPlayerIds, id] }; }); };
     const toggleExercise = (id: string) => { setFormData(prev => { const exists = prev.selectedExerciseIds.includes(id); return { ...prev, selectedExerciseIds: exists ? prev.selectedExerciseIds.filter(eid => eid !== id) : [...prev.selectedExerciseIds, id] }; }); };
 
-    const today = new Date().toLocaleDateString('en-CA');
+    const today = todayISO();
     const upcomingSessions = sessions
         .filter(s => s.date >= today)
         .sort((a, b) => a.date.localeCompare(b.date));
@@ -501,11 +492,11 @@ export default function TrainingManager() {
     const displaySessions = (activeTab === 'upcoming' ? upcomingSessions : pastSessions)
         .filter(s => activeIntensity === 'All' || s.intensity === activeIntensity);
 
-    const todayDate = new Date(today + 'T12:00:00');
+    const todayDate = parseLocalDate(today);
     const weekLater = new Date(todayDate); weekLater.setDate(todayDate.getDate() + 7);
     const twoWeeksLater = new Date(todayDate); twoWeeksLater.setDate(todayDate.getDate() + 14);
-    const weekStr = weekLater.toLocaleDateString('en-CA');
-    const twoWeeksStr = twoWeeksLater.toLocaleDateString('en-CA');
+    const weekStr = toISODate(weekLater);
+    const twoWeeksStr = toISODate(twoWeeksLater);
     const groupedUpcoming = [
         { label: t('training.thisWeek'), items: displaySessions.filter(s => s.date <= weekStr) },
         { label: t('training.nextWeek'), items: displaySessions.filter(s => s.date > weekStr && s.date <= twoWeeksStr) },
@@ -793,7 +784,7 @@ export default function TrainingManager() {
                                 <span className="text-xs text-muted">
                                     {(() => {
                                         try {
-                                            const d = new Date(formData.date + 'T12:00:00');
+                                            const d = parseLocalDate(formData.date);
                                             const weekday = d.toLocaleDateString(i18n.language, { weekday: 'long' });
                                             return t('training.recurringDesc', { weekday });
                                         } catch {

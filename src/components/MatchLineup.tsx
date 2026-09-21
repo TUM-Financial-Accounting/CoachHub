@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Save, X, Calendar, MapPin, Users, Plus, Trophy, Edit2, ChevronRight, ChevronDown, Trash2 } from 'lucide-react';
 import { useDrag, useDrop } from 'react-dnd';
 import { toast } from 'sonner';
-import { formatDate } from '../lib/utils';
+import { formatDate } from '../lib/dates';
 
 // UI Components
 import { Card } from "./ui/Card";
@@ -21,6 +21,7 @@ import { PlayerService, MatchService, FormationService } from "../services";
 import CustomFormationModal from './CustomFormationModal';
 import { DEFAULT_FORMATION, FORMATIONS, FORMATION_GROUPS } from '../lib/formations';
 import { PLAYER_STATUS } from '../lib/domain';
+import { isPast, parseLocalDate, todayISO } from '../lib/dates';
 
 // --- Sub-Components ---
 
@@ -149,7 +150,7 @@ export default function MatchLineup() {
         // by date descending, so [0] would otherwise be the furthest-future
         // fixture; fall back to the most recent past match if nothing is
         // scheduled.
-        const todayStr = new Date().toLocaleDateString('en-CA');
+        const todayStr = todayISO();
         const nextUpcoming = mappedMatches
           .filter(m => m.date >= todayStr)
           .sort((a, b) => a.date.localeCompare(b.date))[0];
@@ -197,7 +198,7 @@ useEffect(() => {
           // B. Fresh or Empty Match
           
           // 1. Calculate Date Difference
-          const matchDate = new Date(matchDetails.date + 'T12:00:00');
+          const matchDate = parseLocalDate(matchDetails.date);
           const today = new Date();
           // Reset hours to compare dates only
           today.setHours(0, 0, 0, 0);
@@ -297,7 +298,7 @@ useEffect(() => {
     const next = matches.filter(m => m.id !== target.id);
     setMatches(next);
     if (matchDetails?.id === target.id) {
-      const todayStr = new Date().toLocaleDateString('en-CA');
+      const todayStr = todayISO();
       const upcomingNext = next.filter(m => m.date >= todayStr).sort((a, b) => a.date.localeCompare(b.date));
       const pastNext = next.filter(m => m.date < todayStr).sort((a, b) => b.date.localeCompare(a.date));
       setMatchDetails(showPastMatches ? (pastNext[0] ?? upcomingNext[0] ?? null) : (upcomingNext[0] ?? pastNext[0] ?? null));
@@ -319,30 +320,11 @@ useEffect(() => {
   );
   
   // Separate past and upcoming matches
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  const upcomingMatches = matches.filter(match => {
-    const matchDate = new Date(match.date + 'T12:00:00');
-    matchDate.setHours(0, 0, 0, 0);
-    return matchDate >= today;
-  }).sort((a, b) => new Date(a.date + 'T12:00:00').getTime() - new Date(b.date + 'T12:00:00').getTime());
-
-  const pastMatches = matches.filter(match => {
-    const matchDate = new Date(match.date + 'T12:00:00');
-    matchDate.setHours(0, 0, 0, 0);
-    return matchDate < today;
-  }).sort((a, b) => new Date(b.date + 'T12:00:00').getTime() - new Date(a.date + 'T12:00:00').getTime());
+  const upcomingMatches = matches.filter(m => !isPast(m.date)).sort((a, b) => a.date.localeCompare(b.date));
+  const pastMatches = matches.filter(m => isPast(m.date)).sort((a, b) => b.date.localeCompare(a.date));
 
   // Check if currently viewing a past match
-  const isMatchPast = useMemo(() => {
-    if (!matchDetails) return false;
-    const matchDate = new Date(matchDetails.date + 'T12:00:00');
-    matchDate.setHours(0, 0, 0, 0);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return matchDate < today;
-  }, [matchDetails]);
+  const isMatchPast = useMemo(() => !!matchDetails && isPast(matchDetails.date), [matchDetails]);
 
   const activeSlots = useMemo(() => {
     if (FORMATIONS[currentFormation]) return FORMATIONS[currentFormation];

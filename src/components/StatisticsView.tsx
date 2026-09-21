@@ -11,8 +11,9 @@ import { useTeam } from '../contexts/TeamContext';
 import { useSeason } from '../contexts/SeasonContext';
 import { MatchService } from '../services';
 import { MatchDetails } from '../types/models';
-import { formatDate } from '../lib/utils';
+import { formatDate } from '../lib/dates';
 import { toast } from 'sonner';
+import { parseLocalDate, todayISO } from '../lib/dates';
 
 interface TopPerformer {
   player_id: string;
@@ -46,7 +47,7 @@ export default function StatisticsView() {
         MatchService.getAll(activeTeam?.id, activeSeason?.id),
         MatchService.getTopPerformers(activeTeam!.id, activeSeason?.id)
       ]);
-      const today = new Date().toLocaleDateString('en-CA');
+      const today = todayISO();
       const finishedMatches = matchesData
         .filter(m => m.date <= today && (m.goalsFor !== undefined || m.goalsAgainst !== undefined))
         .sort((a, b) => a.date.localeCompare(b.date));
@@ -107,11 +108,11 @@ export default function StatisticsView() {
   }, [matches]);
 
   const shortDate = (dateStr: string) => {
-    const d = new Date(dateStr + 'T00:00:00');
+    const d = parseLocalDate(dateStr);
     return d.toLocaleDateString(i18n.language, { day: 'numeric', month: 'short' });
   };
   const monthOf = (dateStr: string) =>
-    new Date(dateStr + 'T00:00:00').toLocaleDateString(i18n.language, { month: 'short' });
+    parseLocalDate(dateStr).toLocaleDateString(i18n.language, { month: 'short' });
 
   const pointsData = matches.map((m, i, arr) => {
     const gf = m.goalsFor ?? 0;

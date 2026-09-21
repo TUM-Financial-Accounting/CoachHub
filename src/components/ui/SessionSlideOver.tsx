@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Edit2, Trash2, Download, Calendar, Clock, Users, Activity, Dumbbell, Zap, BookOpen, Layers, Target, Image as ImageIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { formatDate } from '../../lib/utils';
+import { formatDate } from '../../lib/dates';
 import { API_BASE_URL } from '../../lib/api-config';
 import { Exercise } from '../../types/models';
 

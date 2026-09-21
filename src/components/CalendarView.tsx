@@ -21,6 +21,7 @@ import { weekStartOf } from '../lib/settings';
 import { birthdaysInWeek } from '../lib/birthdays';
 import { DEFAULT_FORMATION } from '../lib/formations';
 import { DEFAULT_INTENSITY, INTENSITIES, intensityMeta } from '../lib/domain';
+import { addMinutes, endsAfterStart, minutesToLabel, toMinutes, todayISO } from '../lib/dates';
 
 interface CalendarViewProps {
   onNavigate: (page: Page) => void;
@@ -28,25 +29,9 @@ interface CalendarViewProps {
 
 type EventType = 'event' | 'training' | 'match';
 
-const ymd = (d: Date): string => d.toLocaleDateString('en-CA');
-
-const addMinutes = (time: string, mins: number): string => {
-  const [h, m] = (time || '').split(':').map(Number);
-  if (Number.isNaN(h)) return time;
-  const total = h * 60 + (Number.isNaN(m) ? 0 : m) + mins;
-  const hh = Math.floor(total / 60) % 24;
-  const mm = total % 60;
-  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
-};
-
-const toMin = (time: string): number => {
-  const [h, m] = (time || '').split(':').map(Number);
-  return Number.isNaN(h) ? 0 : h * 60 + (Number.isNaN(m) ? 0 : m);
-};
-
 const emptyForm = {
   type: 'event' as EventType,
-  date: ymd(new Date()),
+  date: todayISO(),
   startTime: '17:00',
   endTime: '18:00',
   title: '',
@@ -221,7 +206,7 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
     const start = hour != null ? `${String(hour).padStart(2, '0')}:00` : '17:00';
     setForm({
       ...emptyForm,
-      date: date ?? ymd(new Date()),
+      date: date ?? todayISO(),
       startTime: start,
       endTime: addMinutes(start, 60),
     });
@@ -256,12 +241,9 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
     }
   };
 
-  const minToTime = (m: number): string =>
-    `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-
   // An end at or before the start means the block runs past midnight.
   const durationOf = (start: string, end: string): number => {
-    const raw = toMin(end) - toMin(start);
+    const raw = (toMinutes(end) || 0) - (toMinutes(start) || 0);
     if (raw > 0) return raw;
     if (raw === 0) return 60;
     return raw + 24 * 60;
@@ -270,7 +252,7 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
   // Roll back only the moved row: a list snapshot would undo a concurrent drag or a team switch.
   const handleItemMove = async (item: CalendarItem, newDate: string, newStartMin: number) => {
     if (item.kind === 'birthday') return;
-    const newStart = minToTime(newStartMin);
+    const newStart = minutesToLabel(newStartMin);
     if (item.date === newDate && item.startTime === newStart) return;
 
     if (item.kind === 'event') {
@@ -324,7 +306,7 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
     // --- Edit existing event ---
     if (editingEventId) {
       if (!form.title.trim()) return toast.error(t('calendar.titleRequired'));
-      if (toMin(form.endTime) <= toMin(form.startTime)) return toast.error(t('calendar.endAfterStart'));
+      if (!endsAfterStart(form.startTime, form.endTime)) return toast.error(t('calendar.endAfterStart'));
       const updated: CalendarEvent = {
         id: editingEventId,
         title: form.title.trim(),
@@ -347,7 +329,7 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
     try {
       if (form.type === 'event') {
         if (!form.title.trim()) return toast.error(t('calendar.titleRequired'));
-        if (toMin(form.endTime) <= toMin(form.startTime)) return toast.error(t('calendar.endAfterStart'));
+        if (!endsAfterStart(form.startTime, form.endTime)) return toast.error(t('calendar.endAfterStart'));
         const saved = await EventService.create({
           title: form.title.trim(),
           description: form.description,
@@ -360,7 +342,7 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
         toast.success(t('calendar.eventCreated'));
       } else if (form.type === 'training') {
         if (!form.focus.trim()) return toast.error(t('calendar.focusRequired'));
-        if (toMin(form.endTime) <= toMin(form.startTime)) return toast.error(t('calendar.endAfterStart'));
+        if (!endsAfterStart(form.startTime, form.endTime)) return toast.error(t('calendar.endAfterStart'));
         const saved = await TrainingService.create({
           date: form.date,
           startTime: form.startTime,
@@ -517,7 +499,7 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
             <DatePicker label={t('training.date')} value={form.date} onChange={date => setForm({ ...form, date })} />
             <TimePicker label={t('training.startTime')} value={form.startTime} onChange={time => setForm(f => {
               // Keep the same duration when the start moves, like Google Calendar.
-              const dur = toMin(f.endTime) - toMin(f.startTime);
+              const dur = (toMinutes(f.endTime) || 0) - (toMinutes(f.startTime) || 0);
               return { ...f, startTime: time, endTime: addMinutes(time, dur > 0 ? dur : 60) };
             })} />
             <TimePicker label={t('training.endTime')} value={form.endTime} onChange={time => setForm({ ...form, endTime: time })} />

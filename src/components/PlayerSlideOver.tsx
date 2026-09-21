@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Edit2, Trash2, Phone, Calendar, Ruler, Weight, Shield, Hash, User, TrendingUp, Clock, Activity, Shirt, Footprints } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
-import { formatDate } from '../lib/utils';
+import { formatDate, parseLocalDate } from '../lib/dates';
 import { TrainingSession } from '../types/models';
 import { PlayerSlideOverProps } from '../types/ui';
 import { TrainingService } from '../services';
@@ -45,7 +45,7 @@ export default function PlayerSlideOver({ player, computedAttendance, onClose, o
             .sort()
             .slice(-6)
             .map(yearMonth => ({
-                month: new Date(yearMonth + '-15T12:00:00').toLocaleDateString(i18n.language, { month: 'short' }),
+                month: parseLocalDate(`${yearMonth}-15`).toLocaleDateString(i18n.language, { month: 'short' }),
                 sessions: monthMap[yearMonth],
             }));
     })();
@@ -56,7 +56,7 @@ export default function PlayerSlideOver({ player, computedAttendance, onClose, o
 
     // Age from DOB
     const age = player?.dateOfBirth
-        ? Math.floor((Date.now() - new Date(player.dateOfBirth + 'T12:00:00').getTime()) / (365.25 * 24 * 3600 * 1000))
+        ? Math.floor((Date.now() - parseLocalDate(player.dateOfBirth).getTime()) / (365.25 * 24 * 3600 * 1000))
         : null;
 
     return (
@@ -261,7 +261,7 @@ export default function PlayerSlideOver({ player, computedAttendance, onClose, o
                                             <div key={s.id} className="flex items-center gap-3 px-3 py-2.5 bg-surface-hover border border-border rounded-xl">
                                                 <div className="w-8 h-8 rounded-lg bg-surface-raised flex flex-col items-center justify-center flex-shrink-0">
                                                     <span className="text-[8px] font-bold text-muted uppercase leading-none">
-                                                        {new Date(s.date + 'T12:00:00').toLocaleDateString(i18n.language, { month: 'short' })}
+                                                        {parseLocalDate(s.date).toLocaleDateString(i18n.language, { month: 'short' })}
                                                     </span>
                                                     <span className="text-xs font-bold text-foreground leading-tight">{s.date.slice(8, 10)}</span>
                                                 </div>

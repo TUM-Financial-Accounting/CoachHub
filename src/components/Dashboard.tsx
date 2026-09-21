@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Calendar, Users, TrendingUp, Plus, Clock, MapPin, Activity, Trash2 } from 'lucide-react';
-import { formatDate } from '../lib/utils';
+import { formatDate } from '../lib/dates';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
@@ -21,17 +21,11 @@ import { birthdaysInWeek } from '../lib/birthdays';
 import WeekCalendar, { CalendarItem } from './WeekCalendar';
 import DeleteTeamModal from './DeleteTeamModal';
 import { PLAYER_STATUS } from '../lib/domain';
+import { addMinutes, parseLocalDate, todayISO } from '../lib/dates';
 
 interface DashboardProps {
   onNavigate: (page: Page) => void;
 }
-
-const addMins = (time: string, mins: number): string => {
-  const [h, m] = (time || '').split(':').map(Number);
-  if (Number.isNaN(h)) return time;
-  const total = h * 60 + (Number.isNaN(m) ? 0 : m) + mins;
-  return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
-};
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
   const { t, i18n } = useTranslation();
@@ -132,7 +126,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           return Object.keys(monthMap)
             .sort()
             .map(yearMonth => ({
-              month: new Date(yearMonth + '-15T12:00:00').toLocaleDateString(i18n.language, { month: 'short' }),
+              month: parseLocalDate(`${yearMonth}-15`).toLocaleDateString(i18n.language, { month: 'short' }),
               attendance: Math.round(monthMap[yearMonth].total / monthMap[yearMonth].count)
             }));
         };
@@ -156,7 +150,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   };
 
   // --- Derived values (memoized — these only recompute when their inputs change) ---
-  const today = new Date().toLocaleDateString('en-CA');
+  const today = todayISO();
 
   const upcomingSessions = useMemo(
     () => sessions.filter(s => s.date >= today).sort((a, b) => a.date.localeCompare(b.date)),
@@ -207,7 +201,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     if (settings.showTrainings) sessions.forEach(s => out.push({ id: s.id, kind: 'training', title: s.focus || t('nav.training'), date: s.date, startTime: s.startTime, endTime: s.endTime, subtitle: s.intensity }));
     if (settings.showMatches) matches.forEach(m => {
       const start = m.time && m.time.includes(':') ? m.time : '15:00';
-      out.push({ id: m.id, kind: 'match', title: `vs ${m.opponent}`, date: m.date, startTime: start, endTime: addMins(start, 120), subtitle: m.location });
+      out.push({ id: m.id, kind: 'match', title: `vs ${m.opponent}`, date: m.date, startTime: start, endTime: addMinutes(start, 120), subtitle: m.location });
     });
     if (settings.showEvents) events.forEach(ev => out.push({ id: ev.id, kind: 'event', title: ev.title, date: ev.date, startTime: ev.startTime, endTime: ev.endTime, subtitle: ev.location }));
     if (settings.showBirthdays) {

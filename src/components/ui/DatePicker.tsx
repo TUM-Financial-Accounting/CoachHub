@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { DatePickerProps } from "../../types/ui";
 import { parseFlexibleDate, formatDateForInput } from "../../lib/dateParse";
+import { parseLocalDate } from '../../lib/dates';
 
 type ViewMode = 'calendar' | 'month' | 'year';
 
@@ -18,7 +19,7 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
     new Date(2026, 0, 5 + i).toLocaleDateString(i18n.language, { weekday: 'short' }).slice(0, 2));
   const [isOpen, setIsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
-  const [displayMonth, setDisplayMonth] = useState(value ? new Date(value + 'T12:00:00') : new Date());
+  const [displayMonth, setDisplayMonth] = useState(value ? parseLocalDate(value) : new Date());
   // Local string the user is actively typing. Kept separate from `value` so
   // partial input like "15/06" isn't constantly being rejected.
   const [draft, setDraft] = useState<string>(formatDateForInput(value));
@@ -49,7 +50,7 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
       setDraftInvalid(false);
       setDraft(formatDateForInput(parsed));
       if (parsed !== value) onChange(parsed);
-      setDisplayMonth(new Date(parsed + 'T12:00:00'));
+      setDisplayMonth(parseLocalDate(parsed));
     } else {
       // Bad input: snap back to the last good value and flag it briefly.
       setDraftInvalid(true);
@@ -57,7 +58,7 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
     }
   };
 
-  const selectedDate = value ? new Date(value + 'T12:00:00') : null;
+  const selectedDate = value ? parseLocalDate(value) : null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -67,7 +68,7 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
   // Reset displayed month to the selected value whenever the picker opens
   useEffect(() => {
     if (isOpen) {
-      setDisplayMonth(value ? new Date(value + 'T12:00:00') : new Date());
+      setDisplayMonth(value ? parseLocalDate(value) : new Date());
       setViewMode('calendar');
     }
   }, [isOpen]);

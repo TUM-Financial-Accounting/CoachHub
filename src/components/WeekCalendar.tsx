@@ -1,6 +1,7 @@
 import { useMemo, useRef, useEffect, useState } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { useTranslation } from 'react-i18next';
+import { minutesToLabel, toISODate, toMinutes } from '../lib/dates';
 
 export type CalendarKind = 'training' | 'match' | 'event' | 'birthday';
 
@@ -40,14 +41,6 @@ const KIND_BAR: Record<CalendarKind, string> = {
   event: 'bg-violet-500',
   birthday: 'bg-amber-500',
 };
-
-const toMinutes = (t: string): number => {
-  const [h, m] = (t || '').split(':').map(Number);
-  if (Number.isNaN(h)) return NaN;
-  return h * 60 + (Number.isNaN(m) ? 0 : m);
-};
-
-const ymdLocal = (d: Date): string => d.toLocaleDateString('en-CA');
 
 /**
  * Assigns overlapping items within a single day to side-by-side lanes so they
@@ -98,9 +91,6 @@ function layoutDay(items: CalendarItem[]): { item: CalendarItem; lane: number; l
 }
 
 const DND_CALENDAR_ITEM = 'calendar-item';
-
-const minutesToLabel = (m: number): string =>
-  `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 
 // An end at or before the start means the block runs past midnight.
 export const itemDuration = (item: CalendarItem): number => {
@@ -290,7 +280,7 @@ export default function WeekCalendar({
     });
   }, [weekStart]);
 
-  const weekKeys = useMemo(() => days.map(ymdLocal), [days]);
+  const weekKeys = useMemo(() => days.map(toISODate), [days]);
 
   const timedItems = useMemo(() => items.filter(it => !it.allDay), [items]);
   const allDayItems = useMemo(() => items.filter(it => it.allDay), [items]);
@@ -332,13 +322,13 @@ export default function WeekCalendar({
     [effStart, totalHours]
   );
 
-  const todayStr = ymdLocal(new Date());
+  const todayStr = toISODate(new Date());
 
   // Items grouped + laid out per day.
   const perDay = useMemo(() => {
     const map: Record<string, { item: CalendarItem; lane: number; lanes: number }[]> = {};
     for (const day of days) {
-      const key = ymdLocal(day);
+      const key = toISODate(day);
       const dayItems = timedItems.filter(it => it.date === key && !Number.isNaN(toMinutes(it.startTime)));
       map[key] = layoutDay(dayItems);
     }
@@ -381,7 +371,7 @@ export default function WeekCalendar({
           <div className="flex">
             <div style={{ width: gutterWidth }} className="flex-shrink-0" />
             {days.map(day => {
-              const key = ymdLocal(day);
+              const key = toISODate(day);
               const isToday = key === todayStr;
               return (
                 <div key={key} className="flex-1 min-w-0 py-2 text-center border-l border-border">
@@ -402,7 +392,7 @@ export default function WeekCalendar({
             <div className="flex border-t border-border/60">
               <div style={{ width: gutterWidth }} className="flex-shrink-0" />
               {days.map(day => {
-                const key = ymdLocal(day);
+                const key = toISODate(day);
                 const dayItems = allDayItems.filter(it => it.date === key);
                 return (
                   <div key={key} className="flex-1 min-w-0 border-l border-border p-0.5 space-y-0.5">
@@ -441,7 +431,7 @@ export default function WeekCalendar({
 
           {/* Day columns */}
           {days.map(day => {
-            const key = ymdLocal(day);
+            const key = toISODate(day);
             return (
               <DayColumn
                 key={key}

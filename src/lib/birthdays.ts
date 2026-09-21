@@ -1,4 +1,5 @@
 import { Player } from '../types/models';
+import { toISODate } from './dates';
 
 export interface BirthdayHit {
   playerId: string;
@@ -8,8 +9,6 @@ export interface BirthdayHit {
   age: number | null;
 }
 
-const ymdLocal = (d: Date): string => d.toLocaleDateString('en-CA');
-
 const isLeapYear = (year: number): boolean =>
   (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 
@@ -18,7 +17,7 @@ export function birthdaysInWeek(players: Player[], weekDays: Date[]): BirthdayHi
   const hits: BirthdayHit[] = [];
 
   for (const day of weekDays) {
-    const date = ymdLocal(day);
+    const date = toISODate(day);
     const monthDay = date.slice(5);
     const year = day.getFullYear();
     const leapFallbackDay = !isLeapYear(year) && monthDay === '02-28';
