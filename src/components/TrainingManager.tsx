@@ -3,7 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { Plus, X, Calendar, Clock, Trash2, Edit2, User, Activity, Download, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { AnimatePresence } from 'framer-motion';
-import { formatDate } from '../lib/utils';
+import { formatDate, isoWeekNumber } from '../lib/utils';
+import { deriveDrillSpec, describeDrillSpec } from '../lib/drillDiagram';
+import { drawDrillDiagram, drawDiagramLegend, DRILL_COLORS } from '../lib/drillRenderer';
+import { loadImageForPdf, fitInside, PdfImage } from '../lib/media';
+import { rasterizeDrawing } from '../lib/drillRaster';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Player, TrainingSession, Exercise } from '../types/models';
@@ -27,6 +31,7 @@ export default function TrainingManager() {
     const { activeTeam } = useTeam();
     const { activeSeason } = useSeason();
     const [sessions, setSessions] = useState<TrainingSession[]>([]);
+    const [exportingId, setExportingId] = useState<string | null>(null);
     const [allPlayers, setAllPlayers] = useState<Player[]>([]);
     const [allExercises, setAllExercises] = useState<Exercise[]>([]);
 
@@ -203,9 +208,173 @@ export default function TrainingManager() {
         }
     };
 
+    const localDate = (iso: string): Date => {
+        const [y, m, d] = (iso || '').split('-').map(Number);
+        return Number.isNaN(y) ? new Date() : new Date(y, (m || 1) - 1, d || 1);
+    };
+
+    const drawInfoColumn = (doc: jsPDF, session: TrainingSession, players: Player[], box: { x: number; y: number; w: number; h: number }) => {
+        const day = localDate(session.date);
+        const ink = DRILL_COLORS.ink;
+        const muted = DRILL_COLORS.muted;
+
+        doc.setFillColor(ink[0], ink[1], ink[2]);
+        doc.roundedRect(box.x, box.y, box.w, 24, 2, 2, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(13);
+        doc.text(`KW ${isoWeekNumber(day)}`, box.x + box.w / 2, box.y + 8, { align: 'center' });
+        doc.setFontSize(10);
+        doc.text(formatDate(session.date), box.x + box.w / 2, box.y + 15, { align: 'center' });
+        doc.setFontSize(8);
+        doc.setTextColor(190, 200, 215);
+        doc.text(day.toLocaleDateString(i18n.language, { weekday: 'long' }), box.x + box.w / 2, box.y + 21, { align: 'center' });
+
+        let y = box.y + 30;
+
+        if (session.focus) {
+            doc.setFillColor(220, 252, 231);
+            doc.setDrawColor(134, 239, 172);
+            doc.setLineWidth(0.3);
+            doc.roundedRect(box.x, y, box.w, 12, 2, 2, 'FD');
+            doc.setTextColor(22, 101, 52);
+            doc.setFontSize(8.5);
+            doc.text(doc.splitTextToSize(session.focus, box.w - 4), box.x + box.w / 2, y + 5, { align: 'center' });
+            y += 16;
+        }
+
+        doc.setDrawColor(226, 232, 240);
+        doc.setFillColor(248, 250, 252);
+        doc.roundedRect(box.x, y, box.w, 13, 2, 2, 'FD');
+        doc.setTextColor(ink[0], ink[1], ink[2]);
+        doc.setFontSize(8);
+        doc.text(`${session.startTime} - ${session.endTime}`, box.x + 3, y + 5);
+        doc.setTextColor(muted[0], muted[1], muted[2]);
+        doc.text(t('training.attendingPlayers', { count: players.length }), box.x + 3, y + 10);
+        y += 18;
+
+        doc.setFontSize(7);
+        doc.setTextColor(ink[0], ink[1], ink[2]);
+        const listBottom = box.y + box.h - 34;
+        players.forEach((p, i) => {
+            if (y > listBottom) return;
+            doc.text(`${i + 1}. ${p.lastName}, ${p.firstName.charAt(0)}.`, box.x + 2, y);
+            y += 4;
+        });
+
+        drawDiagramLegend(doc, box.x + 1, box.y + box.h - 30, {
+            cone: t('drill.tool.cone'),
+            player: t('drill.tool.player'),
+            ball: t('drill.tool.ball'),
+            run: t('drill.tool.run'),
+            dribble: t('drill.tool.dribble'),
+            pass: t('drill.tool.pass'),
+            shot: t('drill.tool.shot'),
+        });
+    };
+
+    const drawExerciseCard = (doc: jsPDF, exercise: Exercise, index: number, box: { x: number; y: number; w: number; h: number }, image?: PdfImage | null) => {
+        const ink = DRILL_COLORS.ink;
+        doc.setDrawColor(203, 213, 225);
+        doc.setFillColor(255, 255, 255);
+        doc.setLineWidth(0.4);
+        doc.roundedRect(box.x, box.y, box.w, box.h, 2, 2, 'FD');
+
+        doc.setFillColor(37, 99, 235);
+        doc.circle(box.x + 6, box.y + 6, 3.4, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(8);
+        doc.text(String(index), box.x + 6, box.y + 7.3, { align: 'center' });
+
+        doc.setTextColor(ink[0], ink[1], ink[2]);
+        doc.setFontSize(9);
+        const title = doc.splitTextToSize(exercise.name || '-', box.w - 44)[0];
+        doc.text(title, box.x + 11.5, box.y + 7.3);
+
+        const categoryLabel = exercise.category ? t(`exerciseCategories.${exercise.category}` as any) : '';
+        if (categoryLabel) {
+            doc.setFillColor(30, 64, 175);
+            const bw = doc.getTextWidth(categoryLabel) + 5;
+            doc.roundedRect(box.x + box.w - bw - 3, box.y + 3, bw, 6.5, 1.5, 1.5, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(6.5);
+            doc.text(categoryLabel, box.x + box.w - bw / 2 - 3, box.y + 7.4, { align: 'center' });
+        }
+
+        const area = { x: box.x + 2, y: box.y + 15, w: box.w - 4, h: box.h - 18 };
+
+        if (image) {
+            const { w, h } = fitInside(image, { w: area.w, h: area.h });
+            try {
+                doc.addImage(image.dataUrl, image.format, area.x + (area.w - w) / 2, area.y + (area.h - h) / 2, w, h);
+                return;
+            } catch {
+            }
+        }
+
+        const spec = deriveDrillSpec(exercise);
+        doc.setFontSize(6.5);
+        doc.setTextColor(DRILL_COLORS.muted[0], DRILL_COLORS.muted[1], DRILL_COLORS.muted[2]);
+        doc.text(describeDrillSpec(spec), box.x + 11.5, box.y + 12);
+
+        drawDrillDiagram(doc, spec, area);
+    };
+
+    const drawSessionSheet = (doc: jsPDF, session: TrainingSession, exercises: Exercise[], players: Player[], images: Map<string, PdfImage | null>) => {
+        const PAGE_W = 297, PAGE_H = 210, M = 8, GAP = 5;
+        const colW = 58;
+        const cardsX = M + colW + GAP;
+        const cardsW = PAGE_W - cardsX - M;
+        const cardW = (cardsW - GAP) / 2;
+        const cardH = (PAGE_H - 2 * M - GAP) / 2;
+        const perPage = 4;
+        const pages = Math.max(1, Math.ceil(exercises.length / perPage));
+
+        for (let page = 0; page < pages; page++) {
+            if (page > 0) doc.addPage();
+            drawInfoColumn(doc, session, players, { x: M, y: M, w: colW, h: PAGE_H - 2 * M });
+
+            const slice = exercises.slice(page * perPage, (page + 1) * perPage);
+            slice.forEach((ex, i) => {
+                drawExerciseCard(doc, ex, page * perPage + i + 1, {
+                    x: cardsX + (i % 2) * (cardW + GAP),
+                    y: M + Math.floor(i / 2) * (cardH + GAP),
+                    w: cardW,
+                    h: cardH,
+                }, images.get(ex.id));
+            });
+
+            if (slice.length === 0) {
+                doc.setFontSize(10);
+                doc.setTextColor(DRILL_COLORS.muted[0], DRILL_COLORS.muted[1], DRILL_COLORS.muted[2]);
+                doc.text(t('training.pdfNoExercises'), cardsX + cardsW / 2, PAGE_H / 2, { align: 'center' });
+            }
+        }
+    };
+
     // --- 3. PDF EXPORT ---
-    const generatePDF = (session: TrainingSession) => {
+    const generatePDF = async (session: TrainingSession) => {
+        if (exportingId) return;
+        setExportingId(session.id);
+        try {
         const doc = new jsPDF({ orientation: "landscape" });
+
+        const exerciseIds = session.selectedExercises ? session.selectedExercises.split(',').filter(id => id.trim() !== '') : [];
+        const sessionExercises = exerciseIds
+            .map(id => allExercises.find(ex => ex.id === id))
+            .filter((ex): ex is Exercise => ex !== undefined);
+        const playerIds = session.selectedPlayers ? session.selectedPlayers.split(',').filter(id => id.trim() !== '') : [];
+        const sessionPlayers = allPlayers.filter(p => playerIds.includes(p.id));
+
+        const loaded = await Promise.all(
+            sessionExercises.map(async ex => {
+                const picture = (await loadImageForPdf(ex.mediaUrl)) ?? (await rasterizeDrawing(ex.drawing));
+                return [ex.id, picture] as const;
+            })
+        );
+        const images = new Map<string, PdfImage | null>(loaded);
+
+        drawSessionSheet(doc, session, sessionExercises, sessionPlayers, images);
+        doc.addPage();
 
         // Header
         doc.setFillColor(15, 23, 42); // Dark Slate 900
@@ -220,12 +389,6 @@ export default function TrainingManager() {
         doc.text(`${session.date}  |  ${session.startTime} - ${session.endTime}  |  ${focusStr}  |  ${intensityStr}`, 148, 22, { align: "center" });
 
         let finalY = 40;
-
-        // Get Ordered Exercises
-        const exerciseIds = session.selectedExercises ? session.selectedExercises.split(',').filter(id => id.trim() !== '') : [];
-        const sessionExercises = exerciseIds
-            .map(id => allExercises.find(ex => ex.id === id))
-            .filter((ex): ex is Exercise => ex !== undefined);
 
         if (sessionExercises.length > 0) {
             doc.setFontSize(12);
@@ -266,17 +429,12 @@ export default function TrainingManager() {
                 didDrawCell: (data) => {
                     if (data.column.index === 1 && data.row.section === 'body') {
                         const ex = sessionExercises[data.row.index];
-                        if (ex.mediaUrl && ex.mediaUrl.startsWith('data:image')) {
+                        const img = images.get(ex.id);
+                        if (img) {
                             try {
-                                const imgProps = doc.getImageProperties(ex.mediaUrl);
-                                const ratio = imgProps.width / imgProps.height;
-                                const cellWidth = data.cell.width - 4;
-                                const cellHeight = data.cell.height - 4;
-                                let w = cellWidth;
-                                let h = w / ratio;
-                                if (h > cellHeight) { h = cellHeight; w = h * ratio; }
-                                doc.addImage(ex.mediaUrl, 'JPEG', data.cell.x + 2, data.cell.y + 2, w, h);
-                            } catch (e) { } 
+                                const { w, h } = fitInside(img, { w: data.cell.width - 4, h: data.cell.height - 4 });
+                                doc.addImage(img.dataUrl, img.format, data.cell.x + 2, data.cell.y + 2, w, h);
+                            } catch { /* unreadable file — leave the cell empty */ }
                         }
                     }
                 }
@@ -284,8 +442,6 @@ export default function TrainingManager() {
             finalY = (doc as any).lastAutoTable.finalY + 15;
         }
 
-        const playerIds = session.selectedPlayers ? session.selectedPlayers.split(',').filter(id => id.trim() !== '') : [];
-        const sessionPlayers = allPlayers.filter(p => playerIds.includes(p.id));
         if (sessionPlayers.length > 0) {
             if (finalY > 150) { doc.addPage(); finalY = 20; }
             doc.setFontSize(12); doc.setTextColor(15, 23, 42);
@@ -302,6 +458,12 @@ export default function TrainingManager() {
 
         doc.save(`Training_Session_${session.date}.pdf`);
         toast.success(t('training.pdfDownloaded'));
+        } catch (err) {
+            console.error('[PDF] export failed', err);
+            toast.error(t('training.pdfFailed'));
+        } finally {
+            setExportingId(null);
+        }
     };
 
     // --- 4. UI HELPERS ---
@@ -462,7 +624,7 @@ export default function TrainingManager() {
                                                         </div>
                                                     </div>
                                                     <div className="flex gap-2 mt-4 md:mt-0 flex-shrink-0">
-                                                        <Button variant="secondary" onClick={(e) => { e.stopPropagation(); generatePDF(s); }} className="p-2.5" title={`${t('libraries.download')} PDF`}>
+                                                        <Button variant="secondary" isLoading={exportingId === s.id} onClick={(e) => { e.stopPropagation(); generatePDF(s); }} className="p-2.5" title={`${t('libraries.download')} PDF`}>
                                                             <Download size={18} />
                                                         </Button>
                                                         <Button variant="secondary" onClick={(e) => { e.stopPropagation(); openEdit(s); }} className="p-2.5" title={t('common.edit')}>
@@ -511,7 +673,7 @@ export default function TrainingManager() {
                                                 </div>
                                             </div>
                                             <div className="flex gap-2 mt-4 md:mt-0 flex-shrink-0">
-                                                <Button variant="secondary" onClick={(e) => { e.stopPropagation(); generatePDF(s); }} className="p-2.5" title={`${t('libraries.download')} PDF`}>
+                                                <Button variant="secondary" isLoading={exportingId === s.id} onClick={(e) => { e.stopPropagation(); generatePDF(s); }} className="p-2.5" title={`${t('libraries.download')} PDF`}>
                                                     <Download size={18} />
                                                 </Button>
                                                 <Button variant="secondary" onClick={(e) => { e.stopPropagation(); openEdit(s); }} className="p-2.5" title={t('common.edit')}>

@@ -23,3 +23,13 @@ export function getStoredUserRole(): string {
     return 'coach';
   }
 }
+
+// ISO-8601 week ("KW 29"): Monday start, week 1 holds the first Thursday.
+export function isoWeekNumber(date: Date): number {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12);
+  // The Thursday of this week decides which year the week belongs to.
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  const firstThursday = new Date(d.getFullYear(), 0, 4, 12);
+  firstThursday.setDate(firstThursday.getDate() + 3 - ((firstThursday.getDay() + 6) % 7));
+  return 1 + Math.round((d.getTime() - firstThursday.getTime()) / (7 * 24 * 3600 * 1000));
+}

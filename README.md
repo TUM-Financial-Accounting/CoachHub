@@ -8,8 +8,8 @@ A modern, coach-centric web dashboard for managing sports teams, training sessio
 - Seasons & Teams - Multiple seasons and teams per coach, with team cloning between seasons
 - Team Management - Player profiles, photos, roster management, and per-team performance ratings
 - Trial Players - Track trialists ("Probespieler") with home club, star rating, and scouting notes; sign them to the squad with one click
-- Exercises Library - Create and manage reusable training exercises with media and categories (technique, tactical, athletic, game form, …)
-- Training Manager - Build and schedule training sessions (incl. weekly recurring series) with PDF export
+- Exercises Library - Create and manage reusable training exercises with media and categories (technique, tactical, athletic, game form, …). An exercise without an uploaded picture can be sketched in a built-in drill editor (cones, players, coach, poles, balls, zones, goals, text, and run / dribble / pass / shot arrows on a blank, full or half pitch); the sketch is stored as JSON on the exercise
+- Training Manager - Build and schedule training sessions (incl. weekly recurring series) with PDF export. The export opens with a printable session sheet: an info column (ISO calendar week, date, focus, times, numbered squad, colour key) next to one card per drill. A drill shows the picture uploaded under its Visualisierungen when it has one, otherwise the diagram drawn in the exercise's drill editor (rendered to PNG at export time), and only as a last resort an auto-generated pitch diagram derived from its title/setup (see `Uebungsbenennung.md`). The written detail table follows
 - Calendar - Week view combining trainings, matches, and custom team events; drag & drop to reschedule (15-minute snapping, duration preserved)
 - Settings - Personalisation: theme, language, which item types the calendar draws, player birthdays as all-day entries, first day of the week, visible hours, and the start page (stored per account in the browser)
 - Libraries - Manage Basics, Principles (with media upload), and Tactics

@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import {ExerciseSlideOverProps} from "../types/ui"
 import { API_BASE_URL } from '../lib/api-config';
 import { getCategoryStyles } from '../lib/exerciseCategories';
+import { parseDrawing } from '../lib/drillDrawing';
+import { DrillCanvas } from './drill/DrillCanvas';
 
 // Only http(s)/data/blob pass through untouched; anything else (including a
 // javascript: URL smuggled in via playbook import) is treated as a relative
@@ -38,6 +40,7 @@ const getMediaType = (url?: string) => {
 export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete }: ExerciseSlideOverProps) {
     const { t } = useTranslation();
     const intensity = exercise ? getIntensityStyles(exercise.intensity) : null;
+    const drawing = exercise && !exercise.mediaUrl ? parseDrawing(exercise.drawing) : null;
 
     const renderMedia = (url: string) => {
         const type = getMediaType(url);
@@ -150,6 +153,11 @@ export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete 
                             {exercise.mediaUrl && (
                                 <div className="w-full h-52 bg-background rounded-xl overflow-hidden border border-border shadow-lg">
                                     {renderMedia(exercise.mediaUrl)}
+                                </div>
+                            )}
+                            {drawing && drawing.elements.length > 0 && (
+                                <div className="w-full rounded-xl overflow-hidden border border-border shadow-lg">
+                                    <DrillCanvas drawing={drawing} className="w-full h-auto block" />
                                 </div>
                             )}
 

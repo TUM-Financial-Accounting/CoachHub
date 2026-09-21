@@ -299,6 +299,15 @@ describe('exercise mappers', () => {
     expect(payload.linked_principles).toBe('');
     expect(payload.linked_tactics).toBe('t1,t2');
     expect(payload.coaching_points).toBe('body shape');
+    expect(payload.drawing).toBeNull();
+  });
+
+  it('round-trips the drawing JSON untouched', () => {
+    const json = '{"version":1,"background":"blank","elements":[{"id":"a","kind":"cone","x":10,"y":10,"color":"blue"}]}';
+    const exercise = mapExerciseFromApi({ id: 'e1', drawing: json });
+    expect(exercise.drawing).toBe(json);
+    expect(mapExerciseToApi(exercise).drawing).toBe(json);
+    expect(mapExerciseFromApi({ id: 'e2', drawing: null }).drawing).toBe('');
   });
 });
 

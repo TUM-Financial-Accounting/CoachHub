@@ -102,6 +102,7 @@ export interface Exercise {
   linkedPrinciples: string[];
   linkedTactics: string[];
   mediaUrl?: string;
+  drawing?: string; // JSON, see lib/drillDrawing.ts
   isCustom: boolean;
 }
 

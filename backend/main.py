@@ -31,6 +31,7 @@ def _ensure_columns():
         "ALTER TABLE players ADD COLUMN IF NOT EXISTS trial_rating INTEGER DEFAULT 0",
         "ALTER TABLE players ADD COLUMN IF NOT EXISTS trial_notes TEXT",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR NOT NULL DEFAULT 'coach'",
+        "ALTER TABLE exercises ADD COLUMN IF NOT EXISTS drawing TEXT",
     ]
     try:
         with database.engine.begin() as conn:
@@ -735,6 +736,7 @@ def update_exercise(exercise_id: str, item: schemas.ExerciseCreate, db: Session 
     db_ex.linked_principles = item.linked_principles
     db_ex.linked_tactics = item.linked_tactics
     db_ex.media_url = item.media_url
+    db_ex.drawing = item.drawing
 
     db.commit()
     db.refresh(db_ex)

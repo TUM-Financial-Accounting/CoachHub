@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, X, Search, Upload, Check, Image as ImageIcon, FileText, Video as VideoIcon, ChevronDown, ChevronRight, Maximize2, Share2 } from 'lucide-react';
+import { Plus, X, Search, Upload, Check, Image as ImageIcon, FileText, Video as VideoIcon, ChevronDown, ChevronRight, Maximize2, Share2, PenTool, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AnimatePresence, motion } from 'framer-motion';
 import { uploadFile } from '../lib/uploadFile';
@@ -22,6 +22,9 @@ import { ExerciseService, LibraryService } from '../services';
 // --- Types ---
 import { Exercise, SelectorItem } from '../types/models';
 import { EXERCISE_CATEGORIES, getCategoryStyles } from '../lib/exerciseCategories';
+import { parseDrawing, hasDrawing } from '../lib/drillDrawing';
+import { DrillCanvas } from './drill/DrillCanvas';
+import DrillEditor from './drill/DrillEditor';
 
 // --- Helpers ---
 const resolveMediaUrl = (url: string) =>
@@ -68,6 +71,7 @@ export default function ExercisesLibrary() {
     const [showPlaybookModal, setShowPlaybookModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+    const [showDrillEditor, setShowDrillEditor] = useState(false);
 
     // Lightbox State
     const [viewMedia, setViewMedia] = useState<string | null>(null);
@@ -88,7 +92,7 @@ export default function ExercisesLibrary() {
     const [formData, setFormData] = useState<Exercise>({
         id: '', name: '', category: '', intensity: 'Medium', description: '', setup: '',
         variations: '', coachingPoints: '', goalkeepers: 0,
-        equipment: [], linkedBasics: [], linkedPrinciples: [], linkedTactics: [], isCustom: true, mediaUrl: ''
+        equipment: [], linkedBasics: [], linkedPrinciples: [], linkedTactics: [], isCustom: true, mediaUrl: '', drawing: ''
     });
 
     // --- 1. LOAD DATA ---
@@ -168,7 +172,7 @@ export default function ExercisesLibrary() {
 
     // --- UI Helpers ---
     const resetForm = () => {
-        setFormData({ id: '', name: '', category: '', intensity: 'Medium', description: '', setup: '', variations: '', coachingPoints: '', goalkeepers: 0, equipment: [], linkedBasics: [], linkedPrinciples: [], linkedTactics: [], isCustom: true, mediaUrl: '' });
+        setFormData({ id: '', name: '', category: '', intensity: 'Medium', description: '', setup: '', variations: '', coachingPoints: '', goalkeepers: 0, equipment: [], linkedBasics: [], linkedPrinciples: [], linkedTactics: [], isCustom: true, mediaUrl: '', drawing: '' });
         setMediaPreview(null); setBasicsSearch(''); setPrinciplesSearch(''); setTacticsSearch(''); setOpenSection(null);
     };
 
@@ -382,7 +386,11 @@ export default function ExercisesLibrary() {
                             </div>
 
                             <div className="h-40 mb-4 bg-background rounded-xl overflow-hidden flex items-center justify-center border border-border relative">
-                                {ex.mediaUrl ? renderMedia(ex.mediaUrl, true) : <ImageIcon size={24} className="text-slate-700" />}
+                                {ex.mediaUrl
+                                    ? renderMedia(ex.mediaUrl, true)
+                                    : hasDrawing(ex.drawing)
+                                        ? <DrillCanvas drawing={parseDrawing(ex.drawing)!} className="w-full h-full" preserveAspectRatio="xMidYMid slice" />
+                                        : <ImageIcon size={24} className="text-slate-700" />}
 
                                 {/* Floating "View" Icon on Hover if media exists */}
                                 {ex.mediaUrl && (
@@ -435,7 +443,7 @@ export default function ExercisesLibrary() {
 
                         <div>
                             <label className="text-[11px] font-bold text-muted uppercase tracking-widest ml-1 mb-2 block">{t('libraries.visuals')}</label>
-                            <div className="h-32 bg-surface-hover border-2 border-dashed border-border rounded-xl relative group hover:border-primary/30 transition-colors flex flex-col items-center justify-center text-muted overflow-hidden cursor-pointer">
+                            <div className="h-32 bg-surface-hover border-2 border-dashed border-border rounded-xl relative group hover:border-primary/30 transition-colors flex flex-col items-center justify-center text-muted overflow-hidden">
                                 {mediaPreview ? (
                                     <>
                                         {getMediaType(mediaPreview) === 'image' && <img src={mediaPreview} className="w-full h-full object-cover" />}
@@ -443,14 +451,31 @@ export default function ExercisesLibrary() {
                                         {getMediaType(mediaPreview) === 'pdf' && <FileText size={32} className="text-slate-400" />}
                                         <button onClick={(e) => { e.stopPropagation(); setMediaPreview(null); setFormData({ ...formData, mediaUrl: '' }); }} className="absolute top-2 right-2 bg-black/60 p-1.5 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity z-10"><X size={14} /></button>
                                     </>
+                                ) : hasDrawing(formData.drawing) ? (
+                                    <>
+                                        <DrillCanvas drawing={parseDrawing(formData.drawing)!} className="w-full h-full" />
+                                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                            <button type="button" title={t('drill.edit')} onClick={() => setShowDrillEditor(true)} className="bg-black/60 p-1.5 rounded-full text-white"><Edit2 size={14} /></button>
+                                            <button type="button" title={t('drill.remove')} onClick={() => setFormData({ ...formData, drawing: '' })} className="bg-black/60 p-1.5 rounded-full text-white"><X size={14} /></button>
+                                        </div>
+                                    </>
                                 ) : (
-                                    <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center hover:text-blue-400 transition-colors">
-                                        <Upload size={24} className="mb-2" />
-                                        <span className="text-[10px] uppercase font-bold tracking-wider">{t('libraries.uploadMedia')}</span>
-                                        <input type="file" className="hidden" accept="image/*,video/*,application/pdf" onChange={handleFileUpload} />
-                                    </label>
+                                    <div className="w-full h-full grid grid-cols-2">
+                                        <label className="cursor-pointer flex flex-col items-center justify-center gap-1.5 hover:text-blue-400 hover:bg-surface transition-colors border-r border-border">
+                                            <Upload size={20} />
+                                            <span className="text-[10px] uppercase font-bold tracking-wider text-center px-1">{t('libraries.uploadMedia')}</span>
+                                            <input type="file" className="hidden" accept="image/*,video/*,application/pdf" onChange={handleFileUpload} />
+                                        </label>
+                                        <button type="button" onClick={() => setShowDrillEditor(true)} className="flex flex-col items-center justify-center gap-1.5 hover:text-amber-400 hover:bg-surface transition-colors">
+                                            <PenTool size={20} />
+                                            <span className="text-[10px] uppercase font-bold tracking-wider text-center px-1">{t('drill.draw')}</span>
+                                        </button>
+                                    </div>
                                 )}
                             </div>
+                            {!mediaPreview && hasDrawing(formData.drawing) && (
+                                <p className="text-[10px] text-muted mt-1.5 ml-1">{t('drill.usedInPdf')}</p>
+                            )}
                         </div>
                     </div>
 
@@ -531,6 +556,13 @@ export default function ExercisesLibrary() {
                     </div>
                 </div>
             </Modal>
+
+            <DrillEditor
+                isOpen={showDrillEditor}
+                initial={formData.drawing}
+                onClose={() => setShowDrillEditor(false)}
+                onApply={(json) => { setFormData(prev => ({ ...prev, drawing: json })); setShowDrillEditor(false); }}
+            />
 
             {/* LIGHTBOX VIEWER */}
             <AnimatePresence>

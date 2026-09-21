@@ -6,6 +6,8 @@ import { API_BASE_URL } from '../../lib/api-config';
 import { Exercise } from '../../types/models';
 
 import { SessionSlideOverProps } from "../../types/ui";
+import { parseDrawing } from '../../lib/drillDrawing';
+import { DrillCanvas } from '../drill/DrillCanvas';
 
 const intensityStyles: Record<string, { badge: string; bar: string; width: string }> = {
     Low:    { badge: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400', bar: 'bg-emerald-500', width: '33%' },
@@ -157,6 +159,7 @@ export default function SessionSlideOver({
                                     <div className="space-y-2">
                                         {exercises.map((ex, i) => {
                                             const mediaType = getMediaType(ex.mediaUrl);
+                                            const drawing = mediaType === 'image' ? null : parseDrawing(ex.drawing);
                                             return (
                                                 <div key={ex.id} className="bg-surface-hover border border-border-subtle rounded-xl overflow-hidden">
                                                     <div className="flex gap-3 p-3">
@@ -164,7 +167,9 @@ export default function SessionSlideOver({
                                                         <div className="w-12 h-12 rounded-lg bg-surface-raised flex-shrink-0 overflow-hidden flex items-center justify-center">
                                                             {mediaType === 'image' && ex.mediaUrl
                                                                 ? <img src={resolveMediaUrl(ex.mediaUrl)} className="w-full h-full object-cover" alt={ex.name} />
-                                                                : <ImageIcon size={18} className="text-dimmed" />}
+                                                                : drawing && drawing.elements.length > 0
+                                                                    ? <DrillCanvas drawing={drawing} className="w-full h-full" preserveAspectRatio="xMidYMid slice" />
+                                                                    : <ImageIcon size={18} className="text-dimmed" />}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex items-center gap-2 mb-0.5">

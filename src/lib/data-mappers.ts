@@ -116,6 +116,7 @@ export const mapExerciseFromApi = (e: any): Exercise => ({
   linkedPrinciples: e.linked_principles ? e.linked_principles.split(',') : [],
   linkedTactics: e.linked_tactics ? e.linked_tactics.split(',') : [],
   mediaUrl: e.media_url || '',
+  drawing: e.drawing || '',
   isCustom: e.is_custom !== undefined ? e.is_custom : true,
 });
 
@@ -321,6 +322,7 @@ export const mapExerciseToApi = (e: Exercise) => ({
   linked_principles: e.linkedPrinciples.join(','),
   linked_tactics: e.linkedTactics.join(','),
   media_url: e.mediaUrl,
+  drawing: e.drawing || null,
 });
 
 export const mapAdminFeedbackFromApi = (f: any): AdminFeedbackItem => ({

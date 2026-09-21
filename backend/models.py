@@ -140,7 +140,9 @@ class Exercise(Base):
     
     # CHANGED: String -> Text
     media_url = Column(Text, nullable=True)
-    
+    # Hand-drawn diagram (JSON); used when no media_url picture exists.
+    drawing = Column(Text, nullable=True)
+
     linked_basics = Column(Text, nullable=True)
     linked_principles = Column(Text, nullable=True)
     linked_tactics = Column(Text, nullable=True)

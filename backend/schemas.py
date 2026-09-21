@@ -120,6 +120,7 @@ class ExerciseCreate(BaseModel):
     linked_principles: Optional[str] = ""
     linked_tactics: Optional[str] = ""
     media_url: Optional[str] = None
+    drawing: Optional[str] = None
 
 class Exercise(ExerciseCreate):
     id: str
