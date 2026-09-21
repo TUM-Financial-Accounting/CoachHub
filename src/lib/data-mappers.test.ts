@@ -17,6 +17,9 @@ import {
   mapEventFromApi,
   mapEventToApi,
   mapSelectorItemFromApi,
+  mapAdminFeedbackFromApi,
+  mapAdminUserFromApi,
+  mapAdminStatsFromApi,
 } from './data-mappers';
 import type { Player, TrainingSession, Exercise, Tactic, MatchDetails, CalendarEvent } from '../types/models';
 
@@ -361,5 +364,68 @@ describe('calendar event mappers', () => {
 describe('mapSelectorItemFromApi', () => {
   it('defaults a missing name to an empty string', () => {
     expect(mapSelectorItemFromApi({ id: 'x' })).toEqual({ id: 'x', name: '' });
+  });
+});
+
+describe('admin mappers', () => {
+  it('maps an admin feedback row including the author identity', () => {
+    expect(mapAdminFeedbackFromApi({
+      id: 'fb1',
+      type: 'bug',
+      title: 'Broken chart',
+      description: 'Bars overflow',
+      screenshot_urls: ['/static/uploads/a.png'],
+      status: 'in_progress',
+      created_at: '2026-08-01T10:00:00',
+      coach_email: 'coach@club.de',
+      coach_name: 'Coach A',
+    })).toEqual({
+      id: 'fb1',
+      type: 'bug',
+      title: 'Broken chart',
+      description: 'Bars overflow',
+      screenshotUrls: ['/static/uploads/a.png'],
+      status: 'in_progress',
+      createdAt: '2026-08-01T10:00:00',
+      coachEmail: 'coach@club.de',
+      coachName: 'Coach A',
+    });
+  });
+
+  it('defaults missing admin feedback fields', () => {
+    const mapped = mapAdminFeedbackFromApi({ id: 'fb2' });
+    expect(mapped.screenshotUrls).toEqual([]);
+    expect(mapped.status).toBe('new');
+    expect(mapped.coachName).toBe('');
+  });
+
+  it('maps an admin user row with counts and role fallback', () => {
+    expect(mapAdminUserFromApi({
+      id: 'u1',
+      email: 'coach@club.de',
+      full_name: 'Coach A',
+      is_verified: true,
+      created_at: '2026-07-01',
+      team_count: 2,
+      feedback_count: 5,
+    })).toEqual({
+      id: 'u1',
+      email: 'coach@club.de',
+      fullName: 'Coach A',
+      role: 'coach',
+      isVerified: true,
+      createdAt: '2026-07-01',
+      teamCount: 2,
+      feedbackCount: 5,
+    });
+  });
+
+  it('maps admin stats and defaults missing counts to zero', () => {
+    const mapped = mapAdminStatsFromApi({ users: 3, training_sessions: 7, feedback_new: 1 });
+    expect(mapped.users).toBe(3);
+    expect(mapped.trainingSessions).toBe(7);
+    expect(mapped.feedbackNew).toBe(1);
+    expect(mapped.teams).toBe(0);
+    expect(mapped.feedbackResolved).toBe(0);
   });
 });

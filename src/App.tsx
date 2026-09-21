@@ -27,6 +27,7 @@ import VisionLibrary from './components/VisionLibrary';
 import StatisticsView from './components/StatisticsView';
 import FeedbackView from './components/FeedbackView';
 import CalendarView from './components/CalendarView';
+import AdminView from './components/AdminView';
 import { Page } from './types/ui';
 
 // Services
@@ -35,6 +36,7 @@ import { useTeam } from './contexts/TeamContext';
 import { useTheme } from './contexts/ThemeContext';
 import { bootPrefetch } from './lib/bootPrefetch';
 import { saveLastSelection } from './lib/lastSelection';
+import { clearAdminUnlock } from './lib/adminUnlock';
 
 export default function App() {
   // 1. Initialize Auth State from LocalStorage
@@ -74,6 +76,7 @@ export default function App() {
     localStorage.removeItem('cache:teams:v1');
     localStorage.removeItem('activeTeamId');
     localStorage.removeItem('activeSeasonId');
+    clearAdminUnlock();
     setIsAuthenticated(false);
     setCurrentPage('login');
     toast.success("Logged out successfully");
@@ -94,10 +97,15 @@ export default function App() {
       try {
         // Prefer the in-flight request kicked off at module load.
         const prefetched = bootPrefetch.takeMe();
-        if (prefetched) {
-          await prefetched;
-        } else {
-          await AuthService.getCurrentUser();
+        const me = prefetched ? await prefetched : await AuthService.getCurrentUser();
+        // Merge so a role change shows up without signing in again.
+        if (me && me.email) {
+          try {
+            const prev = JSON.parse(localStorage.getItem('user') || '{}');
+            localStorage.setItem('user', JSON.stringify({ ...prev, ...me }));
+          } catch {
+            localStorage.setItem('user', JSON.stringify(me));
+          }
         }
       } catch (error: any) {
         if (cancelled) return;
@@ -220,11 +228,13 @@ function AppLayout({ currentPage, navigateToPage, handleLogout }: { currentPage:
     vision:         <VisionLibrary />,
     statistics:     <StatisticsView />,
     feedback:       <FeedbackView />,
+    admin:          <AdminView />,
   };
 
   const isLoading = teamLoading || seasonLoading;
-  const showNoSeasonGuard = !isLoading && !activeSeason && currentPage !== 'feedback';
-  const showNoTeamGuard = !isLoading && activeSeason && !activeTeam && currentPage !== 'feedback';
+  const guardExempt = currentPage === 'feedback' || currentPage === 'admin';
+  const showNoSeasonGuard = !isLoading && !activeSeason && !guardExempt;
+  const showNoTeamGuard = !isLoading && activeSeason && !activeTeam && !guardExempt;
 
   return (
       <div className="flex h-[100dvh] bg-background text-foreground selection:bg-blue-500/30 overflow-hidden">

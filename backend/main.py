@@ -7,6 +7,7 @@ from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Response,
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 import models, schemas, database, security, email_service
 import uuid, os, shutil, secrets
@@ -29,6 +30,7 @@ def _ensure_columns():
         "ALTER TABLE players ADD COLUMN IF NOT EXISTS home_club VARCHAR",
         "ALTER TABLE players ADD COLUMN IF NOT EXISTS trial_rating INTEGER DEFAULT 0",
         "ALTER TABLE players ADD COLUMN IF NOT EXISTS trial_notes TEXT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR NOT NULL DEFAULT 'coach'",
     ]
     try:
         with database.engine.begin() as conn:
@@ -104,6 +106,21 @@ def get_current_user(request: Request, db: Session = Depends(database.get_db)):
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
     return user
+
+# 404, not 403, so the API never confirms the admin area exists.
+SUPERUSER_ROLE = "superuser"
+
+def require_superuser(current_user: models.User = Depends(get_current_user)) -> models.User:
+    if current_user.role != SUPERUSER_ROLE:
+        raise HTTPException(status_code=404, detail="Not found")
+    return current_user
+
+def require_admin_unlocked(request: Request, current_user: models.User = Depends(require_superuser)) -> models.User:
+    # 403 leaks nothing here: only a confirmed superuser can get this far.
+    token = request.headers.get("X-Admin-Token")
+    if not token or not security.decode_admin_token(token, current_user.email):
+        raise HTTPException(status_code=403, detail="Admin unlock required")
+    return current_user
 
 # --- OWNERSHIP HELPERS ---
 # Sessions, matches and match events have no coach_id of their own — they are
@@ -204,7 +221,8 @@ def login(user: schemas.UserLogin, response: Response, db: Session = Depends(dat
         "access_token": access_token,
         "user": {
             "email": db_user.email,
-            "full_name": db_user.full_name
+            "full_name": db_user.full_name,
+            "role": db_user.role or "coach"
         }
     }
 
@@ -285,7 +303,8 @@ def get_me(current_user: models.User = Depends(get_current_user)):
     """Return the current user's profile based on the JWT cookie."""
     return {
         "email": current_user.email,
-        "full_name": current_user.full_name
+        "full_name": current_user.full_name,
+        "role": current_user.role or "coach"
     }
 
 # Mirrors what the frontend offers (images, videos, PDF). Anything else —
@@ -382,6 +401,143 @@ def create_feedback(item: schemas.FeedbackRequestCreate, db: Session = Depends(d
     db.commit()
     db.refresh(db_item)
     return db_item
+
+# ==========================
+#     ADMIN (SUPERUSER)
+# ==========================
+# The only cross-tenant routes: feedback, account metadata and counts, never coach content (SUPERUSER.md).
+
+ALLOWED_FEEDBACK_STATUSES = {"new", "in_progress", "resolved"}
+
+# In memory: resets on restart and isn't shared across workers.
+ADMIN_UNLOCK_MAX_ATTEMPTS = 5
+ADMIN_UNLOCK_LOCKOUT_MINUTES = 5
+_admin_unlock_attempts: dict = {}
+
+@app.post("/admin/unlock", response_model=schemas.AdminUnlockResponse)
+def admin_unlock(
+    item: schemas.AdminUnlockRequest,
+    current_user: models.User = Depends(require_superuser),
+):
+    # Never 401: the frontend treats a 401 as an expired session and logs the coach out.
+    if not security.admin_code_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="Admin access code is not configured on the server (ADMIN_ACCESS_CODE)",
+        )
+
+    now = datetime.utcnow()
+    state = _admin_unlock_attempts.get(current_user.id)
+    if state and state.get("until") and state["until"] > now:
+        minutes = int((state["until"] - now).total_seconds() // 60) + 1
+        raise HTTPException(status_code=429, detail=f"Too many attempts. Try again in {minutes} minute(s).")
+
+    if not security.verify_admin_code(item.code):
+        fails = (state.get("fails", 0) + 1) if state else 1
+        locked = fails >= ADMIN_UNLOCK_MAX_ATTEMPTS
+        _admin_unlock_attempts[current_user.id] = {
+            "fails": 0 if locked else fails,
+            "until": now + timedelta(minutes=ADMIN_UNLOCK_LOCKOUT_MINUTES) if locked else None,
+        }
+        raise HTTPException(status_code=403, detail="Invalid access code")
+
+    _admin_unlock_attempts.pop(current_user.id, None)
+    return schemas.AdminUnlockResponse(
+        admin_token=security.create_admin_token(current_user.email),
+        expires_in_minutes=security.ADMIN_UNLOCK_EXPIRE_MINUTES,
+    )
+
+@app.get("/admin/stats", response_model=schemas.AdminStats)
+def admin_get_stats(db: Session = Depends(database.get_db), admin: models.User = Depends(require_admin_unlocked)):
+    def count(model) -> int:
+        return db.query(func.count(model.id)).scalar() or 0
+    status_counts = dict(
+        db.query(models.FeedbackRequest.status, func.count(models.FeedbackRequest.id))
+        .group_by(models.FeedbackRequest.status)
+        .all()
+    )
+    return schemas.AdminStats(
+        users=count(models.User),
+        teams=count(models.Team),
+        players=count(models.Player),
+        training_sessions=count(models.TrainingSession),
+        matches=count(models.Match),
+        feedback_total=sum(status_counts.values()),
+        feedback_new=status_counts.get("new", 0),
+        feedback_in_progress=status_counts.get("in_progress", 0),
+        feedback_resolved=status_counts.get("resolved", 0),
+    )
+
+@app.get("/admin/users", response_model=list[schemas.AdminUserItem])
+def admin_get_users(db: Session = Depends(database.get_db), admin: models.User = Depends(require_admin_unlocked)):
+    team_counts = dict(
+        db.query(models.Team.coach_id, func.count(models.Team.id))
+        .group_by(models.Team.coach_id).all()
+    )
+    feedback_counts = dict(
+        db.query(models.FeedbackRequest.coach_id, func.count(models.FeedbackRequest.id))
+        .group_by(models.FeedbackRequest.coach_id).all()
+    )
+    users = db.query(models.User).order_by(models.User.created_at.desc()).all()
+    return [
+        schemas.AdminUserItem(
+            id=u.id,
+            email=u.email,
+            full_name=u.full_name,
+            role=u.role or "coach",
+            is_verified=bool(u.is_verified),
+            created_at=u.created_at,
+            team_count=team_counts.get(u.id, 0),
+            feedback_count=feedback_counts.get(u.id, 0),
+        )
+        for u in users
+    ]
+
+@app.get("/admin/feedback", response_model=list[schemas.AdminFeedbackItem])
+def admin_get_feedback(db: Session = Depends(database.get_db), admin: models.User = Depends(require_admin_unlocked)):
+    rows = (
+        db.query(models.FeedbackRequest, models.User.email, models.User.full_name)
+        .join(models.User, models.User.id == models.FeedbackRequest.coach_id)
+        .order_by(models.FeedbackRequest.created_at.desc())
+        .all()
+    )
+    return [
+        schemas.AdminFeedbackItem(
+            id=fb.id,
+            type=fb.type,
+            title=fb.title,
+            description=fb.description,
+            screenshot_urls=fb.screenshot_urls,
+            status=fb.status,
+            created_at=fb.created_at,
+            coach_email=email,
+            coach_name=full_name,
+        )
+        for fb, email, full_name in rows
+    ]
+
+@app.put("/admin/feedback/{feedback_id}/status", response_model=schemas.AdminFeedbackItem)
+def admin_update_feedback_status(feedback_id: str, item: schemas.AdminFeedbackStatusUpdate, db: Session = Depends(database.get_db), admin: models.User = Depends(require_admin_unlocked)):
+    if item.status not in ALLOWED_FEEDBACK_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    fb = db.query(models.FeedbackRequest).filter(models.FeedbackRequest.id == feedback_id).first()
+    if not fb:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+    fb.status = item.status
+    db.commit()
+    db.refresh(fb)
+    author = db.query(models.User).filter(models.User.id == fb.coach_id).first()
+    return schemas.AdminFeedbackItem(
+        id=fb.id,
+        type=fb.type,
+        title=fb.title,
+        description=fb.description,
+        screenshot_urls=fb.screenshot_urls,
+        status=fb.status,
+        created_at=fb.created_at,
+        coach_email=author.email if author else "",
+        coach_name=author.full_name if author else None,
+    )
 
 # ==========================
 #      CALENDAR EVENTS

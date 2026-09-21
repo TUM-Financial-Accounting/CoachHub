@@ -1,6 +1,7 @@
 // src/services/api-client.ts
 import { API_BASE_URL, JSON_HEADERS } from '../lib/api-config';
 import { saveLastSelection } from '../lib/lastSelection';
+import { getAdminToken, clearAdminUnlock } from '../lib/adminUnlock';
 
 // Request-level logging is dev-only noise; keep production consoles clean.
 const DEV = import.meta.env.DEV;
@@ -25,6 +26,11 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  if (endpoint.startsWith('/admin')) {
+    const adminToken = getAdminToken();
+    if (adminToken) headers['X-Admin-Token'] = adminToken;
   }
 
   try {
@@ -63,6 +69,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
           localStorage.removeItem('cache:teams:v1');
           localStorage.removeItem('activeTeamId');
           localStorage.removeItem('activeSeasonId');
+          clearAdminUnlock();
           window.location.reload();
           throw new Error('Session expired. Please log in again.');
         }
@@ -72,7 +79,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.error(`[API] Error on ${endpoint}:`, errorData);
-      throw new Error(errorData.detail || `Request failed: ${response.statusText}`);
+      const error = new Error(errorData.detail || `Request failed: ${response.statusText}`);
+      (error as Error & { status?: number }).status = response.status;
+      throw error;
     }
 
     // Some endpoints (e.g. DELETE) may respond with 204 / an empty body.

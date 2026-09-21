@@ -218,8 +218,9 @@ export default function FeedbackView() {
             </button>
           </div>
 
-          <div className="flex justify-end pt-2">
-            <Button type="submit" isLoading={submitting} icon={<Send size={14} />}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
+            <p className="text-xs text-muted sm:max-w-md">{t('feedback.privacyNotice')}</p>
+            <Button type="submit" isLoading={submitting} icon={<Send size={14} />} className="flex-shrink-0">
               {t('feedback.submit')}
             </Button>
           </div>

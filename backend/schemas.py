@@ -262,6 +262,7 @@ class User(BaseModel):
     email: str
     full_name: Optional[str] = None
     is_verified: bool = False
+    role: str = "coach"
 
     class Config:
         orm_mode = True
@@ -317,3 +318,42 @@ class FeedbackRequest(FeedbackRequestCreate):
     class Config:
         orm_mode = True
         from_attributes = True
+
+# ==========================
+#     ADMIN (SUPERUSER)
+# ==========================
+
+class AdminFeedbackItem(FeedbackRequest):
+    coach_email: str
+    coach_name: Optional[str] = None
+
+class AdminFeedbackStatusUpdate(BaseModel):
+    status: str  # 'new' | 'in_progress' | 'resolved'
+
+class AdminUnlockRequest(BaseModel):
+    code: str
+
+class AdminUnlockResponse(BaseModel):
+    admin_token: str
+    expires_in_minutes: int
+
+class AdminUserItem(BaseModel):
+    id: str
+    email: str
+    full_name: Optional[str] = None
+    role: str = "coach"
+    is_verified: bool = False
+    created_at: Optional[date] = None
+    team_count: int = 0
+    feedback_count: int = 0
+
+class AdminStats(BaseModel):
+    users: int
+    teams: int
+    players: int
+    training_sessions: int
+    matches: int
+    feedback_total: int
+    feedback_new: int
+    feedback_in_progress: int
+    feedback_resolved: int

@@ -154,3 +154,38 @@ export interface CustomFormation {
 }
 
 export interface LineupPlayer extends Player { positionSlot: string; isStarter: boolean; }
+
+export interface AdminFeedbackItem {
+  id: string;
+  type: 'bug' | 'feature' | 'question';
+  title: string;
+  description: string;
+  screenshotUrls: string[];
+  status: 'new' | 'in_progress' | 'resolved';
+  createdAt: string;
+  coachEmail: string;
+  coachName: string;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  fullName: string;
+  role: string;
+  isVerified: boolean;
+  createdAt: string;
+  teamCount: number;
+  feedbackCount: number;
+}
+
+export interface AdminStats {
+  users: number;
+  teams: number;
+  players: number;
+  trainingSessions: number;
+  matches: number;
+  feedbackTotal: number;
+  feedbackNew: number;
+  feedbackInProgress: number;
+  feedbackResolved: number;
+}

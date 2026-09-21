@@ -245,6 +245,8 @@ class User(Base):
     password = Column(String) 
     full_name = Column(String, nullable=True)
     created_at = Column(Date, default=datetime.date.today)
+    # Assigned only via create_superuser.py, never through the API.
+    role = Column(String, nullable=False, default="coach", server_default="coach")
 
     # Password Reset
     reset_token = Column(String, nullable=True)

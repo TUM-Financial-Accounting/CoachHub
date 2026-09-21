@@ -1,5 +1,5 @@
 // src/lib/data-mappers.ts
-import { Player, TrainingSession, Basic, Principle, Tactic, Exercise, Match, MatchDetails, SelectorItem, CalendarEvent } from '../types/models';
+import { Player, TrainingSession, Basic, Principle, Tactic, Exercise, Match, MatchDetails, SelectorItem, CalendarEvent, AdminFeedbackItem, AdminUser, AdminStats } from '../types/models';
 
 /**
  * Maps a raw player object from the snake_case API response
@@ -321,4 +321,39 @@ export const mapExerciseToApi = (e: Exercise) => ({
   linked_principles: e.linkedPrinciples.join(','),
   linked_tactics: e.linkedTactics.join(','),
   media_url: e.mediaUrl,
+});
+
+export const mapAdminFeedbackFromApi = (f: any): AdminFeedbackItem => ({
+  id: f.id,
+  type: f.type || 'question',
+  title: f.title || '',
+  description: f.description || '',
+  screenshotUrls: f.screenshot_urls || [],
+  status: f.status || 'new',
+  createdAt: f.created_at || '',
+  coachEmail: f.coach_email || '',
+  coachName: f.coach_name || '',
+});
+
+export const mapAdminUserFromApi = (u: any): AdminUser => ({
+  id: u.id,
+  email: u.email || '',
+  fullName: u.full_name || '',
+  role: u.role || 'coach',
+  isVerified: !!u.is_verified,
+  createdAt: u.created_at || '',
+  teamCount: u.team_count || 0,
+  feedbackCount: u.feedback_count || 0,
+});
+
+export const mapAdminStatsFromApi = (s: any): AdminStats => ({
+  users: s.users || 0,
+  teams: s.teams || 0,
+  players: s.players || 0,
+  trainingSessions: s.training_sessions || 0,
+  matches: s.matches || 0,
+  feedbackTotal: s.feedback_total || 0,
+  feedbackNew: s.feedback_new || 0,
+  feedbackInProgress: s.feedback_in_progress || 0,
+  feedbackResolved: s.feedback_resolved || 0,
 });

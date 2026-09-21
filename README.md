@@ -18,6 +18,7 @@ A modern, coach-centric web dashboard for managing sports teams, training sessio
 - Command Palette - Quick navigation and global search with Ctrl+K / Cmd+K
 - Vision Library - Upload and present tactical philosophy PDFs
 - Feedback - In-app bug reports, feature requests, and questions
+- Admin - Superuser role with a read-only admin page: all feedback (with triage), account metadata, and platform aggregates. Reaching it needs a second factor: the `ADMIN_ACCESS_CODE` from the server environment, entered after login and valid for 30 minutes in that browser tab (see `SUPERUSER.md`)
 - i18n - Full English and German translations
 - Theming - Light, dark, and system mode
 - Responsive - Desktop-first with mobile support
@@ -45,6 +46,8 @@ cp backend/.env.example backend/.env
 ```bash
 DATABASE_URL=postgresql://<user>:<password>@localhost/<db_name>
 SECRET_KEY=<any long random string>   # required — the API refuses to boot without it
+ADMIN_ACCESS_CODE=<second secret>     # required to open the admin area; without it
+                                      # /admin/* stays locked for everyone
 FRONTEND_URL=http://localhost:5173    # optional, defaults shown
 UPLOAD_DIR=/path/to/persistent/volume # optional — where uploaded media is stored
                                       # (defaults to backend/static/uploads)
@@ -269,6 +272,10 @@ Tests live next to the code they cover as `*.test.ts`.
 | GET / POST | `/visions` | List / upload vision documents |
 | DELETE | `/visions/{id}` | Delete a vision document |
 | GET / POST | `/feedback` | List / submit feedback |
+| GET | `/admin/stats` | Superuser: global aggregate counts |
+| GET | `/admin/users` | Superuser: account metadata list |
+| GET | `/admin/feedback` | Superuser: all feedback with author identity |
+| PUT | `/admin/feedback/{id}/status` | Superuser: set feedback status |
 | GET | `/playbook/export` | Export libraries as JSON |
 | POST | `/playbook/import` | Import libraries from JSON |
 | POST | `/upload` | Upload a media file |
@@ -295,6 +302,8 @@ npm run test:coverage  # Run with a coverage report
 cd backend
 uvicorn main:app --reload   # Start the API on :8000
 python seed.py              # Seed the demo account
+python create_superuser.py admin@example.com --name "Site Admin"  # create a superuser (prompts for password)
+python create_superuser.py existing@example.com --promote         # promote an existing account
 ```
 
 ---
@@ -344,6 +353,7 @@ Railway dashboard, so the settings below are the contract the code expects.
 | Root directory | `backend/` |
 | Start command | `uvicorn main:app --host 0.0.0.0 --port $PORT` |
 | Required env | `DATABASE_URL`, `SECRET_KEY` |
+| Admin env | `ADMIN_ACCESS_CODE` — step-up code for `/admin/*`; unset means the admin area is unreachable |
 | Important env | `FRONTEND_URL`, `UPLOAD_DIR` |
 
 - `SECRET_KEY` is mandatory — `security.py` raises at import if it is unset, so
@@ -409,6 +419,13 @@ db.query(models.Match).filter(
 
 Unauthorized access returns **404, not 403** — deliberately, so the API never
 confirms that someone else's id exists.
+
+**Superuser.** `users.role` (`coach` default / `superuser`) unlocks the
+cross-tenant `/admin/*` endpoints via the `require_superuser` dependency
+(404 for everyone else). Scope is deliberately narrow — all feedback with
+author identity, account metadata, and aggregate counts; never coach content.
+Roles are assigned only by `backend/create_superuser.py`, never through the
+API. The full rights concept lives in `SUPERUSER.md`.
 
 **Deletes are cascaded in Python, not by the database.** `delete_team_cascade()`
 tears down matches (via the ORM, so `Match.events` cascades) → sessions →
