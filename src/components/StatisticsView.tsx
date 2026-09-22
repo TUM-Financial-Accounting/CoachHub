@@ -1,19 +1,21 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Users, History } from 'lucide-react';
+import { Users, History, FileDown } from 'lucide-react';
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
   XAxis, YAxis, CartesianGrid, Tooltip,
   LineChart, Line,
 } from 'recharts';
 import { Card } from './ui/Card';
+import { Button } from './ui/Button';
 import { useTeam } from '../contexts/TeamContext';
 import { useSeason } from '../contexts/SeasonContext';
 import { MatchService } from '../services';
 import { MatchDetails } from '../types/models';
-import { formatDate } from '../lib/dates';
 import { toast } from 'sonner';
-import { parseLocalDate, todayISO } from '../lib/dates';
+import { formatDate, parseLocalDate, todayISO } from '../lib/dates';
+import { loadSeasonReport } from '../lib/seasonReport/load';
+import { renderSeasonReport, reportFileName } from '../lib/seasonReport/render';
 
 interface TopPerformer {
   player_id: string;
@@ -31,6 +33,23 @@ export default function StatisticsView() {
   const [matches, setMatches] = useState<MatchDetails[]>([]);
   const [topPerformers, setTopPerformers] = useState<TopPerformer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+
+  const exportReport = async () => {
+    if (!activeTeam || !activeSeason || exporting) return;
+    setExporting(true);
+    try {
+      const report = await loadSeasonReport(activeTeam, activeSeason);
+      const doc = renderSeasonReport(report, (key, options) => t(key as any, options as any) as string, i18n.language);
+      doc.save(reportFileName(report));
+      toast.success(t('seasonReport.done'));
+    } catch (err) {
+      console.error('[SeasonReport] export failed', err);
+      toast.error(t('seasonReport.failed'));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     if (activeTeam) {
@@ -178,22 +197,29 @@ export default function StatisticsView() {
             </p>
           </div>
         </div>
-        {recentForm.length > 0 && (
-          <div className="flex flex-col items-start sm:items-end gap-1.5">
-            <span className="text-xs text-muted">{t('statistics.lastResults', { count: recentForm.length })}</span>
-            <div className="flex gap-1">
-              {recentForm.map((f, i) => (
-                <div
-                  key={i}
-                  className={`w-7 h-7 rounded-md ${f.color} flex items-center justify-center text-white text-xs font-bold`}
-                  title={f.label}
-                >
-                  {f.type}
-                </div>
-              ))}
+        <div className="flex items-end gap-5">
+          {recentForm.length > 0 && (
+            <div className="flex flex-col items-start sm:items-end gap-1.5">
+              <span className="text-xs text-muted">{t('statistics.lastResults', { count: recentForm.length })}</span>
+              <div className="flex gap-1">
+                {recentForm.map((f, i) => (
+                  <div
+                    key={i}
+                    className={`w-7 h-7 rounded-md ${f.color} flex items-center justify-center text-white text-xs font-bold`}
+                    title={f.label}
+                  >
+                    {f.type}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+          {activeTeam && activeSeason && (
+            <Button onClick={exportReport} isLoading={exporting} icon={<FileDown size={16} />}>
+              {exporting ? t('seasonReport.generating') : t('seasonReport.button')}
+            </Button>
+          )}
+        </div>
       </div>
 
       {matches.length === 0 ? (

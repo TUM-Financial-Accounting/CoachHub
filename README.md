@@ -16,6 +16,7 @@ A modern, coach-centric web dashboard for managing sports teams, training sessio
 - Libraries - Manage Basics, Principles (with media upload), and Tactics
 - Match & Lineup - Visual drag-and-drop field positioning, lineup builder, and custom formations; supports 11v11 plus 7v7 / 9v9 youth formats
 - Match Stats & Statistics - Record results, goals, and assists; season statistics with charts and leaderboards
+- Season Report - One-click PDF (EN/DE) from the Statistics page: results, squad stats, awards, goal timing, formations, training load, and per-player profiles. Generated in the browser (`src/lib/seasonReport/`), no backend endpoint
 - Playbook - Export/import Basics, Principles, Tactics, and Exercises as JSON to share between accounts
 - Command Palette - Quick navigation and global search with Ctrl+K / Cmd+K
 - Vision Library - Upload and present tactical philosophy PDFs
