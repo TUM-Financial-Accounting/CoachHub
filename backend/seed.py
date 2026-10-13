@@ -19,13 +19,14 @@ Login after seeding:  demo@coachhub.app  /  demo1234
 import os
 import random
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from passlib.context import CryptContext  # noqa: E402
 
 import database  # noqa: E402
+from constants import EVENT_ASSIST, EVENT_GOAL  # noqa: E402
 import models  # noqa: E402
 
 # Same scheme as backend/security.py — importing security here would require
@@ -75,44 +76,45 @@ TRIALISTS = [
      "Composed on the ball but lacks pace against quick forwards. Keep watching."),
 ]
 
+# Categories use the canonical values from src/lib/exerciseCategories.ts (they are i18n keys).
 EXERCISES = [
-    ("Rondo 5v2", "technique", "Medium",
+    ("Rondo 5v2", "Technique", "Medium",
      "Five players in a circle, two defenders in the middle. One touch only.",
      "10x10m grid, 7 players, one ball", "Two-touch for younger groups; add a third defender to progress.",
      "Body shape before receiving. Head up. Play the pass that breaks the line."),
-    ("Passing Diamond", "technique", "Low",
+    ("Passing Diamond", "Technique", "Low",
      "Four cones in a diamond. Pass and follow, alternating direction on the coach's call.",
      "15x15m diamond, 8 players, two balls", "Add a one-two at each corner.",
      "Weight of pass. Receive across the body. Communicate before the ball arrives."),
-    ("4v4 Transition Game", "game form", "High",
+    ("4v4 Transition Game", "GameForm", "High",
      "Two teams of four. On turnover the ball must reach the far zone within five seconds.",
      "30x20m pitch, four small goals", "Add two neutral players to overload the team in possession.",
      "React the instant possession changes. First pass forward if it's on."),
-    ("Pressing Triggers", "tactical", "High",
+    ("Pressing Triggers", "Tactical", "High",
      "Shadow play. The back pass is the trigger — the whole unit steps up together.",
      "Half pitch, 11 players, mannequins", "Progress to live opposition at 60% intensity.",
      "Press as a unit, never alone. Cut the passing lane, then close the man."),
-    ("Build-Up From The Keeper", "tactical", "Medium",
+    ("Build-Up From The Keeper", "Tactical", "Medium",
      "Goalkeeper plays out under pressure from two forwards. Centre-backs split.",
      "Defensive third, 9 players", "Add a third presser to force the long option.",
      "Angles, not distance. Keeper is always an option to go back to."),
-    ("Finishing Under Pressure", "technique", "High",
+    ("Finishing Under Pressure", "Technique", "High",
      "Striker receives with back to goal, turns, finishes with a defender closing.",
      "Penalty area, servers on both flanks", "Two-touch limit; then first-time finishes only.",
      "Check away before checking in. Shoot across the keeper."),
-    ("Speed Ladder Circuit", "athletic", "High",
+    ("Speed Ladder Circuit", "Athletic", "High",
      "Four stations: ladder, hurdles, sprint, change of direction. 30s work, 30s rest.",
      "Ladders, mini hurdles, cones", "Add a ball at the final station.",
      "Quality over speed early. Land soft, drive the arms."),
-    ("Small-Sided 7v7", "game form", "High",
+    ("Small-Sided 7v7", "GameForm", "High",
      "Full game in a reduced area. Free play, coach observes only.",
      "50x40m pitch, two goals", "Condition it: two-touch, or goals only from inside the box.",
      "Let them play. Coach in the breaks, not during."),
-    ("Defensive Shape 4-4-2", "tactical", "Medium",
+    ("Defensive Shape 4-4-2", "Tactical", "Medium",
      "Back eight hold shape while the ball is moved around the attacking third.",
      "Half pitch, mannequins", "Add live forwards to punish gaps.",
      "Distance between the lines. Shuffle, don't chase."),
-    ("Recovery Session", "athletic", "Low",
+    ("Recovery Session", "Athletic", "Low",
      "Light jog, mobility work, and stretching the day after a match.",
      "Full pitch, mats", "Add pool work if available.",
      "Conversation pace throughout. This is recovery, not training."),
@@ -177,6 +179,8 @@ def wipe_demo_data(db, user):
     # ORM delete so Match.events cascades.
     for match in db.query(models.Match).filter(models.Match.team_id.in_(team_ids or [""])).all():
         db.delete(match)
+    # Bulk deletes below don't flush pending ORM deletes; the matches must be gone before the teams.
+    db.flush()
     if player_ids:
         db.query(models.MatchEvent).filter(models.MatchEvent.player_id.in_(player_ids)).delete(synchronize_session=False)
         db.query(models.MatchRating).filter(models.MatchRating.player_id.in_(player_ids)).delete(synchronize_session=False)
@@ -285,7 +289,7 @@ def seed(reset=False):
                 description=desc, setup=setup, variations=variations,
                 coaching_points=points, goalkeepers=1 if "Keeper" in name else 0,
                 equipment="Cones, bibs, balls",
-                linked_tactics="4-3-3 High Press" if category == "tactical" else None,
+                linked_tactics="4-3-3 High Press" if category == "Tactical" else None,
             )
             db.add(e)
             exercises.append(e)
@@ -362,10 +366,10 @@ def seed(reset=False):
                 scorer = scorers[(i * 3 + g) % len(scorers)]
                 assister = scorers[(i * 3 + g + 2) % len(scorers)]
                 db.add(models.MatchEvent(match_id=match.id, player_id=scorer.id,
-                                         event_type="Goal", minute=10 + (g * 17) % 80))
+                                         event_type=EVENT_GOAL, minute=10 + (g * 17) % 80))
                 if assister.id != scorer.id:
                     db.add(models.MatchEvent(match_id=match.id, player_id=assister.id,
-                                             event_type="Assist", minute=10 + (g * 17) % 80))
+                                             event_type=EVENT_ASSIST, minute=10 + (g * 17) % 80))
             # Per-match ratings so the season report has averages and MVPs.
             for p in u15_players[:11]:
                 db.add(models.MatchRating(match_id=match.id, player_id=p.id, rating=rng.randint(5, 9)))

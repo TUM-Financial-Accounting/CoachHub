@@ -266,7 +266,6 @@ Tests live next to the code they cover as `*.test.ts`.
 | GET / POST | `/matches` | List / create matches |
 | GET | `/matches/latest` | Get next upcoming match |
 | PUT / DELETE | `/matches/{id}` | Update / delete a match (delete removes its events too) |
-| PUT | `/matches/{id}/lineup` | Save lineup and formation |
 | PUT | `/matches/{id}/stats` | Record final score and notes |
 | GET / POST | `/matches/{match_id}/events` | List / add goals and assists |
 | DELETE | `/match_events/{id}` | Delete a goal/assist event |
@@ -274,7 +273,7 @@ Tests live next to the code they cover as `*.test.ts`.
 | PUT / DELETE | `/matches/{match_id}/ratings/{player_id}` | Set (upsert, body `{rating: 1-10}`) / clear a player's match rating |
 | GET | `/stats/ratings` | All match ratings of a team (`?team_id=&season_id=`) |
 | GET | `/stats/top-performers` | Top scorers and assisters |
-| GET | `/match/suggested-formation` | Suggest formation from recent training |
+| GET | `/match/suggested-formation` | Suggest formation from recent training: `{formation, kind: "training" \| "default", session_date, exercise_name}` (`source` is a legacy English sentence) |
 | GET / POST | `/custom_formations` | List / create custom formations |
 | DELETE | `/custom_formations/{id}` | Delete a custom formation |
 | GET / POST | `/visions` | List / upload vision documents |
@@ -305,6 +304,7 @@ npm run dev            # Start frontend dev server (Vite, port 5173)
 npm run build          # Type-check (tsc) and build for production
 npm run preview        # Preview the production build locally
 npm start              # Serve the built dist/ folder (used by the Railway deploy)
+npm run lint           # ESLint (hooks rules + typescript-eslint recommended)
 npm run test           # Run the Vitest suite once
 npm run test:watch     # Run Vitest in watch mode
 npm run test:coverage  # Run with a coverage report
@@ -318,6 +318,9 @@ uvicorn main:app --reload   # Start the API on :8000
 python seed.py              # Seed the demo account
 python create_superuser.py admin@example.com --name "Site Admin"  # create a superuser (prompts for password)
 python create_superuser.py existing@example.com --promote         # promote an existing account
+pip install -r requirements-dev.txt  # pytest, httpx, ruff (local only; Railway installs requirements.txt)
+python -m pytest            # Backend tests (throwaway SQLite, never DATABASE_URL)
+python -m ruff check .      # Lint (config in backend/ruff.toml)
 ```
 
 ---
@@ -345,11 +348,32 @@ npm run test
 Config lives in `vitest.config.ts`; `src/test/setup.ts` clears `localStorage`
 and `sessionStorage` around every test.
 
+The backend has a `pytest` suite in `backend/tests/` that drives the real
+FastAPI app (`TestClient`, real JWTs) against a throwaway SQLite file with
+foreign keys enforced. `tests/conftest.py` pins every env var before importing
+`main`, so `backend/.env` and its `DATABASE_URL` are never used, and it refuses
+to run against anything but SQLite.
+
+| File | Covers |
+|------|--------|
+| `tests/test_ownership.py` | Per-coach isolation: lists, reads, writes and deletes on another coach's rows → 404 |
+| `tests/test_series.py` | Recurring training/event series: creation, validation, `this` / `future` / `all` scopes |
+| `tests/test_cascade.py` | Team, season, player and match deletes with everything hanging off them |
+| `tests/test_matches.py` | Match ratings, top performers, suggested formation |
+| `tests/test_recurrence.py` | `recurrence.expand` patterns (weekly, biweekly, monthly n-th weekday) |
+| `tests/test_validation.py`, `test_players.py`, `test_admin_feedback.py`, `test_email.py`, `test_seed.py` | Schema validation, squad view shape, admin feedback, email routing, `seed.py --reset` |
+
+```bash
+cd backend
+pip install -r requirements-dev.txt   # first time only
+python -m pytest
+```
+
+SQLite is not Postgres: `_ensure_columns()` (Postgres-only SQL) is skipped in
+tests, so column backfills are still verified by hand on startup.
+
 **Not covered yet** — React components and contexts have no render tests, and
-the backend has no `pytest` suite. The highest-value place to start on the
-backend is the ownership helpers in `main.py` (`owned_team_ids`,
-`require_owned_team`) and the recurring-series scope semantics, since those
-carry the most risk.
+there is no CI running either suite.
 
 ---
 
@@ -497,10 +521,11 @@ Honest list of the sharp edges, for whoever picks this up next.
 | Migrations | No Alembic. Column additions go in `_ensure_columns()`, which is Postgres-only and fails silently. |
 | Data model | Multi-value fields (`selected_players`, `selected_exercises`, `linked_tactics`, `linked_basics`, `linked_principles`, `equipment`) are comma-separated strings, not join tables. They cannot be queried or joined on. |
 | Equipment names | The equipment choices (`EQUIPMENT_OPTIONS` in `src/lib/domain.ts`) are stored and shown as English text, so German users see English. Translating them means storing a canonical key like the exercise categories do, which needs a migration of existing rows. |
-| Routing | `backend/main.py` is ~1,470 lines of routes in one file. It should be split into per-resource FastAPI routers. |
-| Caching | The season/team contexts are a hand-rolled cache. `cache:seasons:v1` / `cache:teams:v1` never expire — a schema change needs a manual key bump. TanStack Query would remove roughly 200 lines. |
+| Routing | `backend/main.py` is ~1,900 lines of routes in one file. It should be split into per-resource FastAPI routers. Route naming is mixed (`/custom_formations` vs `/forgot-password`, `/match/suggested-formation` vs `/matches/...`) but is part of the API contract, so it stays. |
+| Caching | The season/team contexts are a hand-rolled cache. `cache:seasons:v1` / `cache:teams:v2` never expire — a schema change needs a manual key bump. TanStack Query would remove roughly 200 lines. |
 | Bundle | No route-level code splitting; one bundle ships everything, so the login page pulls in Recharts and jsPDF. |
-| Tests | Frontend logic only (see Testing). No component tests, no backend tests, no CI. |
+| Tests | Frontend logic and a backend `pytest` suite on SQLite (see Testing). No component tests, no CI. |
+| Timestamps | `DateTime` columns are naive UTC (`models.utcnow()`). Switching to timezone-aware values needs a migration of stored rows. |
 | Monitoring | No error tracking or CI gate in front of deploys. |
 
 One concrete bug worth knowing about: `create_player` (`backend/main.py`) looks

@@ -1,0 +1,13 @@
+# Not pyproject.toml: that would change how Railway installs dependencies.
+target-version = "py311"
+extend-exclude = [".venv"]
+
+[lint]
+# ruff's defaults, explicit so a user-level config can't widen them.
+select = ["E4", "E7", "E9", "F"]
+ignore = [
+    "E401",  # `import a, b` is the house style
+    "E402",  # load_dotenv() / sys.path setup must run before the app imports
+    "E701",  # one-line `if not x: raise HTTPException(...)` guards
+    "E712",  # SQLAlchemy filters need `== False`; `not col` is not a SQL expression
+]

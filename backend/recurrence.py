@@ -1,7 +1,9 @@
 from datetime import date, timedelta
 
-FREQUENCIES = ("weekly", "biweekly", "monthly")
-MAX_OCCURRENCES = 200
+import constants
+
+FREQUENCIES = constants.SERIES_FREQUENCIES
+MAX_OCCURRENCES = constants.MAX_SERIES_OCCURRENCES
 
 
 def expand(start: date, end: date, frequency: str, weekdays: list) -> list:

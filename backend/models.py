@@ -1,9 +1,16 @@
-from sqlalchemy import Column, String, Integer, Float, Text, Boolean, Date, Time, ForeignKey, Table, JSON
+from sqlalchemy import Column, String, Integer, Float, Text, Boolean, Date, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from database import Base
+from constants import DEFAULT_FORMATION, FEEDBACK_STATUS_NEW, ROLE_COACH
 import uuid
-import datetime 
+import datetime
 from sqlalchemy import DateTime
+
+
+def utcnow() -> datetime.datetime:
+    """Naive UTC, matching the naive DateTime columns (datetime.utcnow() is deprecated)."""
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
 
 class TeamPlayer(Base):
     __tablename__ = 'team_players'
@@ -201,7 +208,7 @@ class Match(Base):
     date = Column(Date)
     time = Column(String)
     location = Column(String)
-    formation = Column(String, default="4-4-2")
+    formation = Column(String, default=DEFAULT_FORMATION)
     
     lineup = Column(Text, nullable=True)
     goals_for = Column(Integer, default=0)
@@ -216,7 +223,7 @@ class MatchEvent(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     match_id = Column(String, ForeignKey("matches.id"), nullable=False)
     player_id = Column(String, ForeignKey("players.id"), nullable=False)
-    event_type = Column(String) # "Goal", "Assist"
+    event_type = Column(String)  # EVENT_GOAL | EVENT_ASSIST
     minute = Column(Integer, nullable=True)
     
     match = relationship("Match", back_populates="events")
@@ -259,7 +266,7 @@ class User(Base):
     full_name = Column(String, nullable=True)
     created_at = Column(Date, default=datetime.date.today)
     # Assigned only via create_superuser.py, never through the API.
-    role = Column(String, nullable=False, default="coach", server_default="coach")
+    role = Column(String, nullable=False, default=ROLE_COACH, server_default=ROLE_COACH)
 
     # Password Reset
     reset_token = Column(String, nullable=True)
@@ -286,7 +293,7 @@ class Event(Base):
     date = Column(Date)
     start_time = Column(String)
     end_time = Column(String)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     series_id = Column(String, ForeignKey("event_series.id"), nullable=True)
 
 
@@ -326,7 +333,7 @@ class GoogleAccount(Base):
 
     last_synced_at = Column(DateTime, nullable=True)
     last_error = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 # --- FEEDBACK ---
@@ -338,5 +345,5 @@ class FeedbackRequest(Base):
     title = Column(String)
     description = Column(Text)
     screenshot_urls = Column(JSON, nullable=True)
-    status = Column(String, default="new")  # 'new' | 'in_progress' | 'resolved'
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    status = Column(String, default=FEEDBACK_STATUS_NEW)  # one of FEEDBACK_STATUSES
+    created_at = Column(DateTime, default=utcnow)

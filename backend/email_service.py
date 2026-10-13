@@ -1,31 +1,21 @@
 # backend/email_service.py
-import os
-import smtplib
 import json
-import urllib.request
+import logging
+import smtplib
 import urllib.error
-from email.mime.text import MIMEText
+import urllib.request
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
-# Resend (HTTP API — preferred when configured)
-RESEND_API_KEY = os.getenv("RESEND_API_KEY")
-RESEND_FROM = os.getenv("RESEND_FROM", "CoachHub <onboarding@resend.dev>")
+import config
 
-# SMTP fallback configuration
-SMTP_HOST = os.getenv("SMTP_HOST")
-SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
-SMTP_USER = os.getenv("SMTP_USER")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-SMTP_FROM = os.getenv("SMTP_FROM", "noreply@coachhub.com")
-
-# The frontend base URL (adjust as needed for production)
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+logger = logging.getLogger(__name__)
 
 
 def _send_via_resend(to: str, subject: str, text_body: str) -> bool:
     """Send an email via Resend's HTTP API. Returns True on success."""
     payload = json.dumps({
-        "from": RESEND_FROM,
+        "from": config.RESEND_FROM,
         "to": [to],
         "subject": subject,
         "text": text_body,
@@ -35,7 +25,7 @@ def _send_via_resend(to: str, subject: str, text_body: str) -> bool:
         "https://api.resend.com/emails",
         data=payload,
         headers={
-            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Authorization": f"Bearer {config.RESEND_API_KEY}",
             "Content-Type": "application/json",
             "User-Agent": "CoachHub/1.0 (+https://coachhub.local)",
             "Accept": "application/json",
@@ -45,23 +35,57 @@ def _send_via_resend(to: str, subject: str, text_body: str) -> bool:
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             if 200 <= resp.status < 300:
-                print(f"Resend: email sent to {to} (status {resp.status})")
+                logger.info("Resend: email sent to %s (status %s)", to, resp.status)
                 return True
-            print(f"Resend: unexpected status {resp.status} sending to {to}")
+            logger.warning("Resend: unexpected status %s sending to %s", resp.status, to)
             return False
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
-        print(f"Resend HTTPError {e.code} sending to {to}: {body}")
+        logger.warning("Resend HTTPError %s sending to %s: %s", e.code, to, body)
         return False
     except Exception as e:
-        print(f"Resend send failed for {to}: {e}")
+        logger.warning("Resend send failed for %s: %s", to, e)
         return False
 
-def send_verification_email(email: str, token: str):
-    """Sends an account verification email or logs it if SMTP is not configured."""
-    verify_link = f"{FRONTEND_URL}/?verify_token={token}"
 
-    subject = "CoachHub - Verify your email"
+def _send_via_smtp(to: str, subject: str, text_body: str) -> bool:
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = config.SMTP_FROM
+        msg['To'] = to
+        msg['Subject'] = subject
+        msg.attach(MIMEText(text_body, 'plain'))
+
+        with smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT) as server:
+            server.starttls()
+            server.login(config.SMTP_USER, config.SMTP_PASSWORD)
+            server.send_message(msg)
+
+        logger.info("Email '%s' sent to %s", subject, to)
+        return True
+    except Exception as e:
+        logger.warning("Error sending '%s' to %s: %s", subject, to, e)
+        return False
+
+
+def _send(to: str, subject: str, body: str, link_label: str, link: str) -> bool:
+    """Resend if configured, else SMTP; with neither, the link goes to the server log."""
+    if config.RESEND_API_KEY:
+        return _send_via_resend(to, subject, body)
+
+    if not config.SMTP_HOST:
+        logger.warning(
+            "\n%s\nPRODUCTION WARNING: No email provider configured!\nTo: %s\nSubject: %s\n%s: %s\n%s",
+            "=" * 50, to, subject, link_label, link, "=" * 50,
+        )
+        return True
+
+    return _send_via_smtp(to, subject, body)
+
+
+def send_verification_email(email: str, token: str):
+    """Sends an account verification email or logs it if no provider is configured."""
+    verify_link = f"{config.FRONTEND_URL}/?verify_token={token}"
     body = f"""
     Welcome to CoachHub!
 
@@ -75,85 +99,24 @@ def send_verification_email(email: str, token: str):
     Best regards,
     The CoachHub Team
     """
-
-    if RESEND_API_KEY:
-        return _send_via_resend(email, subject, body)
-
-    if not SMTP_HOST:
-        print("\n" + "=" * 50)
-        print("PRODUCTION WARNING: No email provider configured!")
-        print(f"To: {email}")
-        print(f"Subject: {subject}")
-        print(f"Verification Link: {verify_link}")
-        print("=" * 50 + "\n")
-        return True
-
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = SMTP_FROM
-        msg['To'] = email
-        msg['Subject'] = subject
-        msg.attach(MIMEText(body, 'plain'))
-
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.send_message(msg)
-
-        print(f"Verification email sent successfully to {email}")
-        return True
-    except Exception as e:
-        print(f"Error sending verification email to {email}: {e}")
-        return False
+    return _send(email, "CoachHub - Verify your email", body, "Verification Link", verify_link)
 
 
 def send_reset_password_email(email: str, token: str):
-    """Sends a password reset email or logs it if SMTP is not configured."""
-    reset_link = f"{FRONTEND_URL}/?token={token}"
-    
-    subject = "CoachHub - Password Reset"
+    """Sends a password reset email or logs it if no provider is configured."""
+    reset_link = f"{config.FRONTEND_URL}/?token={token}"
     body = f"""
     Hello,
-    
+
     You have requested to reset your password for CoachHub.
     Please click the link below to set a new password:
-    
+
     {reset_link}
-    
+
     This link will expire in 1 hour.
     If you did not request this reset, please ignore this email.
-    
+
     Best regards,
     The CoachHub Team
     """
-
-    if RESEND_API_KEY:
-        return _send_via_resend(email, subject, body)
-
-    if not SMTP_HOST:
-        print("\n" + "="*50)
-        print("PRODUCTION WARNING: No email provider configured!")
-        print(f"To: {email}")
-        print(f"Subject: {subject}")
-        print(f"Reset Link: {reset_link}")
-        print("="*50 + "\n")
-        return True
-
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = SMTP_FROM
-        msg['To'] = email
-        msg['Subject'] = subject
-        msg.attach(MIMEText(body, 'plain'))
-
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.send_message(msg)
-        
-        print(f"Reset email sent successfully to {email}")
-        return True
-    except Exception as e:
-        print(f"Error sending email to {email}: {e}")
-        # In a real app, you might want to log this or re-raise
-        return False
+    return _send(email, "CoachHub - Password Reset", body, "Reset Link", reset_link)

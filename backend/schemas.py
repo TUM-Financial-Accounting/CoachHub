@@ -1,6 +1,13 @@
 from datetime import date, datetime
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal, Optional, List
+
+from constants import DEFAULT_FORMATION, ROLE_COACH
+
+FeedbackType = Literal["bug", "feature", "question"]  # constants.FEEDBACK_TYPES
+FeedbackStatus = Literal["new", "in_progress", "resolved"]  # constants.FEEDBACK_STATUSES
+MatchEventType = Literal["Goal", "Assist"]  # constants.EVENT_GOAL / EVENT_ASSIST
+SeriesScope = Literal["this", "future", "all"]
 
 # ==========================
 #         SEASONS
@@ -10,21 +17,19 @@ class SeasonCreate(BaseModel):
 
 class Season(SeasonCreate):
     id: str
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ==========================
 #      TEAM & PLAYERS
 # ==========================
 class TeamCreate(BaseModel):
     name: str
-    formation: str = "4-4-2"
+    formation: str = DEFAULT_FORMATION
     season_id: Optional[str] = None
 
 class Team(TeamCreate):
     id: str
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PlayerCreate(BaseModel):
     # Optional client-supplied UUID. Lets the frontend pre-generate the id so
@@ -59,8 +64,7 @@ class Player(PlayerCreate):
     id: str
     performance: int = 0
     teams: list[Team] = []
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ==========================
 #        LIBRARIES
@@ -72,8 +76,7 @@ class BasicCreate(BaseModel):
 
 class Basic(BasicCreate):
     id: str
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PrincipleCreate(BaseModel):
     name: str
@@ -85,8 +88,7 @@ class PrincipleCreate(BaseModel):
 
 class Principle(PrincipleCreate):
     id: str
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TacticCreate(BaseModel):
     # Optional client-supplied UUID so the frontend can do optimistic inserts
@@ -100,8 +102,7 @@ class TacticCreate(BaseModel):
 
 class Tactic(TacticCreate):
     id: str
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ==========================
 #        EXERCISES
@@ -124,8 +125,7 @@ class ExerciseCreate(BaseModel):
 
 class Exercise(ExerciseCreate):
     id: str
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ==========================
 #    TRAINING SESSIONS
@@ -145,15 +145,14 @@ class TrainingSession(TrainingSessionCreate):
     id: str
     series_id: Optional[str] = None
     is_modified: Optional[bool] = False
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Recurring session series. Materialises into N TrainingSession rows on create.
 class TrainingSeriesCreate(BaseModel):
     team_id: Optional[str] = None
     season_id: Optional[str] = None
-    day_of_week: Optional[int] = None   # legacy single weekday; used when `weekdays` is absent
+    day_of_week: Optional[int] = Field(None, ge=0, le=6)  # legacy single weekday; used when `weekdays` is absent
     frequency: str = "weekly"           # weekly | biweekly | monthly
     weekdays: Optional[List[int]] = None  # 0 = Monday … 6 = Sunday
     series_start_date: str         # YYYY-MM-DD
@@ -168,8 +167,7 @@ class TrainingSeriesCreate(BaseModel):
 
 class TrainingSeries(TrainingSeriesCreate):
     id: str
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ==========================
 #    MATCHES 
@@ -181,7 +179,7 @@ class MatchCreate(BaseModel):
     location: str
     team_id: Optional[str] = None
     season_id: Optional[str] = None
-    formation: Optional[str] = "4-4-2"
+    formation: Optional[str] = DEFAULT_FORMATION
     lineup: Optional[str] = None
     goals_for: Optional[int] = 0
     goals_against: Optional[int] = 0
@@ -194,14 +192,13 @@ class MatchStatsUpdate(BaseModel):
 
 class MatchEventCreate(BaseModel):
     player_id: str
-    event_type: str # "Goal", "Assist"
+    event_type: MatchEventType
     minute: Optional[int] = None
 
 class MatchEvent(MatchEventCreate):
     id: str
     match_id: str
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class MatchRatingUpdate(BaseModel):
     rating: int = Field(ge=1, le=10)
@@ -210,15 +207,12 @@ class MatchRating(BaseModel):
     match_id: str
     player_id: str
     rating: int
-    class Config:
-        orm_mode = True
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class Match(MatchCreate):
     id: str
     date : date
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ==========================
 #    CUSTOM FORMATIONS
@@ -229,8 +223,7 @@ class CustomFormationCreate(BaseModel):
 
 class CustomFormation(CustomFormationCreate):
     id: str
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 
@@ -244,8 +237,7 @@ class VisionCreate(BaseModel):
 class Vision(VisionCreate):
     id: str
     uploaded_at: datetime
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ==========================
 #        PLAYBOOK
@@ -277,11 +269,9 @@ class User(BaseModel):
     email: str
     full_name: Optional[str] = None
     is_verified: bool = False
-    role: str = "coach"
+    role: str = ROLE_COACH
 
-    class Config:
-        orm_mode = True
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ForgotPasswordRequest(BaseModel):
     email: str
@@ -295,7 +285,7 @@ class VerifyEmailRequest(BaseModel):
 
 class PerformanceUpdate(BaseModel):
     performance: int
-    team_id: Optional[str] = None
+    team_id: str
 
 # ==========================
 #      CALENDAR EVENTS
@@ -328,15 +318,13 @@ class Event(EventCreate):
     id: str
     date: date
     series_id: Optional[str] = None
-    class Config:
-        orm_mode = True
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ==========================
 #         FEEDBACK
 # ==========================
 class FeedbackRequestCreate(BaseModel):
-    type: str          # 'bug' | 'feature' | 'question'
+    type: FeedbackType
     title: str
     description: str
     screenshot_urls: Optional[List[str]] = None
@@ -345,9 +333,7 @@ class FeedbackRequest(FeedbackRequestCreate):
     id: str
     status: str
     created_at: datetime
-    class Config:
-        orm_mode = True
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ==========================
 #     ADMIN (SUPERUSER)
@@ -358,7 +344,7 @@ class AdminFeedbackItem(FeedbackRequest):
     coach_name: Optional[str] = None
 
 class AdminFeedbackStatusUpdate(BaseModel):
-    status: str  # 'new' | 'in_progress' | 'resolved'
+    status: FeedbackStatus
 
 class AdminUnlockRequest(BaseModel):
     code: str
@@ -371,7 +357,7 @@ class AdminUserItem(BaseModel):
     id: str
     email: str
     full_name: Optional[str] = None
-    role: str = "coach"
+    role: str = ROLE_COACH
     is_verified: bool = False
     created_at: Optional[date] = None
     team_count: int = 0

@@ -186,7 +186,7 @@ def userinfo_email(access_token: str) -> str:
 
 
 def access_token_for(db: Session, account: models.GoogleAccount) -> str:
-    now = datetime.utcnow()
+    now = models.utcnow()
     token = decrypt(account.access_token)
     if token and account.token_expires_at and account.token_expires_at > now + timedelta(seconds=60):
         return token
@@ -447,7 +447,7 @@ def ensure_watch(db: Session, account: models.GoogleAccount, token: str) -> None
     url = webhook_url()
     if not url:
         return
-    now = datetime.utcnow()
+    now = models.utcnow()
     if account.channel_expires_at and account.channel_expires_at > now + timedelta(days=CHANNEL_RENEW_WITHIN_DAYS):
         return
     channel_id = _secrets.token_urlsafe(16)
@@ -498,7 +498,7 @@ def sync(db: Session, account: models.GoogleAccount) -> dict:
     pushed = push_all(db, account.coach_id, token, calendar_id, items, names, tz, existing)
 
     ensure_watch(db, account, token)
-    account.last_synced_at = datetime.utcnow()
+    account.last_synced_at = models.utcnow()
     account.last_error = None
     db.commit()
     return {"pulled": pulled, "pushed": pushed["written"], "removed": pushed["removed"]}
