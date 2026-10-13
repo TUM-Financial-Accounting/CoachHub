@@ -19,7 +19,7 @@ describe('renderSeasonReport', () => {
   it('renders an empty season without throwing', async () => {
     const i18n = i18next.createInstance();
     await i18n.init({ lng: 'en', resources: { en: { translation: en } } });
-    const input = { ...sampleSeason(), players: [], matches: [], matchEvents: {}, sessions: [], exercises: [], calendarEvents: [] };
+    const input = { ...sampleSeason(), players: [], matches: [], matchEvents: {}, ratings: [], sessions: [], exercises: [], calendarEvents: [] };
     const doc = renderSeasonReport(buildSeasonReport(input), (k, o) => i18n.t(k, o as any) as string, 'en');
     expect(doc.getNumberOfPages()).toBeGreaterThan(0);
   });

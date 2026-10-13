@@ -1185,6 +1185,54 @@ def delete_match_event(id: str, db: Session = Depends(database.get_db), current_
     db.commit()
     return {"message": "Deleted"}
 
+@app.get("/matches/{match_id}/ratings", response_model=list[schemas.MatchRating])
+def get_match_ratings(match_id: str, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    db_match = db.query(models.Match).filter(models.Match.id == match_id, models.Match.team_id.in_(owned_team_ids(db, current_user))).first()
+    if not db_match: raise HTTPException(status_code=404, detail="Match not found")
+    return db.query(models.MatchRating).filter(models.MatchRating.match_id == match_id).all()
+
+@app.put("/matches/{match_id}/ratings/{player_id}", response_model=schemas.MatchRating)
+def set_match_rating(match_id: str, player_id: str, item: schemas.MatchRatingUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    db_match = db.query(models.Match).filter(models.Match.id == match_id, models.Match.team_id.in_(owned_team_ids(db, current_user))).first()
+    if not db_match: raise HTTPException(status_code=404, detail="Match not found")
+    db_player = db.query(models.Player).filter(models.Player.id == player_id, models.Player.coach_id == current_user.id).first()
+    if not db_player: raise HTTPException(status_code=404, detail="Player not found")
+
+    db_item = db.query(models.MatchRating).filter(models.MatchRating.match_id == match_id, models.MatchRating.player_id == player_id).first()
+    if db_item:
+        db_item.rating = item.rating
+    else:
+        db_item = models.MatchRating(match_id=match_id, player_id=player_id, rating=item.rating)
+        db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+@app.delete("/matches/{match_id}/ratings/{player_id}")
+def delete_match_rating(match_id: str, player_id: str, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    db_item = (
+        db.query(models.MatchRating)
+        .join(models.Match, models.MatchRating.match_id == models.Match.id)
+        .filter(
+            models.MatchRating.match_id == match_id,
+            models.MatchRating.player_id == player_id,
+            models.Match.team_id.in_(owned_team_ids(db, current_user)),
+        )
+        .first()
+    )
+    if not db_item: raise HTTPException(status_code=404)
+    db.delete(db_item)
+    db.commit()
+    return {"message": "Deleted"}
+
+@app.get("/stats/ratings", response_model=list[schemas.MatchRating])
+def get_season_ratings(team_id: str, season_id: Optional[str] = None, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    require_owned_team(db, current_user, team_id)
+    query = db.query(models.MatchRating).join(models.Match, models.MatchRating.match_id == models.Match.id).filter(models.Match.team_id == team_id)
+    if season_id:
+        query = query.filter(models.Match.season_id == season_id)
+    return query.all()
+
 @app.get("/stats/top-performers")
 def get_top_performers(team_id: str, season_id: Optional[str] = None, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
     require_owned_team(db, current_user, team_id)
@@ -1696,6 +1744,7 @@ def delete_player(id: str, db: Session = Depends(database.get_db), current_user:
     # Match events hold an FK to the player — remove them first or the
     # delete aborts for any player with recorded goals/assists.
     db.query(models.MatchEvent).filter(models.MatchEvent.player_id == id).delete()
+    db.query(models.MatchRating).filter(models.MatchRating.player_id == id).delete()
     db.delete(db_item)
     db.commit()
     return {"message": "Deleted"}

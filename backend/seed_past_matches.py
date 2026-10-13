@@ -24,7 +24,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from database import SessionLocal, engine
-from models import Base, User, Team, Season, Player, Exercise, TrainingSession, Match, MatchEvent
+from models import Base, User, Team, Season, Player, Exercise, TrainingSession, Match, MatchEvent, MatchRating
+import random
 
 Base.metadata.create_all(bind=engine)
 
@@ -338,6 +339,9 @@ def seed_matches(db, team_id: str, season_id: str,
 
     matches = []
     all_events = []
+    all_ratings = []
+    starter_ids = [p["player"]["id"] for p in json.loads(lu)]
+    rng = random.Random(season_index)  # fixed seed so re-seeding gives the same ratings
 
     for i, (opponent, time_, location, formation, gf, ga, notes, events) in enumerate(season_data):
         m = Match(
@@ -366,6 +370,8 @@ def seed_matches(db, team_id: str, season_id: str,
                     event_type=ev_type,
                     minute=minute,
                 ))
+        for player_id in starter_ids:
+            all_ratings.append(MatchRating(match_id=m.id, player_id=player_id, rating=rng.randint(5, 9)))
 
     # Upcoming fixtures only for the current season
     if day_offset == 0:
@@ -385,11 +391,12 @@ def seed_matches(db, team_id: str, season_id: str,
             matches.append(m)
 
     db.add_all(all_events)
+    db.add_all(all_ratings)
     db.flush()
 
     past_count = len(season_data)
     upcoming_count = 2 if day_offset == 0 else 0
-    print(f"  Matches seeded: {past_count + upcoming_count} ({past_count} past, {upcoming_count} upcoming), {len(all_events)} events")
+    print(f"  Matches seeded: {past_count + upcoming_count} ({past_count} past, {upcoming_count} upcoming), {len(all_events)} events, {len(all_ratings)} ratings")
     return matches
 
 

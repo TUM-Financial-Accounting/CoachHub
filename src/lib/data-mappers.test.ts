@@ -14,6 +14,7 @@ import {
   mapMatchDetailsFromApi,
   mapMatchDetailsToApi,
   mapMatchEventFromApi,
+  mapMatchRatingFromApi,
   mapEventFromApi,
   mapEventToApi,
   mapSelectorItemFromApi,
@@ -360,6 +361,11 @@ describe('match mappers', () => {
   it('maps a match event', () => {
     expect(mapMatchEventFromApi({ id: 'ev1', match_id: 'm1', player_id: 'p1', event_type: 'Goal', minute: 34 }))
       .toEqual({ id: 'ev1', matchId: 'm1', playerId: 'p1', eventType: 'Goal', minute: 34 });
+  });
+
+  it('maps a match rating', () => {
+    expect(mapMatchRatingFromApi({ match_id: 'm1', player_id: 'p1', rating: 8 }))
+      .toEqual({ matchId: 'm1', playerId: 'p1', rating: 8 });
   });
 });
 

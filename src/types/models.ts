@@ -86,6 +86,13 @@ export interface MatchEvent {
   minute?: number;
 }
 
+// Per-match coach rating (1-10). Unrated players have no entry.
+export interface MatchRating {
+  matchId: string;
+  playerId: string;
+  rating: number;
+}
+
 export interface Exercise {
   id: string;
   name: string;

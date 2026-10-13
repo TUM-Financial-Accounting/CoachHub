@@ -51,6 +51,8 @@ function fit(doc: jsPDF, s: string, maxW: number): string {
 
 const resultColor = (r: MatchResult): RGB => (r === 'W' ? C.win : r === 'D' ? C.draw : C.loss);
 const pct = (v: number | null) => (v === null ? '-' : `${v}%`);
+const outOf10 = (v: number | null) => (v === null ? '-' : `${v}/10`);
+const avgRating = (p: PlayerLine) => (p.avgRating === null ? '-' : `${p.avgRating.toFixed(1)} (${p.ratedMatches})`);
 const signed = (v: number) => (v > 0 ? `+${v}` : `${v}`);
 const minuteMark = (m: number | null) => (m === null ? '' : ` ${m}'`);
 
@@ -129,9 +131,9 @@ const niceMax = (v: number) => {
   return Math.ceil(v / step) * step;
 };
 
-function lineChart(doc: jsPDF, box: Box, series: { values: number[]; color: RGB; dashed?: boolean }[], labels: string[]) {
-  const max = niceMax(Math.max(1, ...series.flatMap(s => s.values)));
-  gridY(doc, box, max);
+function lineChart(doc: jsPDF, box: Box, series: { values: number[]; color: RGB; dashed?: boolean }[], labels: string[], scale?: { max: number; steps: number }) {
+  const max = scale?.max ?? niceMax(Math.max(1, ...series.flatMap(s => s.values)));
+  gridY(doc, box, max, scale?.steps);
   const n = labels.length;
   const xAt = (i: number) => box.x + (n === 1 ? box.w / 2 : (box.w * i) / (n - 1));
   const yAt = (v: number) => box.y + box.h - (box.h * v) / max;
@@ -244,6 +246,7 @@ const shortDate = (ctx: Ctx, iso: string) => parseLocalDate(iso).toLocaleDateStr
 function awardValue(ctx: Ctx, kind: string, a: Award) {
   if (kind === 'bestAttendance') return `${a.value}%`;
   if (kind === 'highestRated') return `${a.value}/10`;
+  if (kind === 'mostMotm') return ctx.t('seasonReport.unit.mostMotm', { count: a.value });
   return ctx.t(`seasonReport.unit.${kind}`, { count: a.value });
 }
 
@@ -303,25 +306,26 @@ function cover(ctx: Ctx) {
   ], 4);
 
   section(ctx, t('seasonReport.sections.awards'));
-  const kinds = ['topScorer', 'topAssister', 'mostContributions', 'mostStarts', 'bestAttendance', 'highestRated'] as const;
+  const kinds = ['topScorer', 'topAssister', 'mostContributions', 'mostStarts', 'bestAttendance', 'highestRated', 'mostMotm'] as const;
   const gap = 3;
-  const aw = (CW - 2 * gap) / 3;
+  const cols = 4;
+  const aw = (CW - (cols - 1) * gap) / cols;
   const ah = 21;
   kinds.forEach((kind, i) => {
     const a = r.awards[kind];
-    const x = PAGE.m + (i % 3) * (aw + gap);
-    const y = ctx.y + Math.floor(i / 3) * (ah + gap);
+    const x = PAGE.m + (i % cols) * (aw + gap);
+    const y = ctx.y + Math.floor(i / cols) * (ah + gap);
     stroke(doc, C.line);
     doc.setLineWidth(0.3);
     fill(doc, C.white);
     doc.roundedRect(x, y, aw, ah, 1.8, 1.8, 'FD');
     fill(doc, C.brand);
     doc.rect(x, y + 3, 0.9, ah - 6, 'F');
-    write(doc, t(`seasonReport.award.${kind}`).toUpperCase(), x + 4, y + 5.8, { size: 6.2, bold: true, color: C.muted });
+    write(doc, fit(doc, t(`seasonReport.award.${kind}`).toUpperCase(), aw - 6), x + 4, y + 5.8, { size: 6.2, bold: true, color: C.muted });
     write(doc, a ? fit(doc, a.name, aw - 8) : '-', x + 4, y + 12.5, { size: 10.5, bold: true, color: C.ink });
     if (a) write(doc, awardValue(ctx, kind, a), x + 4, y + 18, { size: 8, bold: true, color: C.brand });
   });
-  ctx.y += 2 * (ah + gap) + 4;
+  ctx.y += Math.ceil(kinds.length / cols) * (ah + gap) + 4;
 
   if (r.highlights.form.length) {
     subTitle(ctx, t('seasonReport.sections.form'));
@@ -409,13 +413,17 @@ function results(ctx: Ctx) {
   const names = (list: { name: string; minute: number | null }[]) =>
     list.map(g => `${(g.name.split(' ').pop() || g.name) || t('seasonReport.unknownPlayer')}${minuteMark(g.minute)}`).join(', ') || '-';
   table(ctx,
-    [t('seasonReport.col.date'), t('seasonReport.col.opponent'), t('seasonReport.col.venue'), t('seasonReport.col.score'), '', t('seasonReport.col.formation'), t('seasonReport.col.scorers'), t('seasonReport.col.assists')],
-    r.matches.map(m => [formatDate(m.date), m.opponent, m.location || '-', `${m.goalsFor}:${m.goalsAgainst}`, t(`seasonReport.result.${m.result}`), m.formation || '-', names(m.scorers), names(m.assists)]),
+    [t('seasonReport.col.date'), t('seasonReport.col.opponent'), t('seasonReport.col.venue'), t('seasonReport.col.score'), '', t('seasonReport.col.formation'), t('seasonReport.col.scorers'), t('seasonReport.col.assists'), t('seasonReport.col.mvp')],
+    r.matches.map(m => [
+      formatDate(m.date), m.opponent, m.location || '-', `${m.goalsFor}:${m.goalsAgainst}`, t(`seasonReport.result.${m.result}`), m.formation || '-',
+      names(m.scorers), names(m.assists),
+      m.mvp.length ? `${names(m.mvp.map(v => ({ name: v.name, minute: null })))} (${m.mvp[0].rating})` : '-',
+    ]),
     {
       columnStyles: {
-        0: { cellWidth: 18 }, 1: { cellWidth: 32, fontStyle: 'bold', textColor: C.ink }, 2: { cellWidth: 20 },
+        0: { cellWidth: 17 }, 1: { cellWidth: 28, fontStyle: 'bold', textColor: C.ink }, 2: { cellWidth: 17 },
         3: { cellWidth: 12, halign: 'center', fontStyle: 'bold' }, 4: { cellWidth: 7, halign: 'center', fontStyle: 'bold' },
-        5: { cellWidth: 16 }, 6: { cellWidth: 'auto' }, 7: { cellWidth: 34 },
+        5: { cellWidth: 15 }, 6: { cellWidth: 'auto' }, 7: { cellWidth: 28 }, 8: { cellWidth: 26 },
       },
       didParseCell: (d: any) => {
         if (d.section === 'body' && d.column.index === 4) {
@@ -431,7 +439,7 @@ function squadTable(ctx: Ctx) {
   newPage(ctx);
   section(ctx, t('seasonReport.sections.squad'), t('seasonReport.unit.players', { count: r.players.length }));
   table(ctx,
-    ['#', t('seasonReport.col.player'), t('seasonReport.col.position'), t('seasonReport.col.age'), t('seasonReport.col.starts'), t('seasonReport.col.goals'), t('seasonReport.col.assists'), t('seasonReport.col.contributions'), t('seasonReport.col.share'), t('seasonReport.col.attendance'), t('seasonReport.col.rating')],
+    ['#', t('seasonReport.col.player'), t('seasonReport.col.position'), t('seasonReport.col.age'), t('seasonReport.col.starts'), t('seasonReport.col.goals'), t('seasonReport.col.assists'), t('seasonReport.col.contributions'), t('seasonReport.col.share'), t('seasonReport.col.attendance'), t('seasonReport.col.matchRating'), t('seasonReport.col.rating')],
     r.players.map(p => [
       p.jersey ?? '-',
       `${playerName(ctx, p)}${p.inSquad ? '' : ' *'}`,
@@ -443,18 +451,21 @@ function squadTable(ctx: Ctx) {
       p.contributions,
       pct(p.goalShare),
       pct(p.attendance.rate),
-      p.rating === null ? '-' : `${p.rating}/10`,
+      avgRating(p),
+      outOf10(p.rating),
     ]),
     {
       columnStyles: {
         0: { cellWidth: 8, halign: 'center', fontStyle: 'bold' }, 1: { cellWidth: 'auto', fontStyle: 'bold', textColor: C.ink },
         2: { cellWidth: 22 }, 3: { cellWidth: 10, halign: 'center' }, 4: { cellWidth: 13, halign: 'center' },
         5: { cellWidth: 11, halign: 'center' }, 6: { cellWidth: 11, halign: 'center' }, 7: { cellWidth: 11, halign: 'center', fontStyle: 'bold' },
-        8: { cellWidth: 15, halign: 'center' }, 9: { cellWidth: 16, halign: 'center' }, 10: { cellWidth: 14, halign: 'center' },
+        8: { cellWidth: 13, halign: 'center' }, 9: { cellWidth: 14, halign: 'center' }, 10: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },
+        11: { cellWidth: 13, halign: 'center' },
       },
     });
   ctx.y -= 3;
-  const notes = [t('seasonReport.note.starts'), t('seasonReport.note.share'), t('seasonReport.note.attendance'), t('seasonReport.note.rating')];
+  const notes = [t('seasonReport.note.starts'), t('seasonReport.note.share'), t('seasonReport.note.attendance'), t('seasonReport.note.rating'), t('seasonReport.note.mvp')];
+  if (r.ratedMatches) notes.push(t('seasonReport.note.highestRated', { count: r.minRatedMatches }));
   if (r.players.some(p => !p.inSquad)) notes.push(t('seasonReport.note.former'));
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.6);
@@ -641,10 +652,11 @@ function playerCard(ctx: Ctx, p: PlayerLine, top: number) {
     { label: t('seasonReport.col.assists'), value: String(p.assists), color: p.assists ? C.brand : C.ink },
     { label: t('seasonReport.col.contributions'), value: String(p.contributions) },
     { label: t('seasonReport.col.attendance'), value: pct(p.attendance.rate) },
-    { label: t('seasonReport.col.rating'), value: p.rating === null ? '-' : `${p.rating}/10` },
+    { label: t('seasonReport.col.matchRating'), value: p.avgRating === null ? '-' : p.avgRating.toFixed(1) },
+    { label: t('seasonReport.col.mvp'), value: String(p.motm), color: p.motm ? C.brand : C.ink },
   ];
   const gap = 2.5;
-  const bw = (CW - 12 - gap * 5) / 6;
+  const bw = (CW - 12 - gap * (stats.length - 1)) / stats.length;
   stats.forEach((s, i) => {
     const x = PAGE.m + 6 + i * (bw + gap);
     fill(doc, C.panel);
@@ -673,6 +685,13 @@ function playerCard(ctx: Ctx, p: PlayerLine, top: number) {
     y += 17;
   }
 
+  if (p.ratingLog.length >= 2) {
+    write(doc, t('seasonReport.sections.ratingTrend').toUpperCase(), PAGE.m + 6, y, { size: 6.5, bold: true, color: C.muted });
+    lineChart(doc, { x: PAGE.m + 12, y: y + 3, w: CW - 20, h: 14 }, [{ values: p.ratingLog.map(l => l.rating), color: C.brand }],
+      p.ratingLog.map(l => shortDate(ctx, l.date)), { max: 10, steps: 2 });
+    y += 26;
+  }
+
   write(doc, t('seasonReport.sections.contributions').toUpperCase(), PAGE.m + 6, y, { size: 6.5, bold: true, color: C.muted });
   if (p.goalShare !== null && p.goals > 0) write(doc, t('seasonReport.note.shareOfGoals', { value: p.goalShare }), PAGE.m + CW - 6, y, { size: 6.5, color: C.muted, align: 'right' });
   y += 4;
@@ -680,7 +699,7 @@ function playerCard(ctx: Ctx, p: PlayerLine, top: number) {
     write(doc, t('seasonReport.noContributions'), PAGE.m + 6, y + 4, { size: 8, color: C.faint });
     return;
   }
-  const maxRows = Math.floor((top + h - 4 - y) / 5.2);
+  const maxRows = Math.max(1, Math.floor((top + h - 4 - y) / 5.2));
   const cols = p.goalLog.length > maxRows ? 2 : 1;
   const colW = (CW - 12) / cols;
   const visible = p.goalLog.slice(0, maxRows * cols);

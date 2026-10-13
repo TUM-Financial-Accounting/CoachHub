@@ -16,7 +16,7 @@ import { TimePicker } from "./ui/TimePicker";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { useTeam } from '../contexts/TeamContext';
 import { useSeason } from '../contexts/SeasonContext';
-import { Player, MatchDetails, PositionSlot, LineupPlayer } from "../types/models";
+import { Player, MatchDetails, MatchRating, PositionSlot, LineupPlayer } from "../types/models";
 import { PlayerService, MatchService, FormationService } from "../services";
 import CustomFormationModal from './CustomFormationModal';
 import { DEFAULT_FORMATION, FORMATIONS, FORMATION_GROUPS } from '../lib/formations';
@@ -84,6 +84,7 @@ export default function MatchLineup() {
   const [matches, setMatches] = useState<MatchDetails[]>([]); 
   const [matchDetails, setMatchDetails] = useState<MatchDetails | null>(null); 
   const [selectedPlayerPerformance, setSelectedPlayerPerformance] = useState(0);
+  const [ratings, setRatings] = useState<MatchRating[]>([]);
   
   const [isEditingMatch, setIsEditingMatch] = useState(false);
   const [matchForm, setMatchForm] = useState({ opponent: '', date: '', time: '', location: '' });
@@ -131,6 +132,7 @@ export default function MatchLineup() {
         setAllPlayers([]);
         setMatches([]);
         setMatchDetails(null);
+        setRatings([]);
         return;
     }
 
@@ -139,11 +141,13 @@ export default function MatchLineup() {
       PlayerService.getAll(activeTeam.id, activeSeason.id),
       MatchService.getAll(activeTeam.id, activeSeason.id),
       MatchService.getSuggestedFormation(activeTeam.id),
-      FormationService.getAll()
-    ]).then(([mappedPlayers, mappedMatches, suggestedData, formations]) => {
+      FormationService.getAll(),
+      MatchService.getSeasonRatings(activeTeam.id, activeSeason.id).catch(() => [] as MatchRating[]),
+    ]).then(([mappedPlayers, mappedMatches, suggestedData, formations, seasonRatings]) => {
       setAllPlayers(mappedPlayers);
       setMatches(mappedMatches);
       setCustomFormations(formations);
+      setRatings(seasonRatings);
       
       if (mappedMatches.length > 0) {
         // Default to the next upcoming match. The API returns matches sorted
@@ -339,33 +343,32 @@ useEffect(() => {
     return FORMATIONS[DEFAULT_FORMATION];
   }, [currentFormation, customFormations]);
 
-  // Calculate average performance for a player from past matches
+  const getMatchRating = (matchId: string, playerId: string): number =>
+    ratings.find(r => r.matchId === matchId && r.playerId === playerId)?.rating ?? 0;
+
+  // Average of the player's per-match ratings this season
   const getPlayerAveragePerformance = (playerId: string): number | null => {
-    const playerPastPerformances: number[] = [];
-    pastMatches.forEach(match => {
-      if (match.lineup) {
-        try {
-          const parsedLineup = JSON.parse(match.lineup);
-          parsedLineup.forEach((item: any) => {
-            if (item.player?.id === playerId && item.player?.performance) {
-              playerPastPerformances.push(item.player.performance);
-            }
-          });
-        } catch (e) {
-          // Ignore parse errors
-        }
-      }
-    });
-    
-    // Also add the current performance from allPlayers if it exists
-    const playerFromDb = allPlayers.find(p => p.id === playerId);
-    if (playerFromDb && playerFromDb.performance && playerFromDb.performance > 0) {
-      playerPastPerformances.push(playerFromDb.performance);
-    }
-    
-    if (playerPastPerformances.length === 0) return null;
-    const avg = playerPastPerformances.reduce((a, b) => a + b, 0) / playerPastPerformances.length;
+    const values = ratings.filter(r => r.playerId === playerId).map(r => r.rating);
+    if (values.length === 0) return null;
+    const avg = values.reduce((a, b) => a + b, 0) / values.length;
     return Math.round(avg * 10) / 10; // Round to 1 decimal
+  };
+
+  // 0 on the slider means "unrated", which is stored as no row
+  const handleSaveRating = async (matchId: string, playerId: string, rating: number) => {
+    const others = ratings.filter(r => !(r.matchId === matchId && r.playerId === playerId));
+    try {
+      if (rating > 0) {
+        const saved = await MatchService.setRating(matchId, playerId, rating);
+        setRatings([...others, saved]);
+      } else if (getMatchRating(matchId, playerId) > 0) {
+        await MatchService.clearRating(matchId, playerId);
+        setRatings(others);
+      }
+      toast.success(t('matches.performanceSaved'));
+    } catch (e) {
+      toast.error(t('matches.performanceSaveFailed'));
+    }
   };
 
   const handleDropToField = (item: any, slotId: string) => {
@@ -606,7 +609,7 @@ useEffect(() => {
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 border-2 border-emerald-400/20 rounded-full"></div>
             </div>
             <div className="absolute inset-8">
-              {activeSlots.map((slot: PositionSlot) => <PositionSlotComponent key={slot.id} slot={slot} player={lineup.get(slot.id) || null} onDrop={handleDropToField} onRemove={handleRemoveFromField} onClick={() => { const p = lineup.get(slot.id); if (p) { setSelectedPlayer(p); setSelectedPlayerPerformance(p.performance || 0); } }} isMatchPast={isMatchPast} />)}
+              {activeSlots.map((slot: PositionSlot) => <PositionSlotComponent key={slot.id} slot={slot} player={lineup.get(slot.id) || null} onDrop={handleDropToField} onRemove={handleRemoveFromField} onClick={() => { const p = lineup.get(slot.id); if (p && matchDetails) { setSelectedPlayer(p); setSelectedPlayerPerformance(getMatchRating(matchDetails.id, p.id)); } }} isMatchPast={isMatchPast} />)}
             </div>
             <div className="absolute top-6 right-6 bg-black/40 backdrop-blur-md rounded-lg px-4 py-2 border border-white/10">
               <p className="text-[10px] text-white/50 uppercase tracking-widest">{t('matches.starters')}</p>
@@ -659,7 +662,8 @@ useEffect(() => {
                         </div>
                         <div className="mt-4 pt-4 border-t border-white/5">
                           <p className="text-xs text-slate-500">
-                            {selectedPlayerPerformance <= 3 && '🔴 ' + t('statistics.belowAverage')}
+                            {selectedPlayerPerformance === 0 && t('matches.notRated')}
+                            {selectedPlayerPerformance > 0 && selectedPlayerPerformance <= 3 && '🔴 ' + t('statistics.belowAverage')}
                             {selectedPlayerPerformance > 3 && selectedPlayerPerformance <= 5 && '🟡 ' + t('statistics.average')}
                             {selectedPlayerPerformance > 5 && selectedPlayerPerformance <= 7 && '🟢 ' + t('statistics.good')}
                             {selectedPlayerPerformance > 7 && selectedPlayerPerformance <= 9 && '⭐ ' + t('statistics.excellent')}
@@ -726,17 +730,8 @@ useEffect(() => {
                 
                 <Button 
                   onClick={async () => {
-                    if (isMatchPast) {
-                      try {
-                        const fullPlayerData = allPlayers.find(p => p.id === selectedPlayer.id) || selectedPlayer;
-                        const updatedPlayer = await PlayerService.update(selectedPlayer.id, { ...fullPlayerData, performance: selectedPlayerPerformance });
-                        
-                        const updatedPlayers = allPlayers.map(p => p.id === selectedPlayer.id ? updatedPlayer : p);
-                        setAllPlayers(updatedPlayers);
-                        toast.success(t('matches.performanceSaved'));
-                      } catch (e) {
-                        toast.error(t('matches.performanceSaveFailed'));
-                      }
+                    if (isMatchPast && matchDetails) {
+                      await handleSaveRating(matchDetails.id, selectedPlayer.id, selectedPlayerPerformance);
                     }
                     setSelectedPlayer(null);
                   }}

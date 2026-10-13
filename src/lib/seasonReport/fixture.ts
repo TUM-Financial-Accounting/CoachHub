@@ -1,5 +1,5 @@
 import type { SeasonReportInput } from './build';
-import type { MatchDetails, MatchEvent, Player, TrainingSession, Exercise } from '../../types/models';
+import type { MatchDetails, MatchEvent, MatchRating, Player, TrainingSession, Exercise } from '../../types/models';
 import { emptyExercise, emptyPlayer } from '../domain';
 
 const player = (id: string, first: string, last: string, jersey: number, position: string, extra: Partial<Player> = {}): Player => ({
@@ -17,6 +17,8 @@ const match = (id: string, date: string, opponent: string, gf: number | undefine
 });
 
 const ev = (id: string, matchId: string, playerId: string, eventType: 'Goal' | 'Assist', minute?: number): MatchEvent => ({ id, matchId, playerId, eventType, minute });
+
+const rating = (matchId: string, playerId: string, value: number): MatchRating => ({ matchId, playerId, rating: value });
 
 const session = (id: string, date: string, players: string[], exercises: string[], intensity = 'Medium', focus = 'Pressing'): TrainingSession => ({
   id, date, startTime: '17:00', endTime: '18:30', focus, intensity, selectedPlayers: players.join(','), selectedExercises: exercises.join(','),
@@ -52,6 +54,13 @@ export function sampleSeason(): SeasonReportInput {
       m1: [ev('e1', 'm1', 'p4', 'Goal', 12), ev('e2', 'm1', 'p3', 'Assist', 12), ev('e3', 'm1', 'p4', 'Goal', 67), ev('e4', 'm1', 'p9', 'Goal')],
       m3: [ev('e5', 'm3', 'p3', 'Goal', 88), ev('e6', 'm3', 'p2', 'Assist', 88)],
     },
+    // Shared MVPs in m1 and m2; p4's single 9 must not win highestRated; the upcoming m4 is ignored.
+    ratings: [
+      rating('m1', 'p1', 6), rating('m1', 'p2', 7), rating('m1', 'p3', 9), rating('m1', 'p4', 9),
+      rating('m2', 'p1', 8), rating('m2', 'p2', 8), rating('m2', 'p3', 6), rating('m2', 'p9', 7),
+      rating('m3', 'p1', 5), rating('m3', 'p3', 8),
+      rating('m4', 'p4', 10),
+    ],
     sessions: [
       session('s1', '2026-09-01', ['p1', 'p2', 'p3', 'p4'], ['x1', 'x2'], 'High'),
       session('s2', '2026-09-08', ['p1', 'p3', ' p4 '], ['x1'], 'Medium', 'Rondos'),

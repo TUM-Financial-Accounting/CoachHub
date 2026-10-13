@@ -15,8 +15,8 @@ A modern, coach-centric web dashboard for managing sports teams, training sessio
 - Google Calendar - Each coach connects their own Google account from Settings. CoachHub creates a "CoachHub" calendar and keeps trainings, matches and events in it, pushing on every change and pulling dates/times back from Google. Setup and behaviour: `GOOGLE_CALENDAR.md`
 - Libraries - Manage Basics, Principles (with media upload), and Tactics
 - Match & Lineup - Visual drag-and-drop field positioning, lineup builder, and custom formations; supports 11v11 plus 7v7 / 9v9 youth formats
-- Match Stats & Statistics - Record results, goals, and assists; season statistics with charts and leaderboards
-- Season Report - One-click PDF (EN/DE) from the Statistics page: results, squad stats, awards, goal timing, formations, training load, and per-player profiles. Generated in the browser (`src/lib/seasonReport/`), no backend endpoint
+- Match Stats & Statistics - Record results, goals, assists, and per-match player ratings (1-10, separate from the season rating on the squad page); season statistics with charts and leaderboards
+- Season Report - One-click PDF (EN/DE) from the Statistics page: results with match MVPs (highest match rating, ties shared), squad stats with match-rating averages, awards, goal timing, formations, training load, and per-player profiles. Generated in the browser (`src/lib/seasonReport/`), no backend endpoint
 - Playbook - Export/import Basics, Principles, Tactics, and Exercises as JSON to share between accounts
 - Command Palette - Quick navigation and global search with Ctrl+K / Cmd+K
 - Vision Library - Upload and present tactical philosophy PDFs
@@ -270,6 +270,9 @@ Tests live next to the code they cover as `*.test.ts`.
 | PUT | `/matches/{id}/stats` | Record final score and notes |
 | GET / POST | `/matches/{match_id}/events` | List / add goals and assists |
 | DELETE | `/match_events/{id}` | Delete a goal/assist event |
+| GET | `/matches/{match_id}/ratings` | List the per-match player ratings |
+| PUT / DELETE | `/matches/{match_id}/ratings/{player_id}` | Set (upsert, body `{rating: 1-10}`) / clear a player's match rating |
+| GET | `/stats/ratings` | All match ratings of a team (`?team_id=&season_id=`) |
 | GET | `/stats/top-performers` | Top scorers and assisters |
 | GET | `/match/suggested-formation` | Suggest formation from recent training |
 | GET / POST | `/custom_formations` | List / create custom formations |
@@ -377,6 +380,9 @@ Railway dashboard, so the settings below are the contract the code expects.
 - `UPLOAD_DIR` **must** point at a mounted volume. The container filesystem is
   ephemeral, so with the default (`backend/static/uploads`) every uploaded
   player photo and vision PDF disappears on the next redeploy.
+- `sqlalchemy` is pinned to `<2.1` in `requirements.txt`. SQLAlchemy 2.1 makes
+  `postgresql://` use psycopg 3, but only `psycopg2-binary` is installed, so an
+  unpinned rebuild crashes at startup with `No module named 'psycopg'`.
 
 **Frontend service**
 

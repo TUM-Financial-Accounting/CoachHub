@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 
 # ==========================
@@ -202,6 +202,17 @@ class MatchEvent(MatchEventCreate):
     match_id: str
     class Config:
         orm_mode = True
+
+class MatchRatingUpdate(BaseModel):
+    rating: int = Field(ge=1, le=10)
+
+class MatchRating(BaseModel):
+    match_id: str
+    player_id: str
+    rating: int
+    class Config:
+        orm_mode = True
+        from_attributes = True
 
 class Match(MatchCreate):
     id: str

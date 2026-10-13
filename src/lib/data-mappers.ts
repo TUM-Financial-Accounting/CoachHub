@@ -1,5 +1,5 @@
 // src/lib/data-mappers.ts
-import { Player, TrainingSession, Basic, Principle, Tactic, Exercise, Match, MatchDetails, SelectorItem, CalendarEvent, AdminFeedbackItem, AdminUser, AdminStats, GoogleStatus, GoogleSyncResult } from '../types/models';
+import { Player, TrainingSession, Basic, Principle, Tactic, Exercise, Match, MatchDetails, MatchRating, SelectorItem, CalendarEvent, AdminFeedbackItem, AdminUser, AdminStats, GoogleStatus, GoogleSyncResult } from '../types/models';
 import { DEFAULT_INTENSITY } from './domain';
 import { joinCsv, splitCsv } from './csv';
 import { DEFAULT_FORMATION } from './formations';
@@ -166,6 +166,12 @@ export const mapMatchEventFromApi = (e: any): any => ({
   playerId: e.player_id,
   eventType: e.event_type,
   minute: e.minute,
+});
+
+export const mapMatchRatingFromApi = (r: any): MatchRating => ({
+  matchId: r.match_id || '',
+  playerId: r.player_id || '',
+  rating: Number(r.rating) || 0,
 });
 
 /**

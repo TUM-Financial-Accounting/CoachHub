@@ -1,6 +1,6 @@
 // src/services/match-service.ts
-import { Match, MatchDetails, MatchEvent } from '../types/models';
-import { mapMatchFromApi, mapMatchDetailsFromApi, mapMatchDetailsToApi, mapMatchEventFromApi } from '../lib/data-mappers';
+import { Match, MatchDetails, MatchEvent, MatchRating } from '../types/models';
+import { mapMatchFromApi, mapMatchDetailsFromApi, mapMatchDetailsToApi, mapMatchEventFromApi, mapMatchRatingFromApi } from '../lib/data-mappers';
 import { apiClient } from './api-client';
 
 export interface SuggestedFormation {
@@ -113,6 +113,39 @@ export const MatchService = {
    */
   async deleteEvent(eventId: string): Promise<void> {
     return apiClient.delete(`/match_events/${eventId}`);
+  },
+
+  /**
+   * Fetches the per-match ratings of a match.
+   */
+  async getRatings(matchId: string): Promise<MatchRating[]> {
+    const data = await apiClient.get<any[]>(`/matches/${matchId}/ratings`);
+    return data.map(mapMatchRatingFromApi);
+  },
+
+  /**
+   * Sets (or overwrites) a player's rating for a match.
+   */
+  async setRating(matchId: string, playerId: string, rating: number): Promise<MatchRating> {
+    const data = await apiClient.put<any>(`/matches/${matchId}/ratings/${playerId}`, { rating });
+    return mapMatchRatingFromApi(data);
+  },
+
+  /**
+   * Removes a player's rating for a match (back to unrated).
+   */
+  async clearRating(matchId: string, playerId: string): Promise<void> {
+    await apiClient.delete(`/matches/${matchId}/ratings/${playerId}`);
+  },
+
+  /**
+   * Fetches every match rating of a team, optionally limited to a season.
+   */
+  async getSeasonRatings(teamId: string, seasonId?: string): Promise<MatchRating[]> {
+    const params = new URLSearchParams({ team_id: teamId });
+    if (seasonId) params.append('season_id', seasonId);
+    const data = await apiClient.get<any[]>(`/stats/ratings?${params.toString()}`);
+    return data.map(mapMatchRatingFromApi);
   },
 
   /**

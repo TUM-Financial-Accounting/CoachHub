@@ -60,7 +60,39 @@ describe('players', () => {
     expect(awards.topScorer).toMatchObject({ playerId: 'p4', value: 2 });
     expect(awards.mostStarts).toMatchObject({ playerId: 'p1', value: 3 });
     expect(awards.bestAttendance).toMatchObject({ playerId: 'p3', value: 100 });
-    expect(awards.highestRated).toMatchObject({ playerId: 'p3', value: 9 });
+    expect(awards.highestRated).toMatchObject({ playerId: 'p3', value: 7.7 });
+    expect(awards.mostMotm).toMatchObject({ playerId: 'p3', value: 2 });
+  });
+});
+
+describe('match ratings', () => {
+  it('averages per-match ratings of played matches only', () => {
+    expect(line('p1')).toMatchObject({ avgRating: 6.3, ratedMatches: 3 });
+    expect(line('p4')).toMatchObject({ avgRating: 9, ratedMatches: 1 });
+    expect(line('p2').ratingLog.map(r => r.rating)).toEqual([7, 8]);
+    expect(line('p4').rating).toBe(8);
+  });
+
+  it('shares the MVP on a tie', () => {
+    const [m1, m2, m3] = report().matches;
+    expect(m1.mvp.map(m => m.playerId)).toEqual(['p3', 'p4']);
+    expect(m2.mvp.map(m => m.playerId)).toEqual(['p2', 'p1']);
+    expect(m3.mvp).toEqual([{ playerId: 'p3', name: 'Anton Lehmann', rating: 8 }]);
+    expect(line('p3').motm).toBe(2);
+  });
+
+  it('requires a minimum of rated matches for highest rated', () => {
+    const r = report();
+    expect(r).toMatchObject({ ratedMatches: 3, minRatedMatches: 2 });
+    expect(r.awards.highestRated?.playerId).not.toBe('p4');
+  });
+
+  it('falls back to the season coach rating without match ratings', () => {
+    const r = buildSeasonReport({ ...sampleSeason(), ratings: [] });
+    expect(r.awards.highestRated).toMatchObject({ playerId: 'p3', value: 9 });
+    expect(r.awards.mostMotm).toBeNull();
+    expect(r.matches[0].mvp).toEqual([]);
+    expect(r.players.every(p => p.avgRating === null)).toBe(true);
   });
 });
 

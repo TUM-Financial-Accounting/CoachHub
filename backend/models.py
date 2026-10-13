@@ -209,6 +209,7 @@ class Match(Base):
     notes = Column(Text, nullable=True)
     
     events = relationship("MatchEvent", back_populates="match", cascade="all, delete-orphan")
+    ratings = relationship("MatchRating", back_populates="match", cascade="all, delete-orphan")
 
 class MatchEvent(Base):
     __tablename__ = "match_events"
@@ -220,6 +221,15 @@ class MatchEvent(Base):
     
     match = relationship("Match", back_populates="events")
     player = relationship("Player")
+
+class MatchRating(Base):
+    # Per-match coach rating. Separate from TeamPlayer.performance, which is the season rating.
+    __tablename__ = "match_ratings"
+    match_id = Column(String, ForeignKey("matches.id"), primary_key=True)
+    player_id = Column(String, ForeignKey("players.id"), primary_key=True)
+    rating = Column(Integer, nullable=False)  # 1-10; unrated = no row
+
+    match = relationship("Match", back_populates="ratings")
 
 
 

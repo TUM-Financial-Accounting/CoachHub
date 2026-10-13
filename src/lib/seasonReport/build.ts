@@ -1,4 +1,4 @@
-import type { CalendarEvent, Exercise, MatchDetails, MatchEvent, Player, TrainingSession } from '../../types/models';
+import type { CalendarEvent, Exercise, MatchDetails, MatchEvent, MatchRating, Player, TrainingSession } from '../../types/models';
 import { MATCH_EVENT } from '../domain';
 import { splitCsv } from '../csv';
 import { parseLocalDate, toMinutes } from '../dates';
@@ -13,12 +13,15 @@ export interface SeasonReportInput {
   players: Player[];
   matches: MatchDetails[];
   matchEvents: Record<string, MatchEvent[]>;
+  ratings: MatchRating[];
   sessions: TrainingSession[];
   exercises: Exercise[];
   calendarEvents: CalendarEvent[];
 }
 
 export interface GoalEntry { playerId: string; name: string; minute: number | null }
+
+export interface MvpEntry { playerId: string; name: string; rating: number }
 
 export interface MatchRow {
   id: string;
@@ -31,6 +34,7 @@ export interface MatchRow {
   result: MatchResult;
   scorers: GoalEntry[];
   assists: GoalEntry[];
+  mvp: MvpEntry[];
 }
 
 export interface TeamRecord {
@@ -77,7 +81,11 @@ export interface PlayerLine {
   assists: number;
   contributions: number;
   goalShare: number | null;
-  rating: number | null;
+  rating: number | null; // season coach rating from the squad page
+  avgRating: number | null;
+  ratedMatches: number;
+  motm: number;
+  ratingLog: { date: string; opponent: string; rating: number }[];
   attendance: Attendance;
   goalLog: { date: string; opponent: string; minute: number | null; kind: 'goal' | 'assist' }[];
 }
@@ -91,6 +99,7 @@ export interface Awards {
   mostStarts: Award | null;
   bestAttendance: Award | null;
   highestRated: Award | null;
+  mostMotm: Award | null;
 }
 
 export interface CountRow { label: string; count: number }
@@ -147,6 +156,9 @@ export interface SeasonReport {
   months: MonthRow[];
   players: PlayerLine[];
   awards: Awards;
+  // Played matches with at least one rating, and the minimum a player needs for highestRated
+  ratedMatches: number;
+  minRatedMatches: number;
   training: TrainingSummary;
   squad: SquadProfile;
   teamEvents: number;
@@ -245,6 +257,7 @@ export function buildSeasonReport(input: SeasonReportInput): SeasonReport {
     id, firstName: first, lastName: last, name: `${first} ${last}`.trim(),
     jersey: null, position: '', age: null, strongFoot: '', height: 0, status: '', inSquad: false,
     starts: 0, goals: 0, assists: 0, contributions: 0, goalShare: null, rating: null,
+    avgRating: null, ratedMatches: 0, motm: 0, ratingLog: [],
     attendance: { attended: 0, total: 0, rate: null }, goalLog: [], ...extra,
   });
   for (const p of input.players) {
@@ -270,12 +283,21 @@ export function buildSeasonReport(input: SeasonReportInput): SeasonReport {
   };
 
   // --- matches ---
+  const ratingsByMatch = new Map<string, MatchRating[]>();
+  for (const r of input.ratings) {
+    if (r.rating < 1) continue;
+    const list = ratingsByMatch.get(r.matchId) ?? [];
+    list.push(r);
+    ratingsByMatch.set(r.matchId, list);
+  }
   const rows: MatchRow[] = played.map(m => {
     const gf = m.goalsFor ?? 0;
     const ga = m.goalsAgainst ?? 0;
     const events = input.matchEvents[m.id] ?? [];
     const entry = (e: MatchEvent): GoalEntry => ({ playerId: e.playerId, name: lineFor(e.playerId).name, minute: typeof e.minute === 'number' ? e.minute : null });
     const byMinute = (a: GoalEntry, b: GoalEntry) => (a.minute ?? 999) - (b.minute ?? 999);
+    const matchRatings = ratingsByMatch.get(m.id) ?? [];
+    const top = Math.max(0, ...matchRatings.map(r => r.rating));
     return {
       id: m.id,
       date: m.date,
@@ -287,6 +309,10 @@ export function buildSeasonReport(input: SeasonReportInput): SeasonReport {
       result: resultOf(gf, ga),
       scorers: events.filter(e => e.eventType === MATCH_EVENT.Goal).map(entry).sort(byMinute),
       assists: events.filter(e => e.eventType === MATCH_EVENT.Assist).map(entry).sort(byMinute),
+      // Ties share the MVP
+      mvp: matchRatings.filter(r => r.rating === top)
+        .map(r => ({ playerId: r.playerId, name: lineFor(r.playerId).name, rating: r.rating }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
     };
   });
 
@@ -302,6 +328,10 @@ export function buildSeasonReport(input: SeasonReportInput): SeasonReport {
       line.assists++;
       line.goalLog.push({ date: row.date, opponent: row.opponent, minute: a.minute, kind: 'assist' });
     }
+    for (const r of ratingsByMatch.get(row.id) ?? []) {
+      lineFor(r.playerId).ratingLog.push({ date: row.date, opponent: row.opponent, rating: r.rating });
+    }
+    for (const mvp of row.mvp) lineFor(mvp.playerId).motm++;
   }
 
   // --- team record ---
@@ -439,21 +469,29 @@ export function buildSeasonReport(input: SeasonReportInput): SeasonReport {
   for (const line of lines.values()) {
     line.contributions = line.goals + line.assists;
     line.goalShare = goalsFor ? Math.round((line.goals / goalsFor) * 100) : null;
+    line.ratedMatches = line.ratingLog.length;
+    line.avgRating = line.ratedMatches ? round1(line.ratingLog.reduce((s, r) => s + r.rating, 0) / line.ratedMatches) : null;
     line.goalLog.sort((a, b) => a.date.localeCompare(b.date) || (a.minute ?? 999) - (b.minute ?? 999));
   }
   const players = [...lines.values()]
-    .filter(l => l.inSquad || l.starts > 0 || l.contributions > 0)
+    .filter(l => l.inSquad || l.starts > 0 || l.contributions > 0 || l.ratedMatches > 0)
     .sort((a, b) => Number(b.inSquad) - Number(a.inSquad)
       || (a.jersey ?? 999) - (b.jersey ?? 999)
       || a.lastName.localeCompare(b.lastName));
 
+  // A third of the rated matches (at least 2, at most all of them), so one 10/10 cameo can't win.
+  const ratedMatches = rows.filter(r => r.mvp.length > 0).length;
+  const minRatedMatches = Math.min(ratedMatches, Math.max(2, Math.ceil(ratedMatches / 3)));
   const awards: Awards = {
     topScorer: bestBy(players, p => p.goals),
     topAssister: bestBy(players, p => p.assists),
     mostContributions: bestBy(players, p => p.contributions),
     mostStarts: bestBy(players, p => p.starts),
     bestAttendance: bestBy(squadLines, p => p.attendance.rate),
-    highestRated: bestBy(squadLines, p => p.rating),
+    highestRated: ratedMatches
+      ? bestBy(players, p => (p.ratedMatches >= minRatedMatches ? p.avgRating : null))
+      : bestBy(squadLines, p => p.rating),
+    mostMotm: bestBy(players, p => p.motm),
   };
 
   // --- squad profile ---
@@ -485,6 +523,8 @@ export function buildSeasonReport(input: SeasonReportInput): SeasonReport {
     months,
     players,
     awards,
+    ratedMatches,
+    minRatedMatches,
     training,
     squad,
     teamEvents: input.calendarEvents.length,

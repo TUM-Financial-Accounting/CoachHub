@@ -17,6 +17,7 @@ Login after seeding:  demo@coachhub.app  /  demo1234
 """
 
 import os
+import random
 import sys
 from datetime import date, datetime, timedelta
 
@@ -178,6 +179,7 @@ def wipe_demo_data(db, user):
         db.delete(match)
     if player_ids:
         db.query(models.MatchEvent).filter(models.MatchEvent.player_id.in_(player_ids)).delete(synchronize_session=False)
+        db.query(models.MatchRating).filter(models.MatchRating.player_id.in_(player_ids)).delete(synchronize_session=False)
 
     db.query(models.TrainingSession).filter(models.TrainingSession.team_id.in_(team_ids or [""])).delete(synchronize_session=False)
     db.query(models.TrainingSeries).filter(models.TrainingSeries.coach_id == user.id).delete(synchronize_session=False)
@@ -344,6 +346,7 @@ def seed(reset=False):
 
         # --- matches ----------------------------------------------------------
         scorers = [p for p in u15_players if p.position in ("Forward", "Midfielder")]
+        rng = random.Random(15)  # fixed seed so the demo ratings are the same on every reset
         for i, (opponent, gf, ga, venue, formation) in enumerate(PAST_MATCHES):
             match = models.Match(
                 team_id=u15.id, season_id=current.id, opponent=opponent,
@@ -363,6 +366,9 @@ def seed(reset=False):
                 if assister.id != scorer.id:
                     db.add(models.MatchEvent(match_id=match.id, player_id=assister.id,
                                              event_type="Assist", minute=10 + (g * 17) % 80))
+            # Per-match ratings so the season report has averages and MVPs.
+            for p in u15_players[:11]:
+                db.add(models.MatchRating(match_id=match.id, player_id=p.id, rating=rng.randint(5, 9)))
 
         for opponent, venue, formation, days in UPCOMING_MATCHES:
             db.add(models.Match(
