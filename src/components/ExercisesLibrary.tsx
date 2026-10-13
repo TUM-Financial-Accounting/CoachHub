@@ -197,7 +197,7 @@ export default function ExercisesLibrary() {
         if (type === 'image') return (
             <img
                 src={resolvedUrl}
-                alt="Preview"
+                alt={t('common.mediaPreview')}
                 className={`w-full h-full object-cover rounded-lg ${isPreview ? 'cursor-zoom-in hover:opacity-90 transition-opacity' : ''}`}
                 onClick={openLightbox}
             />
@@ -381,7 +381,7 @@ export default function ExercisesLibrary() {
                 <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="md:col-span-2 space-y-4">
-                            <Input label={t('common.name')} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Rondo 4v2" />
+                            <Input label={t('common.name')} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder={t('libraries.exerciseNamePlaceholder')} />
                             <Select
                                 label={t('libraries.category')}
                                 placeholder={t('libraries.selectCategory')}
@@ -540,13 +540,13 @@ export default function ExercisesLibrary() {
                             onClick={(e) => e.stopPropagation()}
                         >
                             {getMediaType(viewMedia) === 'image' && (
-                                <img src={viewMedia} alt="Full size media" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl border border-white/10" />
+                                <img src={viewMedia} alt={t('common.mediaPreview')} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl border border-white/10" />
                             )}
                             {getMediaType(viewMedia) === 'video' && (
                                 <video src={viewMedia} controls autoPlay className="max-w-full max-h-full rounded-lg shadow-2xl border border-white/10" />
                             )}
                             {getMediaType(viewMedia) === 'pdf' && (
-                                <iframe src={viewMedia} title="PDF Viewer" className="w-full h-full rounded-lg bg-white shadow-2xl border border-white/10" />
+                                <iframe src={viewMedia} title={t('common.pdfViewer')} className="w-full h-full rounded-lg bg-white shadow-2xl border border-white/10" />
                             )}
 
                             <button

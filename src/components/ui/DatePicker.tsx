@@ -147,7 +147,7 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
           ref={inputRef}
           type="text"
           inputMode="numeric"
-          placeholder="DD/MM/YYYY"
+          placeholder={t('common.datePlaceholder')}
           value={draft}
           onChange={e => {
             setDraft(e.target.value);
@@ -171,7 +171,7 @@ export function DatePicker({ value, onChange, label }: DatePickerProps) {
         />
         <button
           type="button"
-          aria-label="Open calendar"
+          aria-label={t('common.openCalendar')}
           onClick={() => { setIsOpen(o => !o); setViewMode('calendar'); }}
           className="px-3 py-3.5 text-muted hover:text-blue-400 transition-colors rounded-r-xl"
         >

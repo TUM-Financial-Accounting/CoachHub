@@ -2,6 +2,7 @@ import { useSeason } from '../contexts/SeasonContext';
 import { Calendar } from 'lucide-react';
 import { Select } from './ui/Select';
 import { useTranslation } from 'react-i18next';
+import { emitAppEvent } from '../lib/appEvents';
 
 export default function SeasonSwitcher({ collapsed }: { collapsed: boolean }) {
   const { seasons, activeSeason, setActiveSeasonId, loading } = useSeason();
@@ -33,7 +34,7 @@ export default function SeasonSwitcher({ collapsed }: { collapsed: boolean }) {
            options={options}
            onChange={(val) => {
               if (String(val) === 'CREATE_NEW') {
-                 window.dispatchEvent(new CustomEvent('open-create-season'));
+                 emitAppEvent('open-create-season');
               } else {
                  setActiveSeasonId(String(val));
               }

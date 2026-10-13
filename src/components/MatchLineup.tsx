@@ -16,7 +16,7 @@ import { TimePicker } from "./ui/TimePicker";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { useTeam } from '../contexts/TeamContext';
 import { useSeason } from '../contexts/SeasonContext';
-import { Player, MatchDetails, MatchRating, PositionSlot, LineupPlayer } from "../types/models";
+import { Player, MatchDetails, MatchRating, PositionSlot, LineupPlayer, FormationSource } from "../types/models";
 import { PlayerService, MatchService, FormationService } from "../services";
 import CustomFormationModal from './CustomFormationModal';
 import { DEFAULT_FORMATION, FORMATIONS, FORMATION_GROUPS } from '../lib/formations';
@@ -94,7 +94,7 @@ export default function MatchLineup() {
   const [customFormations, setCustomFormations] = useState<any[]>([]);
 
   const [currentFormation, setCurrentFormation] = useState<string>(DEFAULT_FORMATION);
-  const [formationSource, setFormationSource] = useState<string>('Default');
+  const [formationSource, setFormationSource] = useState<FormationSource>({ kind: 'default' });
   const [showFormationPicker, setShowFormationPicker] = useState(false);
   const [pickerPos, setPickerPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
   const formationBtnRef = useRef<HTMLButtonElement>(null);
@@ -124,7 +124,7 @@ export default function MatchLineup() {
 
   // AI Recommendation Storage
   const [aiSuggestedFormation, setAiSuggestedFormation] = useState<string>(DEFAULT_FORMATION);
-  const [aiSourceLabel, setAiSourceLabel] = useState<string>('AI Recommendation'); 
+  const [aiSource, setAiSource] = useState<FormationSource>({ kind: 'default' });
 
   // --- 1. Load Data ---
   useEffect(() => {
@@ -165,11 +165,11 @@ export default function MatchLineup() {
 
       if (suggestedData.formation) {
         setAiSuggestedFormation(suggestedData.formation);
-        setAiSourceLabel(suggestedData.source);
+        setAiSource(suggestedData.source);
       }
     }).catch(err => {
       console.error("Failed to load match data", err);
-      toast.error("Error loading dashboard data");
+      toast.error(t('matches.loadFailed'));
     });
   }, [activeTeam, activeSeason]);
 
@@ -185,7 +185,7 @@ useEffect(() => {
       if (hasSavedLineup) {
           // A. Saved Match (Real data exists) -> Always load saved strategy
           setCurrentFormation(matchDetails.formation || DEFAULT_FORMATION);
-          setFormationSource(t('matches.savedStrategy'));
+          setFormationSource({ kind: 'saved' });
           
           try {
               const parsedArray = JSON.parse(matchDetails.lineup!);
@@ -216,15 +216,15 @@ useEffect(() => {
 
           if (isUpcomingSoon && aiSuggestedFormation && FORMATIONS[aiSuggestedFormation]) {
               setCurrentFormation(aiSuggestedFormation);
-              setFormationSource(aiSourceLabel); // "Based on..."
+              setFormationSource(aiSource);
           } else if (matchDetails.formation && matchDetails.formation !== DEFAULT_FORMATION) {
               // Respect the formation stored on the match (e.g. corrected
               // retroactively on a past game) instead of forcing the default.
               setCurrentFormation(matchDetails.formation);
-              setFormationSource(t('matches.savedStrategy'));
+              setFormationSource({ kind: 'saved' });
           } else {
               setCurrentFormation(DEFAULT_FORMATION);
-              setFormationSource('Default'); // Far future match -> Default
+              setFormationSource({ kind: 'default' }); // Far future match
           }
           
           setLineup(new Map()); 
@@ -232,7 +232,7 @@ useEffect(() => {
       
       setSubstitutes([]); 
 
-  }, [matchDetails, aiSuggestedFormation, aiSourceLabel]);
+  }, [matchDetails, aiSuggestedFormation, aiSource]);
   // --- Handlers ---
   const handleOpenCreate = () => { setMatchForm({ opponent: '', date: '', time: '', location: '' }); setIsEditingMatch(false); setShowCreateMatchModal(true); };
   
@@ -246,7 +246,7 @@ useEffect(() => {
   const handleCustomFormationCreated = (newFormation: any) => {
     setCustomFormations(prev => [...prev, newFormation]);
     setCurrentFormation(newFormation.name);
-    setFormationSource('Custom Formation');
+    setFormationSource({ kind: 'custom' });
   };
 
   const handleChangeFormation = (formation: string) => {
@@ -255,7 +255,7 @@ useEffect(() => {
       if (!window.confirm(t('matches.switchFormationConfirm', { formation }))) return;
     }
     setCurrentFormation(formation);
-    setFormationSource(t('matches.manualSelection'));
+    setFormationSource({ kind: 'manual' });
     setLineup(new Map());
 
     // Past matches have no "save lineup" step, so a retroactive formation
@@ -342,6 +342,16 @@ useEffect(() => {
     }
     return FORMATIONS[DEFAULT_FORMATION];
   }, [currentFormation, customFormations]);
+
+  const formationSourceLabel = (s: FormationSource): string => {
+    switch (s.kind) {
+      case 'saved': return t('matches.savedStrategy');
+      case 'manual': return t('matches.manualSelection');
+      case 'custom': return t('matches.customFormation');
+      case 'training': return t('matches.sourceTraining', { date: s.sessionDate ? formatDate(s.sessionDate) : '', exercise: s.exerciseName });
+      default: return t('matches.defaultStrategy');
+    }
+  };
 
   const getMatchRating = (matchId: string, playerId: string): number =>
     ratings.find(r => r.matchId === matchId && r.playerId === playerId)?.rating ?? 0;
@@ -432,7 +442,7 @@ useEffect(() => {
 
         setMatches(prev => prev.map(m => m.id === updatedMatch.id ? updatedMatch : m));
         setMatchDetails(updatedMatch);
-        setFormationSource(t('matches.savedStrategy'));
+        setFormationSource({ kind: 'saved' });
         toast.success(t('matches.lineupSaved', { opponent: updatedMatch.opponent }));
         setShowSaveModal(false);
     } catch (e) {
@@ -482,8 +492,8 @@ useEffect(() => {
                     </div>
                     <div className="flex flex-wrap gap-6 text-sm text-muted font-medium">
                         <span className="flex items-center gap-2"><Calendar size={14} className="text-blue-500" /> {formatDate(matchDetails.date)}</span>
-                        <span className="flex items-center gap-2"><Users size={14} className="text-blue-500" /> {matchDetails.time || 'TBD'}</span>
-                        <span className="flex items-center gap-2"><MapPin size={14} className="text-blue-500" /> {matchDetails.location || t('matches.locationHome', 'Home')}</span>
+                        <span className="flex items-center gap-2"><Users size={14} className="text-blue-500" /> {matchDetails.time || t('matches.timeTbd')}</span>
+                        <span className="flex items-center gap-2"><MapPin size={14} className="text-blue-500" /> {matchDetails.location || t('matches.locationHome')}</span>
                     </div>
                 </>
             ) : (
@@ -511,7 +521,7 @@ useEffect(() => {
                 <ChevronDown size={14} className={`transition-transform duration-200 ${showFormationPicker ? 'rotate-180' : ''}`} />
               </button>
               </div>
-              <p className="text-[10px] text-muted mt-0.5">{formationSource === 'Default' ? t('matches.defaultStrategy') : formationSource}</p>
+              <p className="text-[10px] text-muted mt-0.5">{formationSourceLabel(formationSource)}</p>
             </div>
           </div>
         </Card>
@@ -747,7 +757,7 @@ useEffect(() => {
       <Modal isOpen={showCreateMatchModal} onClose={() => setShowCreateMatchModal(false)} title={isEditingMatch ? t('matches.editMatch') : t('matches.newMatch')} maxWidth="max-w-md"
         footer={<div className="flex gap-3"><Button variant="ghost" onClick={() => setShowCreateMatchModal(false)} className="flex-1">{t('common.cancel')}</Button><Button onClick={handleSaveMatch} className="flex-1">{isEditingMatch ? t('common.save') : t('matches.createMatch')}</Button></div>}>
         <div className="space-y-4">
-            <Input label={t('matches.opponent')} value={matchForm.opponent} onChange={e => setMatchForm({...matchForm, opponent: e.target.value})} placeholder="e.g. City Rovers FC" />
+            <Input label={t('matches.opponent')} value={matchForm.opponent} onChange={e => setMatchForm({...matchForm, opponent: e.target.value})} placeholder={t('matches.opponentPlaceholder')} />
             <DatePicker label={t('matches.matchDate')} value={matchForm.date} onChange={date => setMatchForm({...matchForm, date})} />
             <div className="grid grid-cols-2 gap-4">
                 <TimePicker label={t('matches.kickoffTime')} value={matchForm.time} onChange={time => setMatchForm({...matchForm, time})} />
@@ -756,8 +766,8 @@ useEffect(() => {
         </div>
       </Modal>
 
-      <Modal isOpen={showSaveModal} onClose={() => setShowSaveModal(false)} title={t('matches.confirmLineupTitle', 'Confirm Lineup')} maxWidth="max-w-sm" 
-        footer={<div className="flex gap-3"><Button variant="ghost" onClick={() => setShowSaveModal(false)} className="flex-1">{t('common.cancel')}</Button><Button onClick={handleSaveLineup} className="flex-1">{t('matches.confirmBtn', 'Confirm')}</Button></div>}>
+      <Modal isOpen={showSaveModal} onClose={() => setShowSaveModal(false)} title={t('matches.confirmLineupTitle')} maxWidth="max-w-sm" 
+        footer={<div className="flex gap-3"><Button variant="ghost" onClick={() => setShowSaveModal(false)} className="flex-1">{t('common.cancel')}</Button><Button onClick={handleSaveLineup} className="flex-1">{t('matches.confirmBtn')}</Button></div>}>
         <div className="space-y-4">
             <div className="bg-surface-raised/50 p-4 rounded-xl border border-border space-y-2">
                 <div className="flex justify-between text-sm"><span className="text-muted">{t('nav.matches')}</span><span className="text-foreground font-bold">{matchDetails?.opponent || t('matches.upcomingMatchViewOnly')}</span></div>
@@ -801,7 +811,7 @@ useEffect(() => {
 
           {customFormations.length > 0 && (
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold px-1 mb-1.5">{t('libraries.customFormationsLabel', 'Custom Formations')}</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold px-1 mb-1.5">{t('libraries.customFormationsLabel')}</p>
               <div className="flex flex-wrap gap-1.5">
                 {customFormations.map(f => (
                   <button

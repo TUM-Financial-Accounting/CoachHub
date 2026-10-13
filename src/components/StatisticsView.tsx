@@ -11,20 +11,11 @@ import { Button } from './ui/Button';
 import { useTeam } from '../contexts/TeamContext';
 import { useSeason } from '../contexts/SeasonContext';
 import { MatchService } from '../services';
-import { MatchDetails } from '../types/models';
+import { MatchDetails, TopPerformer } from '../types/models';
 import { toast } from 'sonner';
 import { formatDate, parseLocalDate, todayISO } from '../lib/dates';
 import { loadSeasonReport } from '../lib/seasonReport/load';
 import { renderSeasonReport, reportFileName } from '../lib/seasonReport/render';
-
-interface TopPerformer {
-  player_id: string;
-  first_name: string;
-  last_name: string;
-  image_url: string;
-  goals: number;
-  assists: number;
-}
 
 export default function StatisticsView() {
   const { t, i18n } = useTranslation();
@@ -521,13 +512,13 @@ function LeaderboardCard({ title, items, statKey, statLabel }: {
       ) : (
         <div className="space-y-2">
           {items.map((item, index) => (
-            <div key={item.player_id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-raised/40 transition-colors">
+            <div key={item.playerId}className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-raised/40 transition-colors">
               <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${index === 0 ? 'bg-amber-500 text-white' : index === 1 ? 'bg-slate-400 text-white' : index === 2 ? 'bg-amber-700 text-white' : 'border border-border text-muted'}`}>
                 {index + 1}
               </span>
               <div className="w-9 h-9 rounded-lg bg-surface border border-border/50 overflow-hidden flex-shrink-0">
-                {item.image_url ? (
-                  <img src={item.image_url} alt="" className="w-full h-full object-cover" />
+                {item.imageUrl ? (
+                  <img src={item.imageUrl}alt="" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-muted">
                     <Users size={15} />
@@ -535,7 +526,7 @@ function LeaderboardCard({ title, items, statKey, statLabel }: {
                 )}
               </div>
               <p className="text-sm font-medium text-foreground flex-1 truncate">
-                {item.first_name} {item.last_name}
+                {item.firstName} {item.lastName}
               </p>
               <div className="text-right flex-shrink-0">
                 <p className="text-base font-bold text-foreground">{item[statKey]}</p>

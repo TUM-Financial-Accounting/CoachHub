@@ -1,32 +1,17 @@
 // src/services/feedback-service.ts
+import { Feedback } from '../types/models';
+import { mapFeedbackFromApi, mapFeedbackToApi } from '../lib/data-mappers';
 import { apiClient } from './api-client';
 
-export type FeedbackType = 'bug' | 'feature' | 'question';
-export type FeedbackStatus = 'new' | 'in_progress' | 'resolved';
-
-export interface FeedbackRequest {
-  id: string;
-  type: FeedbackType;
-  title: string;
-  description: string;
-  screenshot_urls?: string[] | null;
-  status: FeedbackStatus;
-  created_at: string;
-}
-
-export interface FeedbackRequestCreate {
-  type: FeedbackType;
-  title: string;
-  description: string;
-  screenshot_urls?: string[] | null;
-}
+export type FeedbackCreate = Pick<Feedback, 'type' | 'title' | 'description' | 'screenshotUrls'>;
 
 export const FeedbackService = {
-  getAll: async (): Promise<FeedbackRequest[]> => {
-    return apiClient.get<FeedbackRequest[]>('/feedback');
+  getAll: async (): Promise<Feedback[]> => {
+    const data = await apiClient.get<any[]>('/feedback');
+    return data.map(mapFeedbackFromApi);
   },
 
-  create: async (data: FeedbackRequestCreate): Promise<FeedbackRequest> => {
-    return apiClient.post<FeedbackRequest>('/feedback', data);
+  create: async (data: FeedbackCreate): Promise<Feedback> => {
+    return mapFeedbackFromApi(await apiClient.post<any>('/feedback', mapFeedbackToApi(data)));
   },
 };

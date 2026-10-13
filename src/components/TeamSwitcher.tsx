@@ -2,6 +2,7 @@ import { useTeam } from '../contexts/TeamContext';
 import { Users } from 'lucide-react';
 import { Select } from './ui/Select';
 import { useTranslation } from 'react-i18next';
+import { emitAppEvent } from '../lib/appEvents';
 
 export default function TeamSwitcher({ collapsed }: { collapsed: boolean }) {
   const { teams, activeTeam, setActiveTeamId, loading } = useTeam();
@@ -35,7 +36,7 @@ export default function TeamSwitcher({ collapsed }: { collapsed: boolean }) {
            onChange={(val) => {
               if (String(val) === 'CREATE_NEW') {
                  // Trigger team creation modal
-                 window.dispatchEvent(new CustomEvent('open-create-team'));
+                 emitAppEvent('open-create-team');
               } else {
                  setActiveTeamId(String(val));
               }

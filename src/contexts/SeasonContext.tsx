@@ -2,11 +2,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { SeasonService } from '../services/season-service';
 import { bootPrefetch } from '../lib/bootPrefetch';
 import { STORAGE_KEYS } from '../lib/storageKeys';
+import type { Season } from '../types/models';
 
-export interface Season {
-  id: string;
-  name: string;
-}
+export type { Season };
 
 interface SeasonContextProps {
   seasons: Season[];

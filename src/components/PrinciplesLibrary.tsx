@@ -327,7 +327,7 @@ export default function PrinciplesLibrary() {
                     if (type === 'image') return (
                       <div>
                         <h4 className="text-[10px] uppercase tracking-widest text-muted font-bold mb-3">{t('libraries.visuals')}</h4>
-                        <img src={resolveMediaUrl(selected.mediaUrl!)} alt="Media" className="w-full max-h-72 object-cover rounded-xl border border-border cursor-zoom-in hover:opacity-90 transition-opacity" onClick={() => setViewMedia(resolveMediaUrl(selected.mediaUrl!))} />
+                        <img src={resolveMediaUrl(selected.mediaUrl!)} alt={t('common.mediaPreview')} className="w-full max-h-72 object-cover rounded-xl border border-border cursor-zoom-in hover:opacity-90 transition-opacity" onClick={() => setViewMedia(resolveMediaUrl(selected.mediaUrl!))} />
                       </div>
                     );
                   if (type === 'video') return (
@@ -422,7 +422,7 @@ export default function PrinciplesLibrary() {
             >
               {getMediaType(viewMedia) === 'image' && <img src={viewMedia} className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl border border-border" />}
               {getMediaType(viewMedia) === 'video' && <video src={viewMedia} controls autoPlay className="max-w-full max-h-[90vh] rounded-xl shadow-2xl border border-border" />}
-              {getMediaType(viewMedia) === 'pdf' && <iframe src={viewMedia} title="PDF" className="w-[80vw] h-[85vh] rounded-xl bg-white shadow-2xl" />}
+              {getMediaType(viewMedia) === 'pdf' && <iframe src={viewMedia} title={t('common.pdfViewer')} className="w-[80vw] h-[85vh] rounded-xl bg-white shadow-2xl" />}
               <button onClick={() => setViewMedia(null)} className="absolute top-3 right-3 bg-white/10 hover:bg-white/20 text-white p-2 rounded-full transition-colors border border-white/10"><X size={22} /></button>
             </motion.div>
           </motion.div>

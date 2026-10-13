@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Download, Upload, Check, BookOpen, Lightbulb, Trophy, Clipboard, FileJson } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from './ui/Modal';
@@ -15,6 +16,7 @@ interface PlaybookManagementModalProps {
 type ItemType = 'exercises' | 'basics' | 'principles' | 'tactics';
 
 export function PlaybookManagementModal({ isOpen, onClose, onImportSuccess }: PlaybookManagementModalProps) {
+    const { t } = useTranslation();
     const [mode, setMode] = useState<'export' | 'import'>('export');
     const [isLoading, setIsLoading] = useState(false);
     const [playbookData, setPlaybookData] = useState<PlaybookData | null>(null);
@@ -49,7 +51,7 @@ export function PlaybookManagementModal({ isOpen, onClose, onImportSuccess }: Pl
                 tactics: new Set(data.tactics.map(i => i.id))
             });
         } catch (err) {
-            toast.error("Failed to fetch playbook data");
+            toast.error(t('playbook.loadFailed'));
         } finally {
             setIsLoading(false);
         }
@@ -101,7 +103,7 @@ export function PlaybookManagementModal({ isOpen, onClose, onImportSuccess }: Pl
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        toast.success("Playbook exported successfully");
+        toast.success(t('playbook.exported'));
     };
 
     const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,7 +115,7 @@ export function PlaybookManagementModal({ isOpen, onClose, onImportSuccess }: Pl
             try {
                 const data = JSON.parse(event.target?.result as string) as PlaybookData;
                 if (!data.exercises || !data.basics || !data.principles || !data.tactics) {
-                    throw new Error("Invalid playbook format");
+                    throw new Error(t('playbook.invalidFormat'));
                 }
                 
                 setStagedImportData(data);
@@ -124,7 +126,7 @@ export function PlaybookManagementModal({ isOpen, onClose, onImportSuccess }: Pl
                     tactics: new Set(data.tactics.map(i => i.id))
                 });
             } catch (err) {
-                toast.error("Failed to parse playbook: " + (err instanceof Error ? err.message : "Invalid JSON"));
+                toast.error(t('playbook.parseFailed', { error: err instanceof Error ? err.message : t('playbook.invalidJson') }));
             }
         };
         reader.readAsText(file);
@@ -150,7 +152,7 @@ export function PlaybookManagementModal({ isOpen, onClose, onImportSuccess }: Pl
             if (onImportSuccess) onImportSuccess();
             onClose();
         } catch (err) {
-            toast.error("Failed to import playbook: " + (err instanceof Error ? err.message : "Unknown error"));
+            toast.error(t('playbook.importFailed', { error: err instanceof Error ? err.message : t('common.unknownError') }));
         } finally {
             setIsLoading(false);
         }
@@ -191,7 +193,7 @@ export function PlaybookManagementModal({ isOpen, onClose, onImportSuccess }: Pl
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={mode === 'export' ? "Export Playbook" : "Import Playbook"}
+            title={mode === 'export' ? t('playbook.exportTitle') : t('playbook.importTitle')}
             maxWidth="max-w-3xl"
             icon={mode === 'export' ? <Download className="text-blue-400" /> : <Upload className="text-emerald-400" />}
         >
@@ -203,79 +205,79 @@ export function PlaybookManagementModal({ isOpen, onClose, onImportSuccess }: Pl
                         className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all
                             ${mode === 'export' ? 'bg-primary text-white shadow-lg' : 'text-muted hover:text-foreground'}`}
                     >
-                        <Download size={16} /> Export
+                        <Download size={16} /> {t('playbook.export')}
                     </button>
                     <button 
                         onClick={() => setMode('import')}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all
                             ${mode === 'import' ? 'bg-emerald-600 text-white shadow-lg' : 'text-muted hover:text-foreground'}`}
                     >
-                        <Upload size={16} /> Import
+                        <Upload size={16} /> {t('playbook.import')}
                     </button>
                 </div>
 
                 {mode === 'export' ? (
                     <div className="space-y-6">
                         <div className="flex items-center justify-between">
-                            <p className="text-sm text-muted">Select the items you want to include in your export file.</p>
+                            <p className="text-sm text-muted">{t('playbook.exportHint')}</p>
                             <div className="flex gap-2">
-                                <Button variant="ghost" onClick={selectNone}>Select None</Button>
-                                <Button variant="secondary" onClick={selectAll}>Select All</Button>
+                                <Button variant="ghost" onClick={selectNone}>{t('common.selectNone')}</Button>
+                                <Button variant="secondary" onClick={selectAll}>{t('common.selectAll')}</Button>
                             </div>
                         </div>
 
                         {isLoading ? (
                             <div className="py-20 flex flex-col items-center justify-center gap-4">
                                 <div className="w-8 h-8 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
-                                <span className="text-muted text-sm">Loading playbook data...</span>
+                                <span className="text-muted text-sm">{t('playbook.loading')}</span>
                             </div>
                         ) : playbookData ? (
                             <div className="space-y-8 max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
-                                {renderItemList('basics', playbookData.basics, <BookOpen size={14} className="text-sky-400" />, 'Basics')}
-                                {renderItemList('principles', playbookData.principles, <Lightbulb size={14} className="text-purple-400" />, 'Principles')}
-                                {renderItemList('tactics', playbookData.tactics, <Trophy size={14} className="text-emerald-400" />, 'Tactics')}
-                                {renderItemList('exercises', playbookData.exercises, <Clipboard size={14} className="text-amber-400" />, 'Exercises')}
+                                {renderItemList('basics', playbookData.basics, <BookOpen size={14} className="text-sky-400" />, t('nav.basics'))}
+                                {renderItemList('principles', playbookData.principles, <Lightbulb size={14} className="text-purple-400" />, t('nav.principles'))}
+                                {renderItemList('tactics', playbookData.tactics, <Trophy size={14} className="text-emerald-400" />, t('nav.tactics'))}
+                                {renderItemList('exercises', playbookData.exercises, <Clipboard size={14} className="text-amber-400" />, t('nav.exercises'))}
                             </div>
                         ) : (
                             <div className="py-20 text-center border-2 border-dashed border-border rounded-2xl">
-                                <p className="text-muted">No data found to export</p>
+                                <p className="text-muted">{t('playbook.empty')}</p>
                             </div>
                         )}
 
                         <div className="pt-4 border-t border-border flex justify-end gap-3">
-                            <Button variant="secondary" onClick={onClose}>Cancel</Button>
+                            <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
                             <Button 
                                 onClick={handleExport} 
                                 disabled={isLoading || !playbookData || (selectedIds.exercises.size === 0 && selectedIds.basics.size === 0 && selectedIds.principles.size === 0 && selectedIds.tactics.size === 0)}
                             >
-                                Download Export (.json)
+                                {t('playbook.download')}
                             </Button>
                         </div>
                     </div>
                 ) : stagedImportData ? (
                     <div className="space-y-6">
                         <div className="flex items-center justify-between">
-                            <p className="text-sm text-muted">Select the items you want to import into your library.</p>
+                            <p className="text-sm text-muted">{t('playbook.importHint')}</p>
                             <div className="flex gap-2">
-                                <Button variant="ghost" onClick={selectNone}>Select None</Button>
-                                <Button variant="secondary" onClick={selectAll}>Select All</Button>
+                                <Button variant="ghost" onClick={selectNone}>{t('common.selectNone')}</Button>
+                                <Button variant="secondary" onClick={selectAll}>{t('common.selectAll')}</Button>
                             </div>
                         </div>
 
                         <div className="space-y-8 max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
-                            {renderItemList('basics', stagedImportData.basics, <BookOpen size={14} className="text-sky-400" />, 'Basics')}
-                            {renderItemList('principles', stagedImportData.principles, <Lightbulb size={14} className="text-purple-400" />, 'Principles')}
-                            {renderItemList('tactics', stagedImportData.tactics, <Trophy size={14} className="text-emerald-400" />, 'Tactics')}
-                            {renderItemList('exercises', stagedImportData.exercises, <Clipboard size={14} className="text-amber-400" />, 'Exercises')}
+                            {renderItemList('basics', stagedImportData.basics, <BookOpen size={14} className="text-sky-400" />, t('nav.basics'))}
+                            {renderItemList('principles', stagedImportData.principles, <Lightbulb size={14} className="text-purple-400" />, t('nav.principles'))}
+                            {renderItemList('tactics', stagedImportData.tactics, <Trophy size={14} className="text-emerald-400" />, t('nav.tactics'))}
+                            {renderItemList('exercises', stagedImportData.exercises, <Clipboard size={14} className="text-amber-400" />, t('nav.exercises'))}
                         </div>
 
                         <div className="pt-4 border-t border-border flex justify-end gap-3">
-                            <Button variant="secondary" onClick={() => setStagedImportData(null)}>Cancel</Button>
+                            <Button variant="secondary" onClick={() => setStagedImportData(null)}>{t('common.cancel')}</Button>
                             <Button 
                                 onClick={handleImportSubmit} 
                                 disabled={isLoading || (selectedIds.exercises.size === 0 && selectedIds.basics.size === 0 && selectedIds.principles.size === 0 && selectedIds.tactics.size === 0)}
                             >
-                                {isLoading ? 'Importing...' : 'Import Selected'}
+                                {isLoading ? t('playbook.importing') : t('playbook.importSelected')}
                             </Button>
                         </div>
                     </div>
@@ -285,9 +287,9 @@ export function PlaybookManagementModal({ isOpen, onClose, onImportSuccess }: Pl
                             <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 mb-6 group-hover:scale-110 transition-transform">
                                 <FileJson size={32} />
                             </div>
-                            <h3 className="text-lg font-bold text-foreground mb-2">Upload Playbook File</h3>
+                            <h3 className="text-lg font-bold text-foreground mb-2">{t('playbook.uploadTitle')}</h3>
                             <p className="text-muted text-sm text-center max-w-xs mb-8">
-                                Select a .json playbook file exported from another CoachHub account to import it into your library.
+                                {t('playbook.uploadHint')}
                             </p>
                             
                             <input 
@@ -299,13 +301,13 @@ export function PlaybookManagementModal({ isOpen, onClose, onImportSuccess }: Pl
                                 disabled={isLoading}
                             />
                             <label htmlFor="playbook-import" className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-bold cursor-pointer transition-all bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/20">
-                                Choose File
+                                {t('playbook.chooseFile')}
                             </label>
                         </div>
 
                         <div className="bg-amber-500/5 border border-amber-500/20 p-4 rounded-xl">
                             <p className="text-xs text-amber-600 dark:text-amber-200/80 leading-relaxed">
-                                <strong>Note:</strong> Items with the same name as existing ones in your library will be skipped to prevent duplicates. This process cannot be undone.
+                                <strong>{t('playbook.noteLabel')}</strong> {t('playbook.duplicateNote')}
                             </p>
                         </div>
                     </div>

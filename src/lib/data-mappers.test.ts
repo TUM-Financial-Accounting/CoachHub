@@ -23,6 +23,14 @@ import {
   mapAdminStatsFromApi,
   mapGoogleStatusFromApi,
   mapGoogleSyncResultFromApi,
+  mapSeasonFromApi,
+  mapTeamFromApi,
+  mapTeamToApi,
+  mapFeedbackFromApi,
+  mapFeedbackToApi,
+  mapVisionFromApi,
+  mapTopPerformerFromApi,
+  mapSuggestedFormationFromApi,
 } from './data-mappers';
 import type { Player, TrainingSession, Exercise, Tactic, MatchDetails, CalendarEvent } from '../types/models';
 
@@ -493,5 +501,55 @@ describe('google calendar mappers', () => {
 
   it('defaults sync counts to zero', () => {
     expect(mapGoogleSyncResultFromApi({ pushed: 4 })).toEqual({ pulled: 0, pushed: 4, removed: 0 });
+  });
+});
+
+describe('team and season mappers', () => {
+  it('round-trips a team through seasonId', () => {
+    const team = mapTeamFromApi({ id: 't1', name: 'U15', formation: '4-3-3', season_id: 's1' });
+    expect(team).toEqual({ id: 't1', name: 'U15', formation: '4-3-3', seasonId: 's1' });
+    expect(mapTeamToApi(team)).toEqual({ name: 'U15', formation: '4-3-3', season_id: 's1' });
+  });
+
+  it('fills a default formation and sends a missing season as null', () => {
+    expect(mapTeamFromApi({ id: 't1', name: 'U15' }).formation).toBe('4-4-2');
+    expect(mapTeamToApi({ name: 'U17' })).toEqual({ name: 'U17', formation: '4-4-2', season_id: null });
+  });
+
+  it('maps a season', () => {
+    expect(mapSeasonFromApi({ id: 's1', name: '2026/27', coach_id: 'c1' })).toEqual({ id: 's1', name: '2026/27' });
+  });
+});
+
+describe('feedback, vision and top performer mappers', () => {
+  it('round-trips feedback and sends no screenshots as null', () => {
+    const fb = mapFeedbackFromApi({ id: 'f1', type: 'bug', title: 'T', description: 'D', screenshot_urls: ['/a.png'], status: 'new', created_at: '2026-10-01T10:00:00' });
+    expect(fb).toEqual({ id: 'f1', type: 'bug', title: 'T', description: 'D', screenshotUrls: ['/a.png'], status: 'new', createdAt: '2026-10-01T10:00:00' });
+    expect(mapFeedbackToApi(fb)).toEqual({ type: 'bug', title: 'T', description: 'D', screenshot_urls: ['/a.png'] });
+    expect(mapFeedbackToApi({ ...fb, screenshotUrls: [] }).screenshot_urls).toBeNull();
+    expect(mapFeedbackFromApi({ id: 'f2', screenshot_urls: null }).screenshotUrls).toEqual([]);
+  });
+
+  it('maps a vision', () => {
+    expect(mapVisionFromApi({ id: 'v1', title: 'Plan', filename: 'x.pdf', uploaded_at: '2026-09-01T08:00:00' }))
+      .toEqual({ id: 'v1', title: 'Plan', filename: 'x.pdf', uploadedAt: '2026-09-01T08:00:00' });
+  });
+
+  it('maps a top performer with a missing photo', () => {
+    expect(mapTopPerformerFromApi({ player_id: 'p1', first_name: 'Lena', last_name: 'Kraft', image_url: null, goals: 3, assists: 1 }))
+      .toEqual({ playerId: 'p1', firstName: 'Lena', lastName: 'Kraft', imageUrl: '', goals: 3, assists: 1 });
+  });
+});
+
+describe('mapSuggestedFormationFromApi', () => {
+  it('keeps the training session and exercise behind a suggestion', () => {
+    expect(mapSuggestedFormationFromApi({ formation: '4-3-3', kind: 'training', session_date: '2026-10-10', exercise_name: 'Rondo', source: 'Based on ...' }))
+      .toEqual({ formation: '4-3-3', source: { kind: 'training', sessionDate: '2026-10-10', exerciseName: 'Rondo' } });
+  });
+
+  it('treats a default or pre-`kind` response as the default strategy', () => {
+    expect(mapSuggestedFormationFromApi({ formation: '4-4-2', kind: 'default', source: 'Default' }).source).toEqual({ kind: 'default' });
+    expect(mapSuggestedFormationFromApi({ formation: '4-2-3-1', source: 'Based on 2026-10-10 training (Rondo)' }))
+      .toEqual({ formation: '4-2-3-1', source: { kind: 'default' } });
   });
 });

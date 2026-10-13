@@ -23,6 +23,7 @@ import { useSeason } from '../contexts/SeasonContext';
 import { uuid } from '../lib/uuid';
 import { PLAYER_POSITIONS, PLAYER_STATUSES, emptyPlayer, perfStyle, statusStyle } from '../lib/domain';
 import { splitCsv } from '../lib/csv';
+import { emitAppEvent } from '../lib/appEvents';
 
 export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page) => void }) {
     const { t } = useTranslation();
@@ -177,7 +178,7 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
             // but we MUST refresh because the player was likely not in the current squad list.
             refreshData(); 
         } catch (e) {
-            toast.error("Failed to reuse profile");
+            toast.error(t('team.reuseProfileFailed'));
         }
     };
 
@@ -452,7 +453,7 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                                             </div>
                                             {!searchQuery && (
                                                 <button
-                                                    onClick={(!activeTeam && viewMode !== 'trial') ? () => window.dispatchEvent(new Event('open-create-team')) : openCreate}
+                                                    onClick={(!activeTeam && viewMode !== 'trial') ? () => emitAppEvent('open-create-team') : openCreate}
                                                     className="mt-2 px-4 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 text-sm font-medium hover:bg-indigo-500/20 transition-colors"
                                                 >
                                                     {(!activeTeam && viewMode !== 'trial') ? t('team.addTeam') : t('team.addPlayer')}
@@ -621,8 +622,8 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                                 <span className="w-6 h-[2px] bg-blue-500/50 rounded-full"></span>{t('team.identityPosition')}<span className="flex-1 h-[1px] bg-gradient-to-r from-blue-500/20 to-transparent"></span>
                             </h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <Input label={t('team.firstName')} value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s'\-]/g, '') })} placeholder="e.g. Marcus" />
-                                <Input label={t('team.lastName')} value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s'\-]/g, '') })} placeholder="e.g. Rashford" />
+                                <Input label={t('team.firstName')} value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s'-]/g, '') })} placeholder={t('team.firstNamePlaceholder')} />
+                                <Input label={t('team.lastName')} value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s'-]/g, '') })} placeholder={t('team.lastNamePlaceholder')} />
                                 <DatePicker label={t('team.dateOfBirth')} value={formData.dateOfBirth} onChange={date => setFormData({ ...formData, dateOfBirth: date })} />
                                 <Select label={t('common.position')} value={formData.position} onChange={(value) => setFormData({ ...formData, position: value as string })} options={PLAYER_POSITIONS.map(p => ({ label: t(`positions.${p}`), value: p }))} />
                                 <Input label={t('team.jerseyNumberLabel')} type="text" inputMode="numeric" icon={<Hash size={14} />} value={formData.jerseyNumber || ''} onChange={e => { const raw = e.target.value.replace(/\D/g, ''); const v = raw === '' ? 0 : Math.min(99, parseInt(raw)); setFormData({ ...formData, jerseyNumber: v }); }} className="font-mono font-bold" />
@@ -697,7 +698,7 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                                     const numeric = raw === '' || raw === '.' ? 0 : (parseFloat(raw) || 0);
                                     setFormData({ ...formData, weight: numeric });
                                 }} />
-                                <Input label={t('team.clothingSize')} value={formData.clothingSize} onChange={e => setFormData({ ...formData, clothingSize: e.target.value })} placeholder="e.g. M or 152" />
+                                <Input label={t('team.clothingSize')} value={formData.clothingSize} onChange={e => setFormData({ ...formData, clothingSize: e.target.value })} placeholder={t('team.clothingSizePlaceholder')} />
                                 <Select label={t('team.strongFoot')} value={formData.strongFoot || ''} onChange={(value) => setFormData({ ...formData, strongFoot: value as string })} options={[{ label: '—', value: '' }, { label: t('team.right'), value: 'Right' }, { label: t('team.left'), value: 'Left' }, { label: t('team.both'), value: 'Both' }]} />
                             </div>
                         </div>
@@ -708,9 +709,9 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                             </h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <Input className="md:col-span-2" label={t('team.playerPhone')} value={formData.playerPhone} onChange={e => setFormData({ ...formData, playerPhone: e.target.value.replace(/[^0-9+\-\s()]/g, '') })} placeholder="+1 (555) 000-0000" />
-                                <Input label={t('team.motherName')} value={formData.motherName} onChange={e => setFormData({ ...formData, motherName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s'\-]/g, '') })} />
+                                <Input label={t('team.motherName')} value={formData.motherName} onChange={e => setFormData({ ...formData, motherName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s'-]/g, '') })} />
                                 <Input label={t('team.motherPhone')} value={formData.motherPhone} onChange={e => setFormData({ ...formData, motherPhone: e.target.value.replace(/[^0-9+\-\s()]/g, '') })} />
-                                <Input label={t('team.fatherName')} value={formData.fatherName} onChange={e => setFormData({ ...formData, fatherName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s'\-]/g, '') })} />
+                                <Input label={t('team.fatherName')} value={formData.fatherName} onChange={e => setFormData({ ...formData, fatherName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s'-]/g, '') })} />
                                 <Input label={t('team.fatherPhone')} value={formData.fatherPhone} onChange={e => setFormData({ ...formData, fatherPhone: e.target.value.replace(/[^0-9+\-\s()]/g, '') })} />
                             </div>
                         </div>

@@ -1,11 +1,16 @@
 import type { Intensity, MatchEventType } from '../lib/domain';
 // src/types/models.ts
 
+export interface Season {
+  id: string;
+  name: string;
+}
+
 export interface Team {
   id: string;
   name: string;
   formation: string;
-  season_id?: string;
+  seasonId?: string;
 }
 
 export interface Player {
@@ -46,8 +51,6 @@ export interface TrainingSession {
   intensity: string;
   selectedPlayers: string;
   selectedExercises: string;
-  season_id?: string;
-  team_id?: string;
   // Set when this session was materialised from a recurring series. UI uses
   // these to show a "series" badge and to offer the scope dialog on edit/delete.
   seriesId?: string | null;
@@ -61,8 +64,6 @@ export interface Match {
   time: string;
   location: string;
   formation: string;
-  season_id?: string;
-  team_id?: string;
 }
 
 export interface MatchDetails {
@@ -146,8 +147,6 @@ export interface CalendarEvent {
   date: string;       // YYYY-MM-DD
   startTime: string;  // HH:MM
   endTime: string;    // HH:MM
-  season_id?: string;
-  team_id?: string;
   seriesId?: string | null;
 }
 
@@ -182,16 +181,49 @@ export interface GoogleSyncResult {
   removed: number;
 }
 
-export interface AdminFeedbackItem {
+export type FeedbackType = 'bug' | 'feature' | 'question';
+export type FeedbackStatus = 'new' | 'in_progress' | 'resolved';
+
+export interface Feedback {
   id: string;
-  type: 'bug' | 'feature' | 'question';
+  type: FeedbackType;
   title: string;
   description: string;
   screenshotUrls: string[];
-  status: 'new' | 'in_progress' | 'resolved';
+  status: FeedbackStatus;
   createdAt: string;
+}
+
+export interface AdminFeedbackItem extends Feedback {
   coachEmail: string;
   coachName: string;
+}
+
+export interface Vision {
+  id: string;
+  title: string;
+  filename: string;
+  uploadedAt: string;
+}
+
+export interface FormationSource {
+  kind: 'default' | 'saved' | 'manual' | 'custom' | 'training';
+  sessionDate?: string;
+  exerciseName?: string;
+}
+
+export interface SuggestedFormation {
+  formation: string;
+  source: FormationSource;
+}
+
+export interface TopPerformer {
+  playerId: string;
+  firstName: string;
+  lastName: string;
+  imageUrl: string;
+  goals: number;
+  assists: number;
 }
 
 export interface AdminUser {

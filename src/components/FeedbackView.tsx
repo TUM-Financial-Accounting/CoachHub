@@ -7,23 +7,20 @@ import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Select } from './ui/Select';
 import { uploadFile } from '../lib/uploadFile';
-import {
-  FeedbackService,
-  FeedbackRequest,
-  FeedbackType,
-} from '../services/feedback-service';
+import { FeedbackService } from '../services/feedback-service';
+import type { Feedback, FeedbackType } from '../types/models';
 
 
-const TYPE_META: Record<FeedbackType, { label: string; icon: any; classes: string }> = {
-  bug:      { label: 'Bug',      icon: Bug,         classes: 'bg-rose-500/10 text-rose-600' },
-  feature:  { label: 'Feature',  icon: Lightbulb,   classes: 'bg-amber-500/10 text-amber-600' },
-  question: { label: 'Question', icon: HelpCircle,  classes: 'bg-blue-500/10 text-blue-600' },
+const TYPE_META: Record<FeedbackType, { icon: any; classes: string }> = {
+  bug:      { icon: Bug,         classes: 'bg-rose-500/10 text-rose-600' },
+  feature:  { icon: Lightbulb,   classes: 'bg-amber-500/10 text-amber-600' },
+  question: { icon: HelpCircle,  classes: 'bg-blue-500/10 text-blue-600' },
 };
 
-const STATUS_META: Record<string, { label: string; classes: string }> = {
-  new:         { label: 'New',         classes: 'bg-slate-500/10 text-slate-600' },
-  in_progress: { label: 'In progress', classes: 'bg-amber-500/10 text-amber-600' },
-  resolved:    { label: 'Resolved',    classes: 'bg-emerald-500/10 text-emerald-600' },
+const STATUS_META: Record<string, { classes: string }> = {
+  new:         { classes: 'bg-slate-500/10 text-slate-600' },
+  in_progress: { classes: 'bg-amber-500/10 text-amber-600' },
+  resolved:    { classes: 'bg-emerald-500/10 text-emerald-600' },
 };
 
 export default function FeedbackView() {
@@ -48,7 +45,7 @@ export default function FeedbackView() {
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [items, setItems] = useState<FeedbackRequest[]>([]);
+  const [items, setItems] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -72,7 +69,7 @@ export default function FeedbackView() {
     if (files.length === 0) return;
     const images = files.filter(f => f.type.startsWith('image/'));
     if (images.length < files.length) {
-      toast.error(t('feedback.skippedNonImage', 'Skipped non-image files'));
+      toast.error(t('feedback.skippedNonImage'));
     }
     if (images.length === 0) {
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -102,7 +99,7 @@ export default function FeedbackView() {
         type,
         title: title.trim(),
         description: description.trim(),
-        screenshot_urls: screenshotUrls.length > 0 ? screenshotUrls : null,
+        screenshotUrls,
       });
       setItems(prev => [created, ...prev]);
       setTitle('');
@@ -192,14 +189,14 @@ export default function FeedbackView() {
                   <div key={url} className="relative">
                     <img
                       src={url}
-                      alt={`Screenshot ${idx + 1}`}
+                      alt={t('feedback.screenshotAlt', { n: idx + 1 })}
                       className="h-32 w-auto rounded-lg border border-border"
                     />
                     <button
                       type="button"
                       onClick={() => setScreenshotUrls(prev => prev.filter(u => u !== url))}
                       className="absolute -top-2 -right-2 bg-surface border border-border rounded-full p-1 text-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-                      aria-label="Remove screenshot"
+                      aria-label={t('feedback.removeScreenshot')}
                     >
                       <X size={12} />
                     </button>
@@ -257,15 +254,15 @@ export default function FeedbackView() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-semibold text-foreground">{item.title}</p>
                           <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide ${statusMeta.classes}`}>
-                            {statusLabels[item.status] ?? statusMeta.label}
+                            {statusLabels[item.status] ?? statusLabels.new}
                           </span>
                         </div>
-                        <span className="text-xs text-muted flex-shrink-0">{formatDate(item.created_at)}</span>
+                        <span className="text-xs text-muted flex-shrink-0">{formatDate(item.createdAt)}</span>
                       </div>
                       <p className="text-sm text-muted mt-1.5 whitespace-pre-wrap">{item.description}</p>
-                      {item.screenshot_urls && item.screenshot_urls.length > 0 && (
+                      {item.screenshotUrls.length > 0 && (
                         <div className="flex flex-wrap gap-3 mt-3">
-                          {item.screenshot_urls.map((url, idx) => (
+                          {item.screenshotUrls.map((url, idx) => (
                             <a
                               key={url}
                               href={url}
@@ -275,7 +272,7 @@ export default function FeedbackView() {
                             >
                               <img
                                 src={url}
-                                alt={`Screenshot ${idx + 1}`}
+                                alt={t('feedback.screenshotAlt', { n: idx + 1 })}
                                 className="max-h-48 rounded-lg border border-border hover:border-primary/50 transition-colors"
                               />
                             </a>

@@ -22,6 +22,7 @@ import DeleteTeamModal from './DeleteTeamModal';
 import { PLAYER_STATUS } from '../lib/domain';
 import { addMinutes, formatDate, parseLocalDate, todayISO } from '../lib/dates';
 import { splitCsv } from '../lib/csv';
+import { emitAppEvent } from '../lib/appEvents';
 
 interface DashboardProps {
   onNavigate: (page: Page) => void;
@@ -127,7 +128,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
         setAttendanceData(calculateMonthlyAttendance());
       } catch (error) {
-        toast.error('Failed to load dashboard data');
+        toast.error(t('dashboard.loadFailed'));
       }
     };
 
@@ -240,7 +241,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
           <Button
             variant="secondary"
-            onClick={() => window.dispatchEvent(new Event('open-create-team'))}
+            onClick={() => emitAppEvent('open-create-team')}
             icon={<TrendingUp size={16} />}
             className="shadow-lg hover:border-emerald-500/50"
           >

@@ -470,13 +470,13 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
       {/* Toolbar: week nav + legend */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <button onClick={() => shiftWeek(-1)} className="p-2 rounded-lg border border-border text-muted hover:text-foreground hover:bg-surface-hover transition-colors" aria-label="Previous week">
+          <button onClick={() => shiftWeek(-1)} className="p-2 rounded-lg border border-border text-muted hover:text-foreground hover:bg-surface-hover transition-colors" aria-label={t('calendar.previousWeek')}>
             <ChevronLeft size={16} />
           </button>
           <button onClick={goToday} className="px-3 py-1.5 rounded-lg border border-border text-sm font-semibold text-foreground hover:bg-surface-hover transition-colors">
             {t('calendar.today')}
           </button>
-          <button onClick={() => shiftWeek(1)} className="p-2 rounded-lg border border-border text-muted hover:text-foreground hover:bg-surface-hover transition-colors" aria-label="Next week">
+          <button onClick={() => shiftWeek(1)} className="p-2 rounded-lg border border-border text-muted hover:text-foreground hover:bg-surface-hover transition-colors" aria-label={t('calendar.nextWeek')}>
             <ChevronRight size={16} />
           </button>
           <span className="ml-2 text-sm font-bold text-foreground">{weekLabel}</span>
@@ -553,7 +553,7 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
             <Input label={t('training.focus')} value={form.focus} onChange={e => setForm({ ...form, focus: e.target.value })} placeholder={t('training.focusPlaceholder')} />
           )}
           {form.type === 'match' && (
-            <Input label={t('matches.opponent')} value={form.opponent} onChange={e => setForm({ ...form, opponent: e.target.value })} placeholder="e.g. City Rovers FC" />
+            <Input label={t('matches.opponent')} value={form.opponent} onChange={e => setForm({ ...form, opponent: e.target.value })} placeholder={t('matches.opponentPlaceholder')} />
           )}
 
           {/* Date + times */}

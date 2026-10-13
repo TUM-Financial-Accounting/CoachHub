@@ -1,12 +1,7 @@
 // src/services/match-service.ts
-import { Match, MatchDetails, MatchEvent, MatchRating } from '../types/models';
-import { mapMatchFromApi, mapMatchDetailsFromApi, mapMatchDetailsToApi, mapMatchEventFromApi, mapMatchRatingFromApi } from '../lib/data-mappers';
+import { Match, MatchDetails, MatchEvent, MatchRating, SuggestedFormation, TopPerformer } from '../types/models';
+import { mapMatchFromApi, mapMatchDetailsFromApi, mapMatchDetailsToApi, mapMatchEventFromApi, mapMatchRatingFromApi, mapSuggestedFormationFromApi, mapTopPerformerFromApi } from '../lib/data-mappers';
 import { apiClient } from './api-client';
-
-export interface SuggestedFormation {
-  formation: string;
-  source: string;
-}
 
 /**
  * Service for interacting with match-related API endpoints.
@@ -73,7 +68,7 @@ export const MatchService = {
    */
   async getSuggestedFormation(teamId?: string): Promise<SuggestedFormation> {
     const params = teamId ? `?team_id=${teamId}` : '';
-    return apiClient.get<SuggestedFormation>(`/match/suggested-formation${params}`);
+    return mapSuggestedFormationFromApi(await apiClient.get<any>(`/match/suggested-formation${params}`));
   },
 
   /**
@@ -151,9 +146,10 @@ export const MatchService = {
   /**
    * Fetches top scorers and assisters for a team/season.
    */
-  async getTopPerformers(teamId: string, seasonId?: string): Promise<any[]> {
+  async getTopPerformers(teamId: string, seasonId?: string): Promise<TopPerformer[]> {
     const params = new URLSearchParams({ team_id: teamId });
     if (seasonId) params.append('season_id', seasonId);
-    return apiClient.get<any[]>(`/stats/top-performers?${params.toString()}`);
+    const data = await apiClient.get<any[]>(`/stats/top-performers?${params.toString()}`);
+    return data.map(mapTopPerformerFromApi);
   }
 };

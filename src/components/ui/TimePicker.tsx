@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Clock, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { TimePickerProps } from "../../types/ui";
 import { parseFlexibleTime } from "../../lib/dateParse";
 
@@ -143,6 +144,7 @@ function Wheel({ items, selectedValue, onSelect, label }: WheelProps) {
 }
 
 export function TimePicker({ value, onChange, label }: TimePickerProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState<string>(value || '');
   const [draftInvalid, setDraftInvalid] = useState(false);
@@ -241,7 +243,7 @@ export function TimePicker({ value, onChange, label }: TimePickerProps) {
           ref={inputRef}
           type="text"
           inputMode="numeric"
-          placeholder="HH:MM"
+          placeholder={t('common.timePlaceholder')}
           value={draft}
           onChange={e => {
             typingRef.current = true;
@@ -266,7 +268,7 @@ export function TimePicker({ value, onChange, label }: TimePickerProps) {
         />
         <button
           type="button"
-          aria-label="Open time picker"
+          aria-label={t('common.openTimePicker')}
           onClick={() => setIsOpen(o => !o)}
           className="px-3 py-3.5 text-muted hover:text-blue-400 transition-colors rounded-r-xl"
         >
@@ -285,9 +287,9 @@ export function TimePicker({ value, onChange, label }: TimePickerProps) {
             className="bg-background backdrop-blur-xl border border-border rounded-2xl shadow-2xl p-6 overflow-hidden"
           >
             <div className="flex gap-4 items-center mb-6">
-              <Wheel items={HOURS} selectedValue={h24} onSelect={setHour} label="Hour" />
+              <Wheel items={HOURS} selectedValue={h24} onSelect={setHour} label={t('common.hour')} />
               <div className="text-2xl font-bold text-dimmed mt-6">:</div>
-              <Wheel items={MINUTES} selectedValue={minute} onSelect={setMinute} label="Min" />
+              <Wheel items={MINUTES} selectedValue={minute} onSelect={setMinute} label={t('common.minute')} />
             </div>
 
             <Button 

@@ -171,6 +171,7 @@ describe('401 handling', () => {
     localStorage.setItem('access_token', 'jwt-123');
     localStorage.setItem('cache:seasons:v1', '[]');
     localStorage.setItem('cache:teams:v1', '[]');
+    localStorage.setItem('cache:teams:v2', '[]');
     localStorage.setItem('activeSeasonId', 'season-1');
     localStorage.setItem('activeTeamId', 'team-1');
   }
@@ -189,6 +190,7 @@ describe('401 handling', () => {
       'access_token',
       'cache:seasons:v1',
       'cache:teams:v1',
+      'cache:teams:v2',
       'activeSeasonId',
       'activeTeamId',
     ]) {

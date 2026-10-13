@@ -3,7 +3,8 @@ import { cn } from './utils';
 
 describe('cn', () => {
   it('merges conditional class values', () => {
-    expect(cn('a', false && 'b', 'c')).toBe('a c');
+    const enabled: boolean = false;
+    expect(cn('a', enabled && 'b', 'c')).toBe('a c');
   });
 
   it('lets a later Tailwind class win over an earlier one in the same group', () => {

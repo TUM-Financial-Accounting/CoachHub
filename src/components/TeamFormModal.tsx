@@ -78,7 +78,7 @@ export default function TeamFormModal({ isOpen, onClose, onSuccess }: TeamFormMo
         : formData.name;
 
       const isDuplicate = allTeams.some(team => 
-        team.season_id === targetSeasonId && 
+        team.seasonId === targetSeasonId && 
         team.name.toLowerCase() === teamNameToCreate?.toLowerCase()
       );
 
@@ -96,7 +96,7 @@ export default function TeamFormModal({ isOpen, onClose, onSuccess }: TeamFormMo
         }
         await TeamService.clone(sourceTeamId, targetSeasonId);
       } else {
-        await TeamService.create({ ...formData, season_id: targetSeasonId });
+        await TeamService.create({ ...formData, seasonId: targetSeasonId });
       }
 
       await refreshTeams();
@@ -106,7 +106,7 @@ export default function TeamFormModal({ isOpen, onClose, onSuccess }: TeamFormMo
       setNewSeasonName('');
       setSourceTeamId('');
     } catch (err: any) {
-      toast.error(t('modals.processRequestFailed') + (err.message || 'Unknown error'));
+      toast.error(t('modals.processRequestFailed') + (err.message || t('common.unknownError')));
     } finally {
       setLoading(false);
     }
@@ -204,7 +204,7 @@ export default function TeamFormModal({ isOpen, onClose, onSuccess }: TeamFormMo
                     <option value="">{t('modals.selectTeamDefaultOption')}</option>
                     {/* Show all available teams from other seasons */}
                     {availableTeamsForCloning.map(team => (
-                      <option key={team.id} value={team.id}>{team.name} ({seasons.find(s => s.id === team.season_id)?.name || t('modals.unknownSeason', 'Unknown Season')})</option>
+                      <option key={team.id} value={team.id}>{team.name} ({seasons.find(s => s.id === team.seasonId)?.name || t('modals.unknownSeason')})</option>
                     ))}
                   </select>
                   <p className="mt-2 text-[10px] text-muted leading-relaxed">

@@ -54,8 +54,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           window.history.replaceState({}, document.title, window.location.pathname);
         })
         .catch(err => {
-          setError(err.message || 'Verification failed');
-          toast.error(err.message || 'Verification failed');
+          setError(err.message || t('login.verificationFailed'));
+          toast.error(err.message || t('login.verificationFailed'));
         })
         .finally(() => setLoading(false));
     }
@@ -65,7 +65,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     e.preventDefault();
     if (loading) return; 
 
-    console.log(`[LoginPage] Form submitted. Mode: ${isRegister ? 'Register' : 'Login'}`);
     setError('');
     setLoading(true);
 
@@ -93,26 +92,20 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         ? { email, password, full_name: fullName }
         : { email, password };
 
-      console.log(`[LoginPage] Calling AuthService.${isRegister ? 'register' : 'login'}...`);
       const data = isRegister
         ? await AuthService.register(payload)
         : await AuthService.login(payload);
 
-      // Don't log the response object — it contains the access token.
-      console.log(`[LoginPage] ${isRegister ? 'Register' : 'Login'} succeeded`);
-
       // Success Action
       if (isRegister) {
         toast.success(t('login.toastAccountCreated'));
-        console.log("[LoginPage] Switching to Login view...");
         setIsRegister(false); // Redirect to Login view
         setFullName('');
         setPassword('');
         setConfirmPassword('');
       } else {
         const response = data as AuthResponse;
-        console.log(`[LoginPage] Welcome back, ${response.user.full_name || 'Coach'}!`);
-        toast.success(t('login.toastWelcomeBack', { name: response.user.full_name || 'Coach' }));
+        toast.success(t('login.toastWelcomeBack', { name: response.user.full_name || t('login.defaultName') }));
 
         localStorage.setItem(STORAGE_KEYS.isAuthenticated, 'true');
         localStorage.setItem(STORAGE_KEYS.accessToken, response.access_token);
@@ -128,18 +121,16 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         // a half-loaded dashboard with empty cards.
         await bootPrefetch.primeAfterLogin();
 
-        console.log("[LoginPage] Calling onLogin()...");
         onLogin();
       }
 
     } catch (err: any) {
       console.error(`[LoginPage] Error during ${isRegister ? 'Register' : 'Login'}:`, err);
       // Fallback message if err.message is empty or weird
-      const msg = err.message || 'Connection failed. Please check if the backend is online.';
+      const msg = err.message || t('login.connectionFailed');
       setError(msg);
       toast.error(msg);
     } finally {
-      console.log("[LoginPage] Finally: Setting loading to false.");
       setLoading(false);
     }
   };
@@ -390,7 +381,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                       label={t('login.fullNameLabel')}
                       type="text"
                       icon={<User size={16} />}
-                      placeholder="John Doe"
+                      placeholder={t('login.fullNamePlaceholder')}
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                     />

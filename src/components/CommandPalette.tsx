@@ -111,13 +111,13 @@ export default function CommandPalette({ isOpen, onClose, onNavigate }: CommandP
         }
         const q = query.toLowerCase();
         const filtered = allDataRef.current.filter(r =>
-            r.label.toLowerCase().includes(q) || r.sub.toLowerCase().includes(q) || r.category.toLowerCase().includes(q)
+            r.label.toLowerCase().includes(q) || r.sub.toLowerCase().includes(q) || t(`commandPalette.categories.${r.category}`).toLowerCase().includes(q)
         )
         .sort((a, b) => CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category))
         .slice(0, 12);
         setResults(filtered);
         setSelectedIdx(0);
-    }, [query]);
+    }, [query, t]);
 
     const displayItems: (Result | { type: 'quicklink'; labelKey: string; page: Page; category: Category })[] =
         query.trim() ? results : QUICK_LINKS.map(q => ({ type: 'quicklink' as const, ...q }));

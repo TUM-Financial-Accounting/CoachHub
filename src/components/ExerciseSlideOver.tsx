@@ -20,7 +20,7 @@ export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete 
     const renderMedia = (url: string) => {
         const type = getMediaType(url);
         const resolvedUrl = resolveMediaUrl(url);
-        if (type === 'image') return <img src={resolvedUrl} alt="Exercise visual" className="w-full h-full object-cover" />;
+        if (type === 'image') return <img src={resolvedUrl} alt={t('common.mediaPreview')} className="w-full h-full object-cover" />;
         if (type === 'video') return (
             <video src={resolvedUrl} controls className="w-full h-full rounded-t-none" />
         );

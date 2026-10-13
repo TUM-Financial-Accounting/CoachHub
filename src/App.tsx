@@ -7,6 +7,7 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { TeamProvider } from './contexts/TeamContext';
 import { SeasonProvider, useSeason } from './contexts/SeasonContext';
+import { useAppEvent } from './lib/appEvents';
 import { Button } from './components/ui/Button';
 import { useTranslation } from 'react-i18next';
 
@@ -70,7 +71,7 @@ export default function App() {
     clearSession();
     setIsAuthenticated(false);
     setCurrentPage('login');
-    toast.success("Logged out successfully");
+    toast.success(i18n.t('login.loggedOut'));
 
     // 2. Clear backend session in background
     AuthService.logout().catch(err => {
@@ -191,16 +192,9 @@ function AppLayout({ currentPage, navigateToPage, handleLogout }: { currentPage:
   const [cmdOpen, setCmdOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  useEffect(() => {
-    const handleOpenTeamModal = () => setIsTeamModalOpen(true);
-    const handleOpenSeasonModal = () => setIsSeasonModalOpen(true);
-    window.addEventListener('open-create-team', handleOpenTeamModal);
-    window.addEventListener('open-create-season', handleOpenSeasonModal);
-    return () => {
-       window.removeEventListener('open-create-team', handleOpenTeamModal);
-       window.removeEventListener('open-create-season', handleOpenSeasonModal);
-    };
-  }, []);
+  useAppEvent('open-create-team', () => setIsTeamModalOpen(true));
+  useAppEvent('open-create-season', () => setIsSeasonModalOpen(true));
+  useAppEvent('open-search', () => setCmdOpen(true));
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -210,14 +204,7 @@ function AppLayout({ currentPage, navigateToPage, handleLogout }: { currentPage:
       }
     };
     window.addEventListener('keydown', handler);
-
-    const handleOpenSearch = () => setCmdOpen(true);
-    window.addEventListener('open-search', handleOpenSearch);
-
-    return () => {
-      window.removeEventListener('keydown', handler);
-      window.removeEventListener('open-search', handleOpenSearch);
-    };
+    return () => window.removeEventListener('keydown', handler);
   }, []);
 
   const pageContent: Record<Exclude<Page, 'login'>, React.ReactNode> = {

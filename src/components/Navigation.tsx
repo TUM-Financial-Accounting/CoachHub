@@ -8,6 +8,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import { getStoredUserRole } from '../lib/utils';
 import { STORAGE_KEYS } from '../lib/storageKeys';
+import { emitAppEvent } from '../lib/appEvents';
 
 type NavGroupKey = 'nav.sectionTeam' | 'nav.sectionPlaybook' | 'nav.sectionVision' | 'nav.sectionSystem';
 
@@ -247,7 +248,7 @@ export default function Navigation({ currentPage, onNavigate, onLogout, isMobile
           >
             <button
               onClick={() => {
-                window.dispatchEvent(new CustomEvent('open-search'));
+                emitAppEvent('open-search');
                 if (onMobileClose) onMobileClose();
               }}
               className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl bg-surface-hover hover:bg-surface-hover/80 border border-border text-[10px] font-semibold text-muted cursor-pointer transition-colors"

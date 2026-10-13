@@ -1,5 +1,5 @@
 // src/lib/data-mappers.ts
-import { Player, TrainingSession, Basic, Principle, Tactic, Exercise, Match, MatchDetails, MatchRating, SelectorItem, CalendarEvent, AdminFeedbackItem, AdminUser, AdminStats, GoogleStatus, GoogleSyncResult } from '../types/models';
+import { Player, TrainingSession, Basic, Principle, Tactic, Exercise, Match, MatchDetails, MatchRating, SelectorItem, CalendarEvent, Feedback, AdminFeedbackItem, AdminUser, AdminStats, GoogleStatus, GoogleSyncResult, Season, Team, Vision, TopPerformer, SuggestedFormation } from '../types/models';
 import { DEFAULT_INTENSITY } from './domain';
 import { joinCsv, splitCsv } from './csv';
 import { DEFAULT_FORMATION } from './formations';
@@ -352,7 +352,25 @@ export const mapGoogleSyncResultFromApi = (s: any): GoogleSyncResult => ({
   removed: s.removed || 0,
 });
 
-export const mapAdminFeedbackFromApi = (f: any): AdminFeedbackItem => ({
+export const mapSeasonFromApi = (s: any): Season => ({
+  id: s.id,
+  name: s.name || '',
+});
+
+export const mapTeamFromApi = (t: any): Team => ({
+  id: t.id,
+  name: t.name || '',
+  formation: t.formation || DEFAULT_FORMATION,
+  seasonId: t.season_id || undefined,
+});
+
+export const mapTeamToApi = (t: Pick<Team, 'name'> & Partial<Team>) => ({
+  name: t.name,
+  formation: t.formation || DEFAULT_FORMATION,
+  season_id: t.seasonId || null,
+});
+
+export const mapFeedbackFromApi = (f: any): Feedback => ({
   id: f.id,
   type: f.type || 'question',
   title: f.title || '',
@@ -360,6 +378,41 @@ export const mapAdminFeedbackFromApi = (f: any): AdminFeedbackItem => ({
   screenshotUrls: f.screenshot_urls || [],
   status: f.status || 'new',
   createdAt: f.created_at || '',
+});
+
+export const mapFeedbackToApi = (f: Pick<Feedback, 'type' | 'title' | 'description' | 'screenshotUrls'>) => ({
+  type: f.type,
+  title: f.title,
+  description: f.description,
+  screenshot_urls: f.screenshotUrls.length > 0 ? f.screenshotUrls : null,
+});
+
+export const mapVisionFromApi = (v: any): Vision => ({
+  id: v.id,
+  title: v.title || '',
+  filename: v.filename || '',
+  uploadedAt: v.uploaded_at || '',
+});
+
+export const mapTopPerformerFromApi = (p: any): TopPerformer => ({
+  playerId: p.player_id,
+  firstName: p.first_name || '',
+  lastName: p.last_name || '',
+  imageUrl: p.image_url || '',
+  goals: p.goals || 0,
+  assists: p.assists || 0,
+});
+
+// Responses without `kind` come from a backend that predates it; treat them as the default.
+export const mapSuggestedFormationFromApi = (s: any): SuggestedFormation => ({
+  formation: s.formation || DEFAULT_FORMATION,
+  source: s.kind === 'training'
+    ? { kind: 'training', sessionDate: s.session_date || '', exerciseName: s.exercise_name || '' }
+    : { kind: 'default' },
+});
+
+export const mapAdminFeedbackFromApi = (f: any): AdminFeedbackItem => ({
+  ...mapFeedbackFromApi(f),
   coachEmail: f.coach_email || '',
   coachName: f.coach_name || '',
 });

@@ -250,7 +250,7 @@ export default function BasicsLibrary() {
                       <h4 className="text-[10px] uppercase tracking-widest text-muted font-bold mb-3">{t('libraries.visuals')}</h4>
                       <img
                         src={resolveMediaUrl(selected.diagramUrl!)}
-                        alt="Diagram"
+                        alt={t('common.diagram')}
                         className="w-full max-h-80 object-cover rounded-xl border border-border cursor-zoom-in hover:opacity-90 transition-opacity"
                         onClick={() => setViewMedia(resolveMediaUrl(selected.diagramUrl!))}
                       />
@@ -363,13 +363,13 @@ export default function BasicsLibrary() {
               onClick={(e) => e.stopPropagation()}
             >
               {getMediaType(viewMedia) === 'image' && (
-                <img src={viewMedia} alt="Full size media" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl border border-white/10" />
+                <img src={viewMedia} alt={t('common.mediaPreview')} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl border border-white/10" />
               )}
               {getMediaType(viewMedia) === 'video' && (
                 <video src={viewMedia} controls autoPlay className="max-w-full max-h-full rounded-lg shadow-2xl border border-white/10" />
               )}
               {getMediaType(viewMedia) === 'pdf' && (
-                <iframe src={viewMedia} title="PDF Viewer" className="w-full h-full rounded-lg bg-white shadow-2xl border border-white/10" />
+                <iframe src={viewMedia} title={t('common.pdfViewer')} className="w-full h-full rounded-lg bg-white shadow-2xl border border-white/10" />
               )}
 
               <button

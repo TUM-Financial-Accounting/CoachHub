@@ -10,16 +10,10 @@ import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 
 // --- Services ---
-import { apiClient } from '../services/api-client';
+import { VisionService } from '../services';
 import { uploadFile } from '../lib/uploadFile';
 import { API_BASE_URL } from '../lib/api-config';
-
-interface Vision {
-    id: string;
-    title: string;
-    filename: string;
-    uploaded_at: string;
-}
+import type { Vision } from '../types/models';
 
 export default function VisionLibrary() {
     const { t } = useTranslation();
@@ -39,8 +33,7 @@ export default function VisionLibrary() {
 
     const fetchVisions = async () => {
         try {
-            const data = await apiClient.get<Vision[]>('/visions');
-            setVisions(data);
+            setVisions(await VisionService.getAll());
         } catch (err) {
             toast.error(t('libraries.failedLoadLog'));
         } finally {
@@ -59,10 +52,7 @@ export default function VisionLibrary() {
             const filename = url.split('/').pop() || '';
 
             // 2. Create the Vision record
-            await apiClient.post('/visions', {
-                title: newTitle,
-                filename: filename
-            });
+            await VisionService.create(newTitle, filename);
 
             toast.success(t('libraries.uploadedSuccess'));
             setShowUploadModal(false);
@@ -88,7 +78,7 @@ export default function VisionLibrary() {
         });
         toast.success(t('libraries.versionDeleted'));
         try {
-            await apiClient.delete(`/visions/${id}`);
+            await VisionService.delete(id);
         } catch (err) {
             setVisions(visionsBefore);
             setSelectedVisionId(selectedBefore);
@@ -157,7 +147,7 @@ export default function VisionLibrary() {
                                                     {isLatest ? t('libraries.activeVersion') : t('libraries.archived')}
                                                 </span>
                                                 <p className="text-xs text-muted mt-1">
-                                                    {new Date(v.uploaded_at).toLocaleDateString()}
+                                                    {new Date(v.uploadedAt).toLocaleDateString()}
                                                 </p>
                                             </div>
                                             <div className="flex flex-col items-end gap-1 shrink-0">
@@ -327,11 +317,11 @@ export default function VisionLibrary() {
                         <iframe 
                             src={`${API_BASE_URL}/static/uploads/${viewingVision.filename}`}
                             className="w-full flex-1 rounded-xl border border-border bg-background"
-                            title="Vision Viewer"
+                            title={t('libraries.visionViewer')}
                         />
                         <div className="mt-6 flex justify-between items-center px-2">
                              <div className="text-slate-500 text-xs">
-                                {t('libraries.uploadedOn', { date: new Date(viewingVision.uploaded_at).toLocaleString() })}
+                                {t('libraries.uploadedOn', { date: new Date(viewingVision.uploadedAt).toLocaleString() })}
                             </div>
                             <Button variant="secondary" onClick={() => setViewingVision(null)}>{t('libraries.closePresenter')}</Button>
                         </div>
