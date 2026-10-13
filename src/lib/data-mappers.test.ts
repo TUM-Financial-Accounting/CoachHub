@@ -373,8 +373,15 @@ describe('calendar event mappers', () => {
       date: '2026-01-05',
       startTime: '18:00',
       endTime: '19:00',
+      seriesId: null,
     };
     expect(mapEventFromApi({ ...mapEventToApi(event), id: 'ev1' })).toEqual(event);
+  });
+
+  it('reads the series link but never sends it back', () => {
+    const event = mapEventFromApi({ id: 'ev2', title: 'Meeting', date: '2026-01-05', series_id: 'ser1' });
+    expect(event.seriesId).toBe('ser1');
+    expect(mapEventToApi(event)).not.toHaveProperty('series_id');
   });
 });
 

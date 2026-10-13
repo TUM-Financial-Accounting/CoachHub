@@ -141,6 +141,7 @@ export interface CalendarEvent {
   endTime: string;    // HH:MM
   season_id?: string;
   team_id?: string;
+  seriesId?: string | null;
 }
 
 export interface SelectorItem {

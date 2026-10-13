@@ -1,6 +1,7 @@
 // src/services/event-service.ts
 import { CalendarEvent } from '../types/models';
 import { mapEventFromApi, mapEventToApi } from '../lib/data-mappers';
+import { SeriesPattern, SeriesScope } from '../lib/recurrence';
 import { apiClient } from './api-client';
 
 /**
@@ -26,12 +27,36 @@ export const EventService = {
     return mapEventFromApi(data);
   },
 
-  async update(id: string, event: CalendarEvent): Promise<CalendarEvent> {
-    const data = await apiClient.put<any>(`/events/${id}`, mapEventToApi(event));
+  // 'future' / 'all' update the matching series occurrences but keep their dates.
+  async update(id: string, event: CalendarEvent, scope: SeriesScope = 'this'): Promise<CalendarEvent> {
+    const data = await apiClient.put<any>(`/events/${id}?scope=${scope}`, mapEventToApi(event));
     return mapEventFromApi(data);
   },
 
-  async delete(id: string): Promise<void> {
-    await apiClient.delete(`/events/${id}`);
+  async delete(id: string, scope: SeriesScope = 'this'): Promise<void> {
+    await apiClient.delete(`/events/${id}?scope=${scope}`);
+  },
+
+  async createSeries(
+    event: Omit<CalendarEvent, 'id' | 'date'>,
+    pattern: SeriesPattern,
+    teamId?: string,
+    seasonId?: string,
+  ): Promise<{ occurrencesCreated: number; seriesId: string }> {
+    const data = await apiClient.post<any>('/event_series', {
+      title: event.title,
+      description: event.description,
+      location: event.location,
+      start_time: event.startTime,
+      end_time: event.endTime,
+      team_id: teamId,
+      season_id: seasonId,
+      frequency: pattern.frequency,
+      weekdays: pattern.weekdays,
+      series_start_date: pattern.startDate,
+      series_end_date: pattern.endDate,
+      occurrences: pattern.occurrences,
+    });
+    return { occurrencesCreated: data.occurrences_created ?? 0, seriesId: data.series_id ?? '' };
   },
 };

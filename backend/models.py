@@ -175,11 +175,12 @@ class TrainingSeries(Base):
     team_id = Column(String, ForeignKey("teams.id"), nullable=True)
     season_id = Column(String, ForeignKey("seasons.id"), nullable=True)
 
-    # Recurrence pattern. Currently we only support "every <day_of_week>
-    # between series_start_date and series_end_date." Stored alongside the
-    # template fields below so a future "edit this and all future" can
-    # propagate the new template to remaining unmodified occurrences.
-    day_of_week = Column(Integer)  # 0 = Monday … 6 = Sunday, matches python's date.weekday()
+    # Recurrence pattern (see recurrence.expand). Stored alongside the
+    # template fields below so "edit this and all future" can propagate the
+    # new template to remaining unmodified occurrences.
+    day_of_week = Column(Integer)  # 0 = Monday … 6 = Sunday; first of `weekdays`, kept for older rows
+    frequency = Column(String, default="weekly")  # weekly | biweekly | monthly
+    weekdays = Column(String, nullable=True)  # comma-separated 0..6; NULL on older rows means [day_of_week]
     series_start_date = Column(Date)
     series_end_date = Column(Date)
 
@@ -276,6 +277,24 @@ class Event(Base):
     start_time = Column(String)
     end_time = Column(String)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    series_id = Column(String, ForeignKey("event_series.id"), nullable=True)
+
+
+class EventSeries(Base):
+    __tablename__ = "event_series"
+    id = Column(String, primary_key=True, default=generate_uuid)
+    coach_id = Column(String, ForeignKey("users.id"), nullable=True)
+    team_id = Column(String, ForeignKey("teams.id"), nullable=True)
+    season_id = Column(String, ForeignKey("seasons.id"), nullable=True)
+    frequency = Column(String, default="weekly")
+    weekdays = Column(String)
+    series_start_date = Column(Date)
+    series_end_date = Column(Date)
+    title = Column(String)
+    description = Column(Text, nullable=True)
+    location = Column(String, nullable=True)
+    start_time = Column(String)
+    end_time = Column(String)
 
 
 # --- GOOGLE CALENDAR ---

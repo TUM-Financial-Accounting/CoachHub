@@ -257,11 +257,12 @@ Tests live next to the code they cover as `*.test.ts`.
 | GET / POST | `/tactics` | List / create tactics |
 | PUT / DELETE | `/tactics/{id}` | Update / delete a tactic |
 | GET / POST | `/training_sessions` | List / create training sessions |
-| PUT / DELETE | `/training_sessions/{id}` | Update / delete a session (`?scope=this\|future` for series) |
-| POST | `/training_series` | Create a weekly recurring series |
+| PUT / DELETE | `/training_sessions/{id}` | Update / delete a session (`?scope=this\|future\|all` for series; series-wide updates keep dates) |
+| POST | `/training_series` | Create a recurring series (`frequency`: weekly / biweekly / monthly, `weekdays`: 0=Mon..6=Sun, ends on `series_end_date` or after `occurrences`, max 200) |
 | DELETE | `/training_series/{id}` | Delete a series and its occurrences |
 | GET / POST | `/events` | List / create calendar events |
-| PUT / DELETE | `/events/{id}` | Update / delete a calendar event |
+| PUT / DELETE | `/events/{id}` | Update / delete a calendar event (`?scope=this\|future\|all` for series; series-wide updates keep dates) |
+| POST | `/event_series` | Create a recurring calendar event series (same pattern fields as training series) |
 | GET / POST | `/matches` | List / create matches |
 | GET | `/matches/latest` | Get next upcoming match |
 | PUT / DELETE | `/matches/{id}` | Update / delete a match (delete removes its events too) |

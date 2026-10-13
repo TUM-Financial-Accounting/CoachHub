@@ -153,9 +153,12 @@ class TrainingSession(TrainingSessionCreate):
 class TrainingSeriesCreate(BaseModel):
     team_id: Optional[str] = None
     season_id: Optional[str] = None
-    day_of_week: int               # 0 = Monday … 6 = Sunday
+    day_of_week: Optional[int] = None   # legacy single weekday; used when `weekdays` is absent
+    frequency: str = "weekly"           # weekly | biweekly | monthly
+    weekdays: Optional[List[int]] = None  # 0 = Monday … 6 = Sunday
     series_start_date: str         # YYYY-MM-DD
-    series_end_date: str           # YYYY-MM-DD
+    series_end_date: Optional[str] = None  # YYYY-MM-DD; one of this or `occurrences`
+    occurrences: Optional[int] = None
     start_time: str
     end_time: str
     focus: str
@@ -296,9 +299,24 @@ class EventCreate(BaseModel):
     team_id: Optional[str] = None
     season_id: Optional[str] = None
 
+class EventSeriesCreate(BaseModel):
+    title: str
+    description: Optional[str] = ""
+    location: Optional[str] = ""
+    start_time: str
+    end_time: str
+    team_id: Optional[str] = None
+    season_id: Optional[str] = None
+    frequency: str = "weekly"
+    weekdays: List[int]
+    series_start_date: str
+    series_end_date: Optional[str] = None
+    occurrences: Optional[int] = None
+
 class Event(EventCreate):
     id: str
     date: date
+    series_id: Optional[str] = None
     class Config:
         orm_mode = True
         from_attributes = True

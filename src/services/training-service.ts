@@ -1,6 +1,7 @@
 // src/services/training-service.ts
 import { TrainingSession } from '../types/models';
 import { mapSessionFromApi, mapSessionToApi } from '../lib/data-mappers';
+import { SeriesPattern, SeriesScope } from '../lib/recurrence';
 import { apiClient } from './api-client';
 
 /**
@@ -33,10 +34,10 @@ export const TrainingService = {
   /**
    * Updates an existing training session.
    * @param scope 'this' updates only this occurrence (and detaches it from
-   *              series-wide propagation). 'future' updates this and every
-   *              unmodified future occurrence in the series.
+   *              series-wide propagation). 'future' / 'all' update this or
+   *              every unmodified occurrence in the series, keeping dates.
    */
-  async update(id: string, session: TrainingSession, scope: 'this' | 'future' = 'this'): Promise<TrainingSession> {
+  async update(id: string, session: TrainingSession, scope: SeriesScope = 'this'): Promise<TrainingSession> {
     const payload = mapSessionToApi(session);
     const data = await apiClient.put<any>(`/training_sessions/${id}?scope=${scope}`, payload);
     return mapSessionFromApi(data);
@@ -45,22 +46,20 @@ export const TrainingService = {
   /**
    * Deletes a training session.
    * @param scope 'this' deletes only this occurrence; 'future' deletes this
-   *              and every future occurrence in the series.
+   *              and every later occurrence; 'all' deletes the whole series.
    */
-  async delete(id: string, scope: 'this' | 'future' = 'this'): Promise<void> {
+  async delete(id: string, scope: SeriesScope = 'this'): Promise<void> {
     await apiClient.delete(`/training_sessions/${id}?scope=${scope}`);
   },
 
   /**
    * Creates a recurring training series. The backend materialises one row in
-   * training_sessions per matching weekday between start and end (inclusive).
+   * training_sessions per date the pattern produces.
    */
   async createSeries(input: {
     teamId?: string;
     seasonId?: string;
-    dayOfWeek: number; // 0 = Monday … 6 = Sunday
-    seriesStartDate: string; // YYYY-MM-DD
-    seriesEndDate: string;   // YYYY-MM-DD
+    pattern: SeriesPattern;
     startTime: string;
     endTime: string;
     focus: string;
@@ -71,9 +70,11 @@ export const TrainingService = {
     const data = await apiClient.post<any>('/training_series', {
       team_id: input.teamId,
       season_id: input.seasonId,
-      day_of_week: input.dayOfWeek,
-      series_start_date: input.seriesStartDate,
-      series_end_date: input.seriesEndDate,
+      frequency: input.pattern.frequency,
+      weekdays: input.pattern.weekdays,
+      series_start_date: input.pattern.startDate,
+      series_end_date: input.pattern.endDate,
+      occurrences: input.pattern.occurrences,
       start_time: input.startTime,
       end_time: input.endTime,
       focus: input.focus,

@@ -10,6 +10,9 @@ import { Modal } from './ui/Modal';
 import { DatePicker } from './ui/DatePicker';
 import { TimePicker } from './ui/TimePicker';
 import WeekCalendar, { CalendarItem } from './WeekCalendar';
+import RecurrenceFields from './RecurrenceFields';
+import SeriesDeleteDialog from './SeriesDeleteDialog';
+import SeriesScopePicker from './SeriesScopePicker';
 
 import { TrainingSession, MatchDetails, CalendarEvent, Player } from '../types/models';
 import { Page } from '../types/ui';
@@ -22,6 +25,7 @@ import { birthdaysInWeek } from '../lib/birthdays';
 import { DEFAULT_FORMATION } from '../lib/formations';
 import { DEFAULT_INTENSITY, INTENSITIES, intensityMeta } from '../lib/domain';
 import { addMinutes, endsAfterStart, minutesToLabel, toMinutes, todayISO } from '../lib/dates';
+import { Recurrence, SeriesScope, noRecurrence, recurrenceError, seriesPattern } from '../lib/recurrence';
 
 interface CalendarViewProps {
   onNavigate: (page: Page) => void;
@@ -57,6 +61,9 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
   const [showModal, setShowModal] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [recurrence, setRecurrence] = useState<Recurrence>(noRecurrence);
+  const [showDeleteScope, setShowDeleteScope] = useState(false);
+  const [editScope, setEditScope] = useState<SeriesScope>('this');
   const calendarWrapRef = useRef<HTMLDivElement>(null);
 
   // Two-finger horizontal swipe (trackpad) navigates between weeks. Attached
@@ -210,11 +217,13 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
       startTime: start,
       endTime: addMinutes(start, 60),
     });
+    setRecurrence(noRecurrence());
     setShowModal(true);
   };
 
   const openEditEvent = (ev: CalendarEvent) => {
     setEditingEventId(ev.id);
+    setEditScope('this');
     setForm({
       ...emptyForm,
       type: 'event',
@@ -316,20 +325,40 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
         startTime: form.startTime,
         endTime: form.endTime,
       };
+      const isSeries = !!events.find(e => e.id === editingEventId)?.seriesId;
+      const scope = isSeries ? editScope : 'this';
       try {
-        const saved = await EventService.update(editingEventId, updated);
-        setEvents(prev => prev.map(e => e.id === saved.id ? saved : e));
-        toast.success(t('calendar.eventUpdated'));
+        const saved = await EventService.update(editingEventId, updated, scope);
+        if (scope === 'this') setEvents(prev => prev.map(e => e.id === saved.id ? saved : e));
+        else setEvents(await EventService.getAll(activeTeam.id, activeSeason.id));
+        toast.success(t(scope === 'this' ? 'calendar.eventUpdated' : 'recurrence.seriesUpdated'));
         setShowModal(false);
       } catch { toast.error(t('calendar.saveFailed')); }
       return;
     }
 
     // --- Create, branching on the chosen type ---
+    const repeating = form.type !== 'match' && recurrence.frequency !== 'none';
+    const pattern = seriesPattern(recurrence, form.date);
     try {
       if (form.type === 'event') {
         if (!form.title.trim()) return toast.error(t('calendar.titleRequired'));
         if (!endsAfterStart(form.startTime, form.endTime)) return toast.error(t('calendar.endAfterStart'));
+        if (repeating) {
+          const err = recurrenceError(recurrence, form.date);
+          if (err) return toast.error(t(`recurrence.${err}`));
+          const { occurrencesCreated } = await EventService.createSeries({
+            title: form.title.trim(),
+            description: form.description,
+            location: form.location,
+            startTime: form.startTime,
+            endTime: form.endTime,
+          }, pattern, activeTeam.id, activeSeason.id);
+          setEvents(await EventService.getAll(activeTeam.id, activeSeason.id));
+          toast.success(t('recurrence.seriesCreated', { count: occurrencesCreated }));
+          setShowModal(false);
+          return;
+        }
         const saved = await EventService.create({
           title: form.title.trim(),
           description: form.description,
@@ -343,6 +372,25 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
       } else if (form.type === 'training') {
         if (!form.focus.trim()) return toast.error(t('calendar.focusRequired'));
         if (!endsAfterStart(form.startTime, form.endTime)) return toast.error(t('calendar.endAfterStart'));
+        if (repeating) {
+          const err = recurrenceError(recurrence, form.date);
+          if (err) return toast.error(t(`recurrence.${err}`));
+          const { occurrencesCreated } = await TrainingService.createSeries({
+            teamId: activeTeam.id,
+            seasonId: activeSeason.id,
+            pattern,
+            startTime: form.startTime,
+            endTime: form.endTime,
+            focus: form.focus.trim(),
+            intensity: form.intensity,
+            selectedPlayers: '',
+            selectedExercises: '',
+          });
+          setSessions(await TrainingService.getAll(activeTeam.id, activeSeason.id));
+          toast.success(t('recurrence.seriesCreated', { count: occurrencesCreated }));
+          setShowModal(false);
+          return;
+        }
         const saved = await TrainingService.create({
           date: form.date,
           startTime: form.startTime,
@@ -371,15 +419,25 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
     } catch { toast.error(t('calendar.saveFailed')); }
   };
 
-  const handleDeleteEvent = async () => {
-    if (!editingEventId) return;
-    const id = editingEventId;
+  const handleDeleteEvent = () => {
+    const target = events.find(e => e.id === editingEventId);
+    if (!target) return;
+    if (!target.seriesId) return deleteEvent(target, 'this');
+    setShowModal(false);
+    setShowDeleteScope(true);
+  };
+
+  const deleteEvent = async (target: CalendarEvent, scope: SeriesScope) => {
     const before = events;
-    setEvents(prev => prev.filter(e => e.id !== id));
+    const removed = (e: CalendarEvent) =>
+      scope === 'this' ? e.id === target.id
+        : e.seriesId === target.seriesId && (scope === 'all' || e.date >= target.date);
+    setEvents(prev => prev.filter(e => !removed(e)));
+    setShowDeleteScope(false);
     setShowModal(false);
     try {
-      await EventService.delete(id);
-      toast.success(t('calendar.eventDeleted'));
+      await EventService.delete(target.id, scope);
+      toast.success(scope === 'this' ? t('calendar.eventDeleted') : t(scope === 'all' ? 'recurrence.allDeleted' : 'recurrence.futureDeleted'));
     } catch {
       setEvents(before);
       toast.error(t('calendar.deleteFailed'));
@@ -463,6 +521,10 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
         }
       >
         <div className="space-y-5">
+          {editingEventId && events.find(e => e.id === editingEventId)?.seriesId && (
+            <SeriesScopePicker value={editScope} onChange={setEditScope} />
+          )}
+
           {/* Type selector (only when creating) */}
           {!editingEventId && (
             <div className="flex gap-2 p-1 bg-surface-hover/60 border border-border rounded-xl">
@@ -529,11 +591,26 @@ export default function CalendarView({ onNavigate }: CalendarViewProps) {
             </div>
           )}
 
+          {form.type !== 'match' && !editingEventId && (
+            <RecurrenceFields value={recurrence} onChange={setRecurrence} startDate={form.date} />
+          )}
+
           {(form.type === 'training' || form.type === 'match') && !editingEventId && (
             <p className="text-xs text-muted px-1">{t('calendar.refineHint')}</p>
           )}
         </div>
       </Modal>
+
+      <SeriesDeleteDialog
+        isOpen={showDeleteScope}
+        title={t('recurrence.deleteEventTitle')}
+        message={t('recurrence.deleteMessage')}
+        onSelect={scope => {
+          const target = events.find(e => e.id === editingEventId);
+          if (target) deleteEvent(target, scope);
+        }}
+        onClose={() => setShowDeleteScope(false)}
+      />
     </div>
   );
 }

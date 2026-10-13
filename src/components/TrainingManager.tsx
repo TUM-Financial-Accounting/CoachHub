@@ -27,6 +27,10 @@ import { ConfirmDialog } from "./ui/ConfirmDialog";
 import SessionSlideOver from "./ui/SessionSlideOver";
 import { DEFAULT_INTENSITY, INTENSITIES, intensityMeta } from '../lib/domain';
 import { joinCsv, splitCsv } from '../lib/csv';
+import { Recurrence, SeriesScope, noRecurrence, recurrenceError, seriesPattern } from '../lib/recurrence';
+import RecurrenceFields from './RecurrenceFields';
+import SeriesDeleteDialog from './SeriesDeleteDialog';
+import SeriesScopePicker from './SeriesScopePicker';
 
 export default function TrainingManager() {
     const { t, i18n } = useTranslation();
@@ -49,12 +53,10 @@ export default function TrainingManager() {
         intensity: DEFAULT_INTENSITY as string,
         selectedPlayerIds: [] as string[],
         selectedExerciseIds: [] as string[],
-        // Recurring series fields. Only used when creating (never when
-        // editing an existing occurrence) — once a series exists, edits go
-        // through the per-occurrence flow with a scope dialog.
-        isRecurring: false,
-        recurrenceEndDate: '',
     });
+    // Only used when creating — once a series exists, edits go through the
+    // per-occurrence flow with a scope dialog.
+    const [recurrence, setRecurrence] = useState<Recurrence>(noRecurrence);
 
     const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
     const [activeIntensity, setActiveIntensity] = useState<string>('All');
@@ -64,7 +66,7 @@ export default function TrainingManager() {
     // picks whether their changes apply only to this occurrence or to this
     // and every future unmodified occurrence. Defaults to "this" so the
     // safe behaviour is to scope changes narrowly.
-    const [editScope, setEditScope] = useState<'this' | 'future'>('this');
+    const [editScope, setEditScope] = useState<SeriesScope>('this');
     // Holds the session targeted for deletion when we need a scope picker
     // (i.e. the session belongs to a series).
     const [scopeDeleteSession, setScopeDeleteSession] = useState<TrainingSession | null>(null);
@@ -109,25 +111,14 @@ export default function TrainingManager() {
 
         // Recurring branch: create a series, then reload sessions so the
         // newly materialised occurrences show up in the list.
-        if (!isEditing && formData.isRecurring) {
-            if (!formData.recurrenceEndDate) {
-                return toast.error(t('training.repeatUntilRequired'));
-            }
-            if (formData.recurrenceEndDate < formData.date) {
-                return toast.error(t('training.repeatUntilFuture'));
-            }
-            // Day-of-week from the first occurrence. JS Sunday=0 → convert
-            // to Python convention (Monday=0).
-            const startDate = parseLocalDate(formData.date);
-            const jsDay = startDate.getDay();              // 0..6, Sun..Sat
-            const pyDay = (jsDay + 6) % 7;                 // 0..6, Mon..Sun
+        if (!isEditing && recurrence.frequency !== 'none') {
+            const err = recurrenceError(recurrence, formData.date);
+            if (err) return toast.error(t(`recurrence.${err}`));
             try {
-                await TrainingService.createSeries({
+                const { occurrencesCreated } = await TrainingService.createSeries({
                     teamId: activeTeam?.id,
                     seasonId: activeSeason?.id,
-                    dayOfWeek: pyDay,
-                    seriesStartDate: formData.date,
-                    seriesEndDate: formData.recurrenceEndDate,
+                    pattern: seriesPattern(recurrence, formData.date),
                     startTime: formData.startTime,
                     endTime: formData.endTime,
                     focus: formData.focus,
@@ -141,7 +132,7 @@ export default function TrainingManager() {
                     const fresh = await TrainingService.getAll(activeTeam.id, activeSeason.id);
                     setSessions(fresh);
                 }
-                toast.success(t('training.seriesCreated'));
+                toast.success(t('recurrence.seriesCreated', { count: occurrencesCreated }));
                 closeModal();
             } catch {
                 toast.error(t('training.saveFailed'));
@@ -164,7 +155,7 @@ export default function TrainingManager() {
             let saved: TrainingSession;
             if (isEditing && editingId) {
                 saved = await TrainingService.update(editingId, sessionToSave, editScope);
-                if (editScope === 'future' && saved.seriesId) {
+                if (editScope !== 'this' && saved.seriesId) {
                     // Refetch so every updated future occurrence shows the new values.
                     if (activeTeam && activeSeason) {
                         const fresh = await TrainingService.getAll(activeTeam.id, activeSeason.id);
@@ -173,7 +164,7 @@ export default function TrainingManager() {
                 } else {
                     setSessions(prev => prev.map(s => s.id === saved.id ? saved : s));
                 }
-                toast.success(editScope === 'future' ? t('training.seriesUpdated') : t('training.sessionUpdated'));
+                toast.success(editScope !== 'this' ? t('training.seriesUpdated') : t('training.sessionUpdated'));
             } else {
                 saved = await TrainingService.create(sessionToSave, activeTeam?.id, activeSeason?.id);
                 setSessions(prev => [...prev, saved]);
@@ -183,20 +174,19 @@ export default function TrainingManager() {
         } catch { toast.error(t('training.saveFailed')); }
     };
 
-    const handleDelete = async (id: string, scope: 'this' | 'future' = 'this') => {
+    const handleDelete = async (id: string, scope: SeriesScope = 'this') => {
         const sessionsBefore = sessions;
         const target = sessions.find(s => s.id === id);
-        // Optimistic delete. For "future" scope on a series, also prune every
-        // future occurrence of the same series client-side so the list
-        // updates instantly.
-        if (scope === 'future' && target?.seriesId) {
+        // Optimistic delete. For series scopes, also prune the matching
+        // occurrences client-side so the list updates instantly.
+        if (scope !== 'this' && target?.seriesId) {
             setSessions(prev => prev.filter(s =>
-                !(s.seriesId === target.seriesId && s.date >= target.date)
+                !(s.seriesId === target.seriesId && (scope === 'all' || s.date >= target.date))
             ));
         } else {
             setSessions(prev => prev.filter(s => s.id !== id));
         }
-        toast.success(scope === 'future' ? t('training.futureDeleted') : t('training.deleted'));
+        toast.success(scope === 'this' ? t('training.deleted') : t(scope === 'all' ? 'recurrence.allDeleted' : 'recurrence.futureDeleted'));
         try {
             await TrainingService.delete(id, scope);
         } catch (e) {
@@ -460,7 +450,7 @@ export default function TrainingManager() {
     };
 
     // --- 4. UI HELPERS ---
-    const openCreate = () => { setIsEditing(false); setEditingId(null); setEditScope('this'); setFormData({ date: todayISO(), startTime: '09:00', endTime: '11:00', focus: '', intensity: DEFAULT_INTENSITY, selectedPlayerIds: allPlayers.map(p => p.id), selectedExerciseIds: [], isRecurring: false, recurrenceEndDate: '' }); setShowCreateModal(true); };
+    const openCreate = () => { setIsEditing(false); setEditingId(null); setEditScope('this'); setFormData({ date: todayISO(), startTime: '09:00', endTime: '11:00', focus: '', intensity: DEFAULT_INTENSITY, selectedPlayerIds: allPlayers.map(p => p.id), selectedExerciseIds: [] }); setRecurrence(noRecurrence()); setShowCreateModal(true); };
     const openEdit = (s: TrainingSession) => {
         setSelectedSession(null);
         setIsEditing(true);
@@ -474,8 +464,6 @@ export default function TrainingManager() {
             intensity: s.intensity,
             selectedPlayerIds: splitCsv(s.selectedPlayers),
             selectedExerciseIds: splitCsv(s.selectedExercises),
-            isRecurring: false,
-            recurrenceEndDate: '',
         });
         setShowCreateModal(true);
     };
@@ -704,34 +692,7 @@ export default function TrainingManager() {
                     {isEditing && (() => {
                         const target = sessions.find(s => s.id === editingId);
                         if (!target || !target.seriesId) return null;
-                        return (
-                            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 flex flex-col md:flex-row md:items-center gap-3">
-                                <div className="text-xs font-bold text-blue-300 uppercase tracking-wider">
-                                    {t('training.editSeriesScopeTitle')}
-                                </div>
-                                <div className="flex gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setEditScope('this')}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${editScope === 'this' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-surface-raised border-border text-muted hover:text-foreground'}`}
-                                    >
-                                        {t('training.editSeriesScopeThis')}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setEditScope('future')}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${editScope === 'future' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-surface-raised border-border text-muted hover:text-foreground'}`}
-                                    >
-                                        {t('training.editSeriesScopeFuture')}
-                                    </button>
-                                </div>
-                                {editScope === 'future' && (
-                                    <p className="text-[11px] text-muted md:ml-2">
-                                        {t('training.editSeriesScopeWarning')}
-                                    </p>
-                                )}
-                            </div>
-                        );
+                        return <SeriesScopePicker value={editScope} onChange={setEditScope} />;
                     })()}
 
                     {/* 1. Details */}
@@ -771,39 +732,7 @@ export default function TrainingManager() {
                         existing series occurrence goes through the scope
                         dialog instead. */}
                     {!isEditing && (
-                        <div className="bg-surface-hover/40 border border-border rounded-xl p-4 space-y-3">
-                            <label className="flex items-center gap-3 cursor-pointer select-none">
-                                <input
-                                    type="checkbox"
-                                    checked={formData.isRecurring}
-                                    onChange={e => setFormData({ ...formData, isRecurring: e.target.checked })}
-                                    className="w-4 h-4 accent-blue-500"
-                                />
-                                <span className="text-sm font-semibold text-foreground">
-                                    {t('training.repeatWeekly')}
-                                </span>
-                                <span className="text-xs text-muted">
-                                    {(() => {
-                                        try {
-                                            const d = parseLocalDate(formData.date);
-                                            const weekday = d.toLocaleDateString(i18n.language, { weekday: 'long' });
-                                            return t('training.recurringDesc', { weekday });
-                                        } catch {
-                                            return t('training.recurringDesc', { weekday: i18n.language === 'de' ? 'Woche' : 'week' });
-                                        }
-                                    })()}
-                                </span>
-                            </label>
-                            {formData.isRecurring && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
-                                    <DatePicker
-                                        label={t('training.repeatUntil')}
-                                        value={formData.recurrenceEndDate}
-                                        onChange={date => setFormData({ ...formData, recurrenceEndDate: date })}
-                                    />
-                                </div>
-                            )}
-                        </div>
+                        <RecurrenceFields value={recurrence} onChange={setRecurrence} startDate={formData.date} />
                     )}
 
                     <div className="w-full h-[1px] bg-border/50"></div>
@@ -901,46 +830,16 @@ export default function TrainingManager() {
             />
 
             {/* Scope picker for deleting a session that belongs to a series. */}
-            <Modal
+            <SeriesDeleteDialog
                 isOpen={scopeDeleteSession !== null}
-                onClose={() => setScopeDeleteSession(null)}
                 title={t('training.deleteSeriesTitle')}
-            >
-                <div className="space-y-4">
-                    <p className="text-sm text-muted">
-                        {t('training.deleteSeriesMessage')}
-                    </p>
-                    <div className="flex flex-col gap-2">
-                        <Button
-                            variant="secondary"
-                            onClick={() => {
-                                if (scopeDeleteSession) handleDelete(scopeDeleteSession.id, 'this');
-                                setScopeDeleteSession(null);
-                            }}
-                            className="w-full justify-start"
-                        >
-                            {t('training.deleteSeriesThis')}
-                        </Button>
-                        <Button
-                            variant="danger"
-                            onClick={() => {
-                                if (scopeDeleteSession) handleDelete(scopeDeleteSession.id, 'future');
-                                setScopeDeleteSession(null);
-                            }}
-                            className="w-full justify-start"
-                        >
-                            {t('training.deleteSeriesFuture')}
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            onClick={() => setScopeDeleteSession(null)}
-                            className="w-full justify-center"
-                        >
-                            {t('common.cancel')}
-                        </Button>
-                    </div>
-                </div>
-            </Modal>
+                message={t('training.deleteSeriesMessage')}
+                onSelect={scope => {
+                    if (scopeDeleteSession) handleDelete(scopeDeleteSession.id, scope);
+                    setScopeDeleteSession(null);
+                }}
+                onClose={() => setScopeDeleteSession(null)}
+            />
 
             <SessionSlideOver
                 session={!showCreateModal ? selectedSession : null}

@@ -10,7 +10,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
-import models, schemas, database, security, email_service, google_calendar
+import models, schemas, database, security, email_service, google_calendar, recurrence
 import uuid, os, shutil, secrets
 
 # ... (rest of imports)
@@ -33,6 +33,9 @@ def _ensure_columns():
         "ALTER TABLE players ADD COLUMN IF NOT EXISTS trial_notes TEXT",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR NOT NULL DEFAULT 'coach'",
         "ALTER TABLE exercises ADD COLUMN IF NOT EXISTS drawing TEXT",
+        "ALTER TABLE training_series ADD COLUMN IF NOT EXISTS frequency VARCHAR DEFAULT 'weekly'",
+        "ALTER TABLE training_series ADD COLUMN IF NOT EXISTS weekdays VARCHAR",
+        "ALTER TABLE events ADD COLUMN IF NOT EXISTS series_id VARCHAR REFERENCES event_series(id)",
     ]
     try:
         with database.engine.begin() as conn:
@@ -147,6 +150,33 @@ def parse_iso_date(value: str) -> date:
     except (ValueError, TypeError):
         raise HTTPException(status_code=400, detail="Invalid date, expected YYYY-MM-DD")
 
+def expand_series(frequency: str, weekdays: list[int], start_value: str, end_value: Optional[str], count: Optional[int] = None) -> tuple:
+    """Validate a recurrence pattern ending on a date or after `count`
+    occurrences; returns (start, end, weekdays, dates)."""
+    start = parse_iso_date(start_value)
+    if count is not None:
+        if not (1 <= count <= recurrence.MAX_OCCURRENCES):
+            raise HTTPException(status_code=400, detail=f"occurrences must be 1..{recurrence.MAX_OCCURRENCES}")
+        # Far enough out for 200 monthly occurrences; trimmed to the real last date below.
+        end = start.replace(year=start.year + 25, day=min(start.day, 28))
+    elif end_value:
+        end = parse_iso_date(end_value)
+    else:
+        raise HTTPException(status_code=400, detail="series_end_date or occurrences is required")
+    if end < start:
+        raise HTTPException(status_code=400, detail="series_end_date is before series_start_date")
+    if frequency not in recurrence.FREQUENCIES:
+        raise HTTPException(status_code=400, detail="frequency must be weekly, biweekly or monthly")
+    if not weekdays or any(not (0 <= d <= 6) for d in weekdays):
+        raise HTTPException(status_code=400, detail="weekdays must be a non-empty list of 0..6 (Mon..Sun)")
+    days = sorted(set(weekdays))
+    dates = recurrence.expand(start, end, frequency, days)
+    if count is not None:
+        dates = dates[:count]
+    if not dates:
+        raise HTTPException(status_code=400, detail="The pattern produces no dates in this range")
+    return start, (dates[-1] if count is not None else end), days, dates
+
 def delete_team_cascade(db: Session, team: models.Team):
     """Remove a team and everything that references it. The FK constraints on
     matches, sessions and series would otherwise abort the delete."""
@@ -157,6 +187,7 @@ def delete_team_cascade(db: Session, team: models.Team):
     db.query(models.TrainingSession).filter(models.TrainingSession.team_id == team.id).delete()
     db.query(models.TrainingSeries).filter(models.TrainingSeries.team_id == team.id).delete()
     db.query(models.Event).filter(models.Event.team_id == team.id).delete()
+    db.query(models.EventSeries).filter(models.EventSeries.team_id == team.id).delete()
     db.delete(team)  # player_assignments are removed via the relationship cascade
 
 # --- PUBLIC AUTH ROUTES ---
@@ -365,6 +396,7 @@ def delete_season(season_id: str, background: BackgroundTasks, db: Session = Dep
     db.query(models.TrainingSession).filter(models.TrainingSession.season_id == season_id).delete()
     db.query(models.TrainingSeries).filter(models.TrainingSeries.season_id == season_id).delete()
     db.query(models.Event).filter(models.Event.season_id == season_id).delete()
+    db.query(models.EventSeries).filter(models.EventSeries.season_id == season_id).delete()
 
     db.delete(season)
     db.commit()
@@ -709,10 +741,41 @@ def create_event(item: schemas.EventCreate, background: BackgroundTasks, db: Ses
     return db_item
 
 @app.put("/events/{id}", response_model=schemas.Event)
-def update_event(id: str, item: schemas.EventCreate, background: BackgroundTasks, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+def update_event(
+    id: str,
+    item: schemas.EventCreate,
+    background: BackgroundTasks,
+    scope: str = "this",  # "this" | "future" | "all"
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     db_item = db.query(models.Event).filter(models.Event.id == id, models.Event.coach_id == current_user.id).first()
     if not db_item:
         raise HTTPException(status_code=404, detail="Event not found")
+
+    if scope in ("future", "all") and db_item.series_id:
+        # Dates stay put — the pattern is what places each occurrence.
+        series = db.query(models.EventSeries).filter(
+            models.EventSeries.id == db_item.series_id, models.EventSeries.coach_id == current_user.id,
+        ).first()
+        rows = db.query(models.Event).filter(
+            models.Event.series_id == db_item.series_id, models.Event.coach_id == current_user.id,
+        )
+        if scope == "future":
+            rows = rows.filter(models.Event.date >= db_item.date)
+        for target in [series, *rows.all()]:
+            if target is None:
+                continue
+            target.title = item.title
+            target.description = item.description
+            target.location = item.location
+            target.start_time = item.start_time
+            target.end_time = item.end_time
+        db.commit()
+        db.refresh(db_item)
+        _gcal_resync(background, current_user)
+        return db_item
+
     db_item.title = item.title
     db_item.description = item.description
     db_item.location = item.location
@@ -725,14 +788,68 @@ def update_event(id: str, item: schemas.EventCreate, background: BackgroundTasks
     return db_item
 
 @app.delete("/events/{id}")
-def delete_event(id: str, background: BackgroundTasks, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+def delete_event(
+    id: str,
+    background: BackgroundTasks,
+    scope: str = "this",  # "this" | "future" | "all"
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     db_item = db.query(models.Event).filter(models.Event.id == id, models.Event.coach_id == current_user.id).first()
     if not db_item:
         raise HTTPException(status_code=404, detail="Event not found")
+
+    if scope in ("future", "all") and db_item.series_id:
+        series = db.query(models.EventSeries).filter(
+            models.EventSeries.id == db_item.series_id, models.EventSeries.coach_id == current_user.id,
+        ).first()
+        rows = db.query(models.Event).filter(
+            models.Event.series_id == db_item.series_id, models.Event.coach_id == current_user.id,
+        )
+        if scope == "future":
+            rows = rows.filter(models.Event.date >= db_item.date)
+        rows.delete(synchronize_session=False)
+        if series:
+            previous_day = db_item.date - timedelta(days=1)
+            if scope == "all" or previous_day < series.series_start_date:
+                db.delete(series)
+            else:
+                series.series_end_date = previous_day
+        db.commit()
+        _gcal_resync(background, current_user)
+        return {"message": "Series events deleted"}
+
     db.delete(db_item)
     db.commit()
     _gcal_delete(background, current_user, "event", id)
     return {"message": "Deleted"}
+
+@app.post("/event_series")
+def create_event_series(item: schemas.EventSeriesCreate, background: BackgroundTasks, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    if item.team_id:
+        require_owned_team(db, current_user, item.team_id)
+    if item.season_id and not db.query(models.Season).filter(models.Season.id == item.season_id, models.Season.coach_id == current_user.id).first():
+        raise HTTPException(status_code=404, detail="Season not found")
+    start, end, days, dates = expand_series(item.frequency, item.weekdays, item.series_start_date, item.series_end_date, item.occurrences)
+
+    series = models.EventSeries(
+        coach_id=current_user.id, team_id=item.team_id, season_id=item.season_id,
+        frequency=item.frequency, weekdays=",".join(str(d) for d in days),
+        series_start_date=start, series_end_date=end,
+        title=item.title, description=item.description, location=item.location,
+        start_time=item.start_time, end_time=item.end_time,
+    )
+    db.add(series)
+    db.flush()
+    for d in dates:
+        db.add(models.Event(
+            coach_id=current_user.id, team_id=item.team_id, season_id=item.season_id,
+            title=item.title, description=item.description, location=item.location,
+            date=d, start_time=item.start_time, end_time=item.end_time, series_id=series.id,
+        ))
+    db.commit()
+    _gcal_resync(background, current_user)
+    return {"series_id": series.id, "occurrences_created": len(dates)}
 
 # ==========================
 #    CUSTOM FORMATIONS
@@ -1177,7 +1294,7 @@ def update_session(
     id: str,
     item: schemas.TrainingSessionCreate,
     background: BackgroundTasks,
-    scope: str = "this",  # "this" | "future"
+    scope: str = "this",  # "this" | "future" | "all"
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -1189,7 +1306,7 @@ def update_session(
 
     date_obj = parse_iso_date(item.date)
 
-    if scope == "future" and db_item.series_id:
+    if scope in ("future", "all") and db_item.series_id:
         # Propagate the editable fields to every unmodified future occurrence
         # (and to the series template so further "edit future" calls reuse the
         # new values). Date / weekday changes never apply here — the recurrence
@@ -1203,12 +1320,13 @@ def update_session(
             series.selected_players = item.selected_players
             series.selected_exercises = item.selected_exercises
 
-        future_rows = db.query(models.TrainingSession).filter(
+        rows = db.query(models.TrainingSession).filter(
             models.TrainingSession.series_id == db_item.series_id,
-            models.TrainingSession.date >= db_item.date,
             models.TrainingSession.is_modified == False,
-        ).all()
-        for row in future_rows:
+        )
+        if scope == "future":
+            rows = rows.filter(models.TrainingSession.date >= db_item.date)
+        for row in rows.all():
             row.start_time = item.start_time
             row.end_time = item.end_time
             row.focus = item.focus
@@ -1241,7 +1359,7 @@ def update_session(
 def delete_session(
     id: str,
     background: BackgroundTasks,
-    scope: str = "this",  # "this" | "future"
+    scope: str = "this",  # "this" | "future" | "all"
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -1251,20 +1369,19 @@ def delete_session(
     ).first()
     if not db_item: raise HTTPException(status_code=404)
 
-    if scope == "future" and db_item.series_id:
-        future_rows = db.query(models.TrainingSession).filter(
-            models.TrainingSession.series_id == db_item.series_id,
-            models.TrainingSession.date >= db_item.date,
-        ).all()
+    if scope in ("future", "all") and db_item.series_id:
+        rows = db.query(models.TrainingSession).filter(models.TrainingSession.series_id == db_item.series_id)
+        if scope == "future":
+            rows = rows.filter(models.TrainingSession.date >= db_item.date)
         series = db.query(models.TrainingSeries).filter(models.TrainingSeries.id == db_item.series_id).first()
-        for row in future_rows:
+        for row in rows.all():
             db.delete(row)
         # Trim the series end so a subsequent rematerialise wouldn't recreate
         # the deleted dates. If we deleted from the very first occurrence,
         # drop the series entirely.
         if series:
             previous_day = db_item.date - timedelta(days=1)
-            if previous_day < series.series_start_date:
+            if scope == "all" or previous_day < series.series_start_date:
                 db.delete(series)
             else:
                 series.series_end_date = previous_day
@@ -1291,18 +1408,16 @@ def create_training_series(
 ):
     if item.team_id:
         require_owned_team(db, current_user, item.team_id)
-    start_date = parse_iso_date(item.series_start_date)
-    end_date = parse_iso_date(item.series_end_date)
-    if end_date < start_date:
-        raise HTTPException(status_code=400, detail="series_end_date is before series_start_date")
-    if not (0 <= item.day_of_week <= 6):
-        raise HTTPException(status_code=400, detail="day_of_week must be 0..6 (Mon..Sun)")
+    weekdays = item.weekdays if item.weekdays else ([item.day_of_week] if item.day_of_week is not None else [])
+    start_date, end_date, days, dates = expand_series(item.frequency, weekdays, item.series_start_date, item.series_end_date, item.occurrences)
 
     series = models.TrainingSeries(
         coach_id=current_user.id,
         team_id=item.team_id,
         season_id=item.season_id,
-        day_of_week=item.day_of_week,
+        day_of_week=days[0],
+        frequency=item.frequency,
+        weekdays=",".join(str(d) for d in days),
         series_start_date=start_date,
         series_end_date=end_date,
         start_time=item.start_time,
@@ -1315,14 +1430,7 @@ def create_training_series(
     db.add(series)
     db.flush()  # populate series.id without committing yet
 
-    # Find the first occurrence on/after series_start_date matching day_of_week
-    offset = (item.day_of_week - start_date.weekday()) % 7
-    occurrence = start_date + timedelta(days=offset)
-
-    # Hard cap to prevent runaway series creation.
-    MAX_OCCURRENCES = 200
-    created = 0
-    while occurrence <= end_date and created < MAX_OCCURRENCES:
+    for occurrence in dates:
         db.add(models.TrainingSession(
             team_id=item.team_id,
             season_id=item.season_id,
@@ -1336,13 +1444,11 @@ def create_training_series(
             series_id=series.id,
             is_modified=False,
         ))
-        occurrence += timedelta(days=7)
-        created += 1
 
     db.commit()
     db.refresh(series)
     _gcal_resync(background, current_user)
-    return {"series": series, "occurrences_created": created}
+    return {"series": series, "occurrences_created": len(dates)}
 
 
 @app.delete("/training_series/{id}")

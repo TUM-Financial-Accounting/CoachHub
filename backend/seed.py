@@ -182,6 +182,7 @@ def wipe_demo_data(db, user):
     db.query(models.TrainingSession).filter(models.TrainingSession.team_id.in_(team_ids or [""])).delete(synchronize_session=False)
     db.query(models.TrainingSeries).filter(models.TrainingSeries.coach_id == user.id).delete(synchronize_session=False)
     db.query(models.Event).filter(models.Event.coach_id == user.id).delete(synchronize_session=False)
+    db.query(models.EventSeries).filter(models.EventSeries.coach_id == user.id).delete(synchronize_session=False)
     db.query(models.TeamPlayer).filter(models.TeamPlayer.team_id.in_(team_ids or [""])).delete(synchronize_session=False)
     db.query(models.Team).filter(models.Team.coach_id == user.id).delete(synchronize_session=False)
     db.query(models.Player).filter(models.Player.coach_id == user.id).delete(synchronize_session=False)

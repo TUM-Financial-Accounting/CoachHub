@@ -284,6 +284,7 @@ export const mapEventFromApi = (e: any): CalendarEvent => ({
   date: e.date || '',
   startTime: e.start_time || '',
   endTime: e.end_time || '',
+  seriesId: e.series_id || null,
 });
 
 /**
