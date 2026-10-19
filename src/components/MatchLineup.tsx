@@ -492,7 +492,7 @@ useEffect(() => {
                                 {matchDetails.goalsFor} - {matchDetails.goalsAgainst}
                               </span>
                             ) : (
-                              <span title={t('statistics.unrecorded')} className="text-sm font-bold bg-slate-500/10 text-slate-500 px-3 py-1 rounded-lg border border-slate-500/20">U</span>
+                              <span title={t('statistics.unrecorded')} className="text-sm font-bold bg-slate-500/10 text-slate-500 px-3 py-1 rounded-lg border border-slate-500/20">{t('statistics.unrecordedShort')}</span>
                             )}
                           </div>
                         ) : (
@@ -569,7 +569,7 @@ useEffect(() => {
                               <p className={`text-sm font-bold ${matchDetails?.id === match.id ? 'text-blue-400' : 'text-foreground'}`}>vs {match.opponent}</p>
                               {showPastMatches && (hasResult(match)
                                 ? <span className="text-[10px] font-bold text-emerald-500">{match.goalsFor} - {match.goalsAgainst}</span>
-                                : <span title={t('statistics.unrecorded')} className="text-[10px] font-bold text-slate-500">U</span>)}
+                                : <span title={t('statistics.unrecorded')} className="text-[10px] font-bold text-slate-500">{t('statistics.unrecordedShort')}</span>)}
                             </div>
                             <p className="text-[10px] text-muted">{formatDate(match.date)}</p>
                           </div>

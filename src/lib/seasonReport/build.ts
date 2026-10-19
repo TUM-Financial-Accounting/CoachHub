@@ -160,6 +160,8 @@ export interface SeasonReport {
   upcomingMatches: number;
   // Past matches without an entered score (U); left out of every total
   unrecordedMatches: number;
+  // Played matches with a saved lineup; starts and minutes only exist for these
+  lineupMatches: number;
   pointsProgression: { date: string; opponent: string; result: MatchResult; points: number }[];
   goalTiming: { buckets: number[]; withMinute: number; recorded: number };
   formations: FormationRow[];
@@ -541,6 +543,7 @@ export function buildSeasonReport(input: SeasonReportInput): SeasonReport {
     matches: rows,
     upcomingMatches,
     unrecordedMatches,
+    lineupMatches: played.filter(m => lineupOf(m).length > 0).length,
     pointsProgression,
     goalTiming: { buckets, withMinute, recorded },
     formations,

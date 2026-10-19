@@ -41,6 +41,13 @@ describe('team record', () => {
     expect(r.unrecordedMatches).toBe(2);
     expect(r.matches.map(m => m.id)).not.toContain('u1');
   });
+
+  it('counts the played matches that have a saved lineup', () => {
+    expect(report().lineupMatches).toBe(3);
+    const input = sampleSeason();
+    input.matches[0] = { ...input.matches[0], lineup: undefined };
+    expect(buildSeasonReport(input).lineupMatches).toBe(2);
+  });
 });
 
 describe('players', () => {

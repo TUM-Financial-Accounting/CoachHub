@@ -125,7 +125,7 @@ export default function StatisticsView() {
 
   const recentForm = history.slice(-5).map(m => {
     const type = matchOutcome(m) ?? 'U';
-    return { type, ...outcomeStyle[type] };
+    return { type: type === 'U' ? t('statistics.unrecordedShort') : type, ...outcomeStyle[type] };
   });
 
   const shortDate = (dateStr: string) => {
@@ -480,7 +480,7 @@ export default function StatisticsView() {
                       <tr key={m.id} className="hover:bg-surface-raised/30 transition-colors">
                         <td className="px-5 py-3.5">
                           <span title={outcomeStyle[outcome].label} className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${outcomeStyle[outcome].badge}`}>
-                            {outcome}
+                            {outcome === 'U' ? t('statistics.unrecordedShort') : outcome}
                           </span>
                         </td>
                         <td className="px-5 py-3.5">

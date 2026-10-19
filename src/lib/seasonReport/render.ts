@@ -49,6 +49,15 @@ function fit(doc: jsPDF, s: string, maxW: number): string {
   return `${out.trimEnd()}...`;
 }
 
+// Shrinks the font (down to minSize) before cutting, and measures in the font it draws with.
+function writeFit(doc: jsPDF, s: string, x: number, y: number, maxW: number, o: Parameters<typeof write>[4] & { minSize?: number } = {}) {
+  let size = o.size ?? 9;
+  doc.setFont('helvetica', o.bold ? 'bold' : 'normal');
+  while (size > (o.minSize ?? size) && (doc.setFontSize(size), doc.getTextWidth(s)) > maxW) size -= 0.2;
+  doc.setFontSize(size);
+  write(doc, fit(doc, s, maxW), x, y, { ...o, size });
+}
+
 const resultColor = (r: MatchResult): RGB => (r === 'W' ? C.win : r === 'D' ? C.draw : C.loss);
 const pct = (v: number | null) => (v === null ? '-' : `${v}%`);
 const outOf10 = (v: number | null) => (v === null ? '-' : `${v}/10`);
@@ -66,6 +75,8 @@ function ensure(ctx: Ctx, needed: number) {
 }
 
 function section(ctx: Ctx, title: string, note?: string) {
+  // Room above the heading unless it opens the page
+  if (ctx.y > PAGE.m + 4) ctx.y += 5;
   ensure(ctx, 24);
   const { doc } = ctx;
   fill(doc, C.brand);
@@ -93,11 +104,7 @@ function kpiGrid(ctx: Ctx, items: { label: string; value: string; color?: RGB }[
     fill(doc, C.panel);
     doc.roundedRect(x, y, w, h, 1.5, 1.5, 'F');
     write(doc, it.value, x + 3, y + 8, { size: 13, bold: true, color: it.color ?? C.ink });
-    let size = 6.8;
-    doc.setFont('helvetica', 'normal');
-    while (size > 5.6 && (doc.setFontSize(size), doc.getTextWidth(it.label)) > w - 6) size -= 0.2;
-    doc.setFontSize(size);
-    write(doc, fit(doc, it.label, w - 6), x + 3, y + h - 3, { size, color: C.muted });
+    writeFit(doc, it.label, x + 3, y + h - 3, w - 6, { size: 6.8, minSize: 5.6, color: C.muted });
   });
   ctx.y += rows * (h + gap) + 2;
 }
@@ -177,7 +184,7 @@ function hBars(doc: jsPDF, box: Box, rows: { label: string; value: number; displ
   const barW = box.w - labelW - 12;
   rows.forEach((r, i) => {
     const y = box.y + i * rowH;
-    write(doc, fit(doc, r.label, labelW - 2), box.x, y + rowH / 2 + 1.2, { size: 7.2, color: C.text });
+    writeFit(doc, r.label, box.x, y + rowH / 2 + 1.2, labelW - 2, { size: 7.2, color: C.text });
     fill(doc, C.panel);
     doc.roundedRect(box.x + labelW, y + rowH * 0.22, barW, rowH * 0.56, 0.8, 0.8, 'F');
     const w = (barW * r.value) / max;
@@ -222,24 +229,58 @@ function legend(doc: jsPDF, x: number, y: number, items: { label: string; color:
   }
 }
 
+const CELL_PAD = 1.8;
+
 function table(ctx: Ctx, head: string[], body: (string | number)[][], opts: Record<string, any> = {}) {
-  autoTable(ctx.doc, {
+  const { doc } = ctx;
+  const { didParseCell, ...rest } = opts;
+  const fixedWidth = (i: number) => opts.columnStyles?.[i]?.cellWidth;
+  autoTable(doc, {
     startY: ctx.y,
     head: [head],
     body,
     theme: 'plain',
-    margin: { left: PAGE.m, right: PAGE.m, bottom: 18 },
-    styles: { font: 'helvetica', fontSize: 7.4, cellPadding: { top: 1.6, bottom: 1.6, left: 1.8, right: 1.8 }, textColor: C.text, overflow: 'linebreak' },
+    rowPageBreak: 'avoid',
+    margin: { top: PAGE.m + 4, left: PAGE.m, right: PAGE.m, bottom: 18 },
+    styles: { font: 'helvetica', fontSize: 7.4, cellPadding: { top: 1.6, bottom: 1.6, left: CELL_PAD, right: CELL_PAD }, textColor: C.text, overflow: 'linebreak' },
     headStyles: { fillColor: C.ink, textColor: C.white, fontStyle: 'bold', fontSize: 7 },
     alternateRowStyles: { fillColor: [248, 250, 252] },
-    ...opts,
+    ...rest,
+    // A narrow column shrinks its text (then its padding) so no word is split across lines.
+    didParseCell: (d: any) => {
+      const w = fixedWidth(d.column.index);
+      if (typeof w === 'number') {
+        const st = d.cell.styles;
+        doc.setFont('helvetica', st.fontStyle === 'bold' ? 'bold' : 'normal');
+        const words = String(d.cell.raw ?? '').split(/\s+/);
+        const widest = (size: number) => (doc.setFontSize(size), Math.max(0, ...words.map(s => doc.getTextWidth(s))));
+        let size = st.fontSize;
+        while (size > 5.6 && widest(size) > w - 2 * CELL_PAD) size -= 0.2;
+        st.fontSize = size;
+        if (widest(size) > w - 2 * CELL_PAD) st.cellPadding = { top: 1.6, bottom: 1.6, left: 0.6, right: 0.6 };
+      }
+      didParseCell?.(d);
+    },
   });
-  ctx.y = (ctx.doc as any).lastAutoTable.finalY + 7;
+  ctx.y = (doc as any).lastAutoTable.finalY + 7;
 }
 
 // --- labels ---
 const playerName = (ctx: Ctx, p: { name: string }) => p.name || ctx.t('seasonReport.unknownPlayer');
 const position = (ctx: Ctx, pos: string) => (pos ? ctx.t(`positions.${pos}`, { defaultValue: pos }) : '-');
+const positionShort = (ctx: Ctx, pos: string) => (pos ? ctx.t(`seasonReport.posShort.${pos}`, { defaultValue: position(ctx, pos) }) : '-');
+// Venue is free text; only the usual home/away words are translated.
+const VENUES: Record<string, 'home' | 'away'> = { home: 'home', heim: 'home', away: 'away', 'auswärts': 'away', auswaerts: 'away' };
+const venue = (ctx: Ctx, loc: string) => {
+  const key = VENUES[loc.trim().toLowerCase()];
+  return key ? ctx.t(`seasonReport.venue.${key}`) : loc || '-';
+};
+const attendanceLabel = (ctx: Ctx, short = false) => {
+  const tr = ctx.r.training;
+  return tr.recordedSessions < tr.completed
+    ? ctx.t(short ? 'seasonReport.kpi.avgAttendanceCoverageShort' : 'seasonReport.kpi.avgAttendanceCoverage', { count: tr.recordedSessions, total: tr.completed })
+    : ctx.t('seasonReport.kpi.avgAttendance');
+};
 const monthLabel = (ctx: Ctx, ym: string) => parseLocalDate(`${ym}-15`).toLocaleDateString(ctx.lang, { month: 'short', year: 'numeric' });
 const shortDate = (ctx: Ctx, iso: string) => parseLocalDate(iso).toLocaleDateString(ctx.lang, { day: 'numeric', month: 'numeric' });
 
@@ -300,7 +341,7 @@ function cover(ctx: Ctx) {
     { label: t('seasonReport.kpi.goalDiff'), value: signed(r.record.goalDiff), color: r.record.goalDiff >= 0 ? C.win : C.loss },
     { label: t('seasonReport.kpi.cleanSheets'), value: String(r.record.cleanSheets) },
     { label: t('seasonReport.kpi.sessions'), value: String(r.training.completed) },
-    { label: t('seasonReport.kpi.avgAttendance'), value: pct(r.training.avgAttendance) },
+    { label: attendanceLabel(ctx), value: pct(r.training.avgAttendance) },
     { label: t('seasonReport.kpi.squadSize'), value: String(r.squad.size) },
     { label: t('seasonReport.kpi.upcoming'), value: String(r.upcomingMatches) },
   ], 4);
@@ -321,8 +362,8 @@ function cover(ctx: Ctx) {
     doc.roundedRect(x, y, aw, ah, 1.8, 1.8, 'FD');
     fill(doc, C.brand);
     doc.rect(x, y + 3, 0.9, ah - 6, 'F');
-    write(doc, fit(doc, t(`seasonReport.award.${kind}`).toUpperCase(), aw - 6), x + 4, y + 5.8, { size: 6.2, bold: true, color: C.muted });
-    write(doc, a ? fit(doc, a.name, aw - 8) : '-', x + 4, y + 12.5, { size: 10.5, bold: true, color: C.ink });
+    writeFit(doc, t(`seasonReport.award.${kind}`).toUpperCase(), x + 4, y + 5.8, aw - 6, { size: 6.2, minSize: 5.4, bold: true, color: C.muted });
+    writeFit(doc, a ? a.name : '-', x + 4, y + 12.5, aw - 8, { size: 10.5, minSize: 8.5, bold: true, color: C.ink });
     if (a) write(doc, awardValue(ctx, kind, a), x + 4, y + 18, { size: 8, bold: true, color: C.brand });
   });
   ctx.y += Math.ceil(kinds.length / cols) * (ah + gap) + 4;
@@ -400,7 +441,7 @@ function overview(ctx: Ctx) {
     const x = PAGE.m + (i % 2) * colW;
     const y = ctx.y + Math.floor(i / 2) * 11;
     write(doc, label, x, y, { size: 7, color: C.muted });
-    write(doc, fit(doc, value, colW - 4), x, y + 5, { size: 9.5, bold: true, color: C.ink });
+    writeFit(doc, value, x, y + 5, colW - 4, { size: 9.5, bold: true, color: C.ink });
   });
   ctx.y += 26;
 }
@@ -408,7 +449,7 @@ function overview(ctx: Ctx) {
 function results(ctx: Ctx) {
   const { t, r } = ctx;
   if (!r.matches.length) return;
-  newPage(ctx);
+  ensure(ctx, 70);
   const unrecorded = r.unrecordedMatches ? ` · ${t('seasonReport.unit.unrecorded', { count: r.unrecordedMatches })}` : '';
   section(ctx, t('seasonReport.sections.results'), t('seasonReport.unit.matches', { count: r.matches.length }) + unrecorded);
   const names = (list: { name: string; minute: number | null }[]) =>
@@ -416,15 +457,15 @@ function results(ctx: Ctx) {
   table(ctx,
     [t('seasonReport.col.date'), t('seasonReport.col.opponent'), t('seasonReport.col.venue'), t('seasonReport.col.score'), '', t('seasonReport.col.formation'), t('seasonReport.col.scorers'), t('seasonReport.col.assists'), t('seasonReport.col.mvp')],
     r.matches.map(m => [
-      formatDate(m.date), m.opponent, m.location || '-', `${m.goalsFor}:${m.goalsAgainst}`, t(`seasonReport.result.${m.result}`), m.formation || '-',
+      formatDate(m.date), m.opponent, venue(ctx, m.location), `${m.goalsFor}:${m.goalsAgainst}`, t(`seasonReport.result.${m.result}`), m.formation || '-',
       names(m.scorers), names(m.assists),
       m.mvp.length ? `${names(m.mvp.map(v => ({ name: v.name, minute: null })))} (${m.mvp[0].rating})` : '-',
     ]),
     {
       columnStyles: {
         0: { cellWidth: 17 }, 1: { cellWidth: 28, fontStyle: 'bold', textColor: C.ink }, 2: { cellWidth: 17 },
-        3: { cellWidth: 12, halign: 'center', fontStyle: 'bold' }, 4: { cellWidth: 7, halign: 'center', fontStyle: 'bold' },
-        5: { cellWidth: 15 }, 6: { cellWidth: 'auto' }, 7: { cellWidth: 28 }, 8: { cellWidth: 26 },
+        3: { cellWidth: 14, halign: 'center', fontStyle: 'bold' }, 4: { cellWidth: 7, halign: 'center', fontStyle: 'bold' },
+        5: { cellWidth: 17 }, 6: { cellWidth: 'auto' }, 7: { cellWidth: 28 }, 8: { cellWidth: 26 },
       },
       didParseCell: (d: any) => {
         if (d.section === 'body' && d.column.index === 4) {
@@ -437,36 +478,35 @@ function results(ctx: Ctx) {
 
 function squadTable(ctx: Ctx) {
   const { doc, t, r } = ctx;
-  newPage(ctx);
-  section(ctx, t('seasonReport.sections.squad'), t('seasonReport.unit.players', { count: r.players.length }));
+  ensure(ctx, 80);
+  const played = r.record.played;
+  const coverage = played && r.lineupMatches < played
+    ? ` · ${t('seasonReport.note.lineupCoverage', { count: r.lineupMatches, total: played })}`
+    : '';
+  section(ctx, t('seasonReport.sections.squad'), t('seasonReport.unit.players', { count: r.players.length }) + coverage);
+  // Starts and minutes come only from saved lineups; with none they would be all zeros.
+  const withLineups = r.lineupMatches > 0;
+  const columns: { head: string; value: (p: PlayerLine) => string | number; style: Record<string, unknown> }[] = [
+    { head: '#', value: p => p.jersey ?? '-', style: { cellWidth: 8, halign: 'center', fontStyle: 'bold' } },
+    { head: t('seasonReport.col.player'), value: p => `${playerName(ctx, p)}${p.inSquad ? '' : ' *'}`, style: { cellWidth: 'auto', fontStyle: 'bold', textColor: C.ink } },
+    { head: t('seasonReport.col.posShort'), value: p => positionShort(ctx, p.position), style: { cellWidth: 11, halign: 'center' } },
+    { head: t('seasonReport.col.age'), value: p => p.age ?? '-', style: { cellWidth: 10, halign: 'center' } },
+    ...(withLineups ? [{ head: t('seasonReport.col.starts'), value: (p: PlayerLine) => p.starts, style: { cellWidth: 12, halign: 'center' } }] : []),
+    { head: t('seasonReport.col.goals'), value: p => p.goals, style: { cellWidth: 11, halign: 'center' } },
+    { head: t('seasonReport.col.assists'), value: p => p.assists, style: { cellWidth: 13, halign: 'center' } },
+    { head: t('seasonReport.col.contributions'), value: p => p.contributions, style: { cellWidth: 10, halign: 'center', fontStyle: 'bold' } },
+    { head: t('seasonReport.col.share'), value: p => pct(p.goalShare), style: { cellWidth: 13, halign: 'center' } },
+    ...(withLineups ? [{ head: t('seasonReport.col.minutes'), value: (p: PlayerLine) => (p.minutes ? `${p.minutes}'` : '-'), style: { cellWidth: 12, halign: 'center' } }] : []),
+    { head: t('seasonReport.col.attendance'), value: p => pct(p.attendance.rate), style: { cellWidth: 14, halign: 'center' } },
+    { head: t('seasonReport.col.matchRating'), value: avgRating, style: { cellWidth: 15, halign: 'center', fontStyle: 'bold' } },
+    { head: t('seasonReport.col.rating'), value: p => outOf10(p.rating), style: { cellWidth: 13, halign: 'center' } },
+  ];
   table(ctx,
-    ['#', t('seasonReport.col.player'), t('seasonReport.col.position'), t('seasonReport.col.age'), t('seasonReport.col.starts'), t('seasonReport.col.goals'), t('seasonReport.col.assists'), t('seasonReport.col.contributions'), t('seasonReport.col.share'), t('seasonReport.col.minutes'), t('seasonReport.col.attendance'), t('seasonReport.col.matchRating'), t('seasonReport.col.rating')],
-    r.players.map(p => [
-      p.jersey ?? '-',
-      `${playerName(ctx, p)}${p.inSquad ? '' : ' *'}`,
-      position(ctx, p.position),
-      p.age ?? '-',
-      p.starts,
-      p.goals,
-      p.assists,
-      p.contributions,
-      pct(p.goalShare),
-      p.minutes ? `${p.minutes}'` : '-',
-      pct(p.attendance.rate),
-      avgRating(p),
-      outOf10(p.rating),
-    ]),
-    {
-      columnStyles: {
-        0: { cellWidth: 8, halign: 'center', fontStyle: 'bold' }, 1: { cellWidth: 'auto', fontStyle: 'bold', textColor: C.ink },
-        2: { cellWidth: 18 }, 3: { cellWidth: 10, halign: 'center' }, 4: { cellWidth: 11, halign: 'center' },
-        5: { cellWidth: 11, halign: 'center' }, 6: { cellWidth: 11, halign: 'center' }, 7: { cellWidth: 11, halign: 'center', fontStyle: 'bold' },
-        8: { cellWidth: 12, halign: 'center' }, 9: { cellWidth: 12, halign: 'center' }, 10: { cellWidth: 13, halign: 'center' },
-        11: { cellWidth: 15, halign: 'center', fontStyle: 'bold' }, 12: { cellWidth: 12, halign: 'center' },
-      },
-    });
+    columns.map(c => c.head),
+    r.players.map(p => columns.map(c => c.value(p))),
+    { columnStyles: Object.fromEntries(columns.map((c, i) => [i, c.style])) });
   ctx.y -= 3;
-  const notes = [t('seasonReport.note.starts'), t('seasonReport.note.share'), t('seasonReport.note.minutes'),
+  const notes = [...(withLineups ? [t('seasonReport.note.starts')] : []), t('seasonReport.note.share'), ...(withLineups ? [t('seasonReport.note.minutes')] : []),
     t('seasonReport.note.attendanceRecorded', { count: r.training.recordedSessions, total: r.training.completed }),
     t('seasonReport.note.rating'), t('seasonReport.note.mvp')];
   if (r.ratedMatches) notes.push(t('seasonReport.note.highestRated', { count: r.minRatedMatches }));
@@ -501,7 +541,7 @@ function squadTable(ctx: Ctx) {
 
 function attack(ctx: Ctx) {
   const { doc, t, r } = ctx;
-  newPage(ctx);
+  ensure(ctx, 90);
   section(ctx, t('seasonReport.sections.attack'));
   const half = (CW - 8) / 2;
   const scorers = [...r.players].filter(p => p.goals > 0).sort((a, b) => b.goals - a.goals || b.assists - a.assists).slice(0, 8);
@@ -543,13 +583,13 @@ function attack(ctx: Ctx) {
 function training(ctx: Ctx) {
   const { doc, t, r } = ctx;
   const tr = r.training;
-  newPage(ctx);
+  ensure(ctx, 90);
   section(ctx, t('seasonReport.sections.training'));
   kpiGrid(ctx, [
     { label: t('seasonReport.kpi.sessions'), value: String(tr.completed) },
     { label: t('seasonReport.kpi.hours'), value: tr.hours.toFixed(1) },
     { label: t('seasonReport.kpi.avgDuration'), value: tr.avgMinutes ? `${tr.avgMinutes} min` : '-' },
-    { label: t('seasonReport.kpi.avgAttendance'), value: pct(tr.avgAttendance) },
+    { label: attendanceLabel(ctx, true), value: pct(tr.avgAttendance) },
     { label: t('seasonReport.kpi.plannedSessions'), value: String(tr.planned) },
     { label: t('seasonReport.kpi.teamEvents'), value: String(r.teamEvents) },
   ], 6);
@@ -609,7 +649,9 @@ function training(ctx: Ctx) {
   const ranked = r.players.filter(p => p.inSquad && p.attendance.rate !== null).sort((a, b) => (b.attendance.rate ?? 0) - (a.attendance.rate ?? 0));
   if (ranked.length) {
     ensure(ctx, 20 + ranked.length * 7);
-    section(ctx, t('seasonReport.sections.attendance'), t('seasonReport.note.attendanceShort', { total: tr.completed }));
+    section(ctx, t('seasonReport.sections.attendance'), tr.recordedSessions < tr.completed
+      ? t('seasonReport.note.attendanceCoverage', { count: tr.recordedSessions, total: tr.completed })
+      : t('seasonReport.note.attendanceShort', { total: tr.completed }));
     hBars(doc, { x: PAGE.m, y: ctx.y, w: CW, h: ranked.length * 7 },
       ranked.map(p => ({ label: playerName(ctx, p), value: p.attendance.rate ?? 0, display: `${p.attendance.rate}%  (${p.attendance.attended}/${p.attendance.total})` })), C.win, 42);
     ctx.y += ranked.length * 7 + 6;
@@ -632,7 +674,7 @@ function playerCard(ctx: Ctx, p: PlayerLine, top: number) {
   fill(doc, p.inSquad ? C.brand : C.faint);
   doc.circle(PAGE.m + 12, top + 12, 7, 'F');
   write(doc, p.jersey === null ? '-' : String(p.jersey), PAGE.m + 12, top + 14.3, { size: 12, bold: true, color: C.white, align: 'center' });
-  write(doc, fit(doc, playerName(ctx, p), CW - 70), PAGE.m + 24, top + 11, { size: 14, bold: true, color: C.ink });
+  writeFit(doc, playerName(ctx, p), PAGE.m + 24, top + 11, CW - 70, { size: 14, bold: true, color: C.ink });
   const facts = [
     position(ctx, p.position),
     p.age !== null ? t('seasonReport.years', { count: p.age }) : null,
@@ -651,7 +693,7 @@ function playerCard(ctx: Ctx, p: PlayerLine, top: number) {
   }
 
   const stats = [
-    { label: t('seasonReport.col.starts'), value: p.subApps ? `${p.starts} (+${p.subApps})` : String(p.starts) },
+    { label: t('seasonReport.col.starts'), value: !r.lineupMatches ? '-' : p.subApps ? `${p.starts} (+${p.subApps})` : String(p.starts) },
     { label: t('seasonReport.col.minutes'), value: p.minutes ? String(p.minutes) : '-' },
     { label: t('seasonReport.col.goals'), value: String(p.goals), color: p.goals ? C.win : C.ink },
     { label: t('seasonReport.col.assists'), value: String(p.assists), color: p.assists ? C.brand : C.ink },
@@ -667,7 +709,7 @@ function playerCard(ctx: Ctx, p: PlayerLine, top: number) {
     fill(doc, C.panel);
     doc.roundedRect(x, top + 29, bw, 16, 1.5, 1.5, 'F');
     write(doc, s.value, x + bw / 2, top + 37, { size: 13, bold: true, color: s.color ?? C.ink, align: 'center' });
-    write(doc, fit(doc, s.label, bw - 2), x + bw / 2, top + 42.5, { size: 6.4, color: C.muted, align: 'center' });
+    writeFit(doc, s.label, x + bw / 2, top + 42.5, bw - 2, { size: 6.4, minSize: 5.4, color: C.muted, align: 'center' });
   });
 
   let y = top + 53;
@@ -715,7 +757,7 @@ function playerCard(ctx: Ctx, p: PlayerLine, top: number) {
     doc.circle(cx + 1.2, cy - 1, 1.1, 'F');
     const kind = t(`seasonReport.kind.${g.kind}`);
     const text = `${formatDate(g.date)}  vs ${g.opponent}${minuteMark(g.minute)}`;
-    write(doc, fit(doc, text, colW - 26), cx + 4, cy, { size: 7.4, color: C.text });
+    writeFit(doc, text, cx + 4, cy, colW - 26, { size: 7.4, color: C.text });
     write(doc, kind, cx + colW - 4, cy, { size: 7, bold: true, color: g.kind === 'goal' ? C.win : C.brand, align: 'right' });
   });
   if (p.goalLog.length > visible.length) {
@@ -743,7 +785,7 @@ function footers(ctx: Ctx) {
     stroke(doc, C.line);
     doc.setLineWidth(0.2);
     doc.line(PAGE.m, PAGE.h - 11, PAGE.m + CW, PAGE.h - 11);
-    write(doc, fit(doc, `${r.teamName}  |  ${r.seasonName}  |  ${t('seasonReport.title')}`, CW - 30), PAGE.m, PAGE.h - 7, { size: 6.8, color: C.faint });
+    writeFit(doc, `${r.teamName}  |  ${r.seasonName}  |  ${t('seasonReport.title')}`, PAGE.m, PAGE.h - 7, CW - 30, { size: 6.8, color: C.faint });
     write(doc, t('seasonReport.page', { page: i, total }), PAGE.m + CW, PAGE.h - 7, { size: 6.8, color: C.faint, align: 'right' });
   }
 }
