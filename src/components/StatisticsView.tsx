@@ -14,6 +14,7 @@ import { MatchService } from '../services';
 import { MatchDetails, TopPerformer } from '../types/models';
 import { toast } from 'sonner';
 import { formatDate, parseLocalDate, todayISO } from '../lib/dates';
+import { hasResult, isUnrecorded, matchOutcome } from '../lib/matchResult';
 import { loadSeasonReport } from '../lib/seasonReport/load';
 import { renderSeasonReport, reportFileName } from '../lib/seasonReport/render';
 
@@ -22,6 +23,7 @@ export default function StatisticsView() {
   const { activeTeam } = useTeam();
   const { activeSeason } = useSeason();
   const [matches, setMatches] = useState<MatchDetails[]>([]);
+  const [unrecorded, setUnrecorded] = useState<MatchDetails[]>([]);
   const [topPerformers, setTopPerformers] = useState<TopPerformer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -59,9 +61,10 @@ export default function StatisticsView() {
       ]);
       const today = todayISO();
       const finishedMatches = matchesData
-        .filter(m => m.date <= today && (m.goalsFor !== undefined || m.goalsAgainst !== undefined))
+        .filter(m => m.date <= today && hasResult(m))
         .sort((a, b) => a.date.localeCompare(b.date));
       setMatches(finishedMatches);
+      setUnrecorded(matchesData.filter(isUnrecorded));
       setTopPerformers(performersData);
     } catch (error) {
       toast.error(t('feedback.loadFailed'));
@@ -107,15 +110,23 @@ export default function StatisticsView() {
     };
   }, [matches]);
 
-  const recentForm = useMemo(() => {
-    return matches.slice(-5).map(m => {
-      const gf = m.goalsFor ?? 0;
-      const ga = m.goalsAgainst ?? 0;
-      if (gf > ga) return { type: 'W', color: 'bg-emerald-500', label: t('statistics.win') };
-      if (gf < ga) return { type: 'L', color: 'bg-rose-500', label: t('statistics.loss') };
-      return { type: 'D', color: 'bg-amber-500', label: t('statistics.draw') };
-    });
-  }, [matches]);
+  // Recorded and unrecorded past matches together; U never counts towards the totals above.
+  const history = useMemo(
+    () => [...matches, ...unrecorded].sort((a, b) => a.date.localeCompare(b.date)),
+    [matches, unrecorded],
+  );
+
+  const outcomeStyle = {
+    W: { color: 'bg-emerald-500', badge: 'bg-emerald-500/10 text-emerald-600', label: t('statistics.win') },
+    D: { color: 'bg-amber-500', badge: 'bg-amber-500/10 text-amber-600', label: t('statistics.draw') },
+    L: { color: 'bg-rose-500', badge: 'bg-rose-500/10 text-rose-600', label: t('statistics.loss') },
+    U: { color: 'bg-slate-400', badge: 'bg-slate-500/10 text-slate-500', label: t('statistics.unrecorded') },
+  } as const;
+
+  const recentForm = history.slice(-5).map(m => {
+    const type = matchOutcome(m) ?? 'U';
+    return { type, ...outcomeStyle[type] };
+  });
 
   const shortDate = (dateStr: string) => {
     const d = parseLocalDate(dateStr);
@@ -239,7 +250,10 @@ export default function StatisticsView() {
                   <p className="text-[11px] text-muted font-medium mt-1">{t('statistics.losses')}</p>
                 </div>
               </div>
-              <p className="text-xs text-muted mt-4 pt-4 border-t border-border/40">{t('statistics.matchesPlayedCount', { count: stats.total })}</p>
+              <p className="text-xs text-muted mt-4 pt-4 border-t border-border/40">
+                {t('statistics.matchesPlayedCount', { count: stats.total })}
+                {unrecorded.length > 0 && <> · {t('statistics.unrecordedCount', { count: unrecorded.length })}</>}
+              </p>
             </Card>
 
             <Card className="p-5">
@@ -460,14 +474,13 @@ export default function StatisticsView() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
-                  {matches.slice().reverse().map(m => {
-                    const isWin = (m.goalsFor ?? 0) > (m.goalsAgainst ?? 0);
-                    const isLoss = (m.goalsFor ?? 0) < (m.goalsAgainst ?? 0);
+                  {history.slice().reverse().map(m => {
+                    const outcome = matchOutcome(m) ?? 'U';
                     return (
                       <tr key={m.id} className="hover:bg-surface-raised/30 transition-colors">
                         <td className="px-5 py-3.5">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${isWin ? 'bg-emerald-500/10 text-emerald-600' : isLoss ? 'bg-rose-500/10 text-rose-600' : 'bg-amber-500/10 text-amber-600'}`}>
-                            {isWin ? 'W' : isLoss ? 'L' : 'D'}
+                          <span title={outcomeStyle[outcome].label} className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${outcomeStyle[outcome].badge}`}>
+                            {outcome}
                           </span>
                         </td>
                         <td className="px-5 py-3.5">
@@ -475,7 +488,7 @@ export default function StatisticsView() {
                         </td>
                         <td className="px-5 py-3.5 text-center">
                           <span className="text-sm font-bold text-foreground tabular-nums">
-                            {m.goalsFor} – {m.goalsAgainst}
+                            {hasResult(m) ? `${m.goalsFor} – ${m.goalsAgainst}` : '–'}
                           </span>
                         </td>
                         <td className="px-5 py-3.5">

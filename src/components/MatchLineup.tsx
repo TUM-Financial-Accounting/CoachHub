@@ -11,6 +11,7 @@ import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 import { Input } from "./ui/Input";
 import { MatchStatsModal } from './MatchStatsModal';
+import { hasResult } from '../lib/matchResult';
 import { DatePicker } from "./ui/DatePicker";
 import { TimePicker } from "./ui/TimePicker";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
@@ -486,10 +487,12 @@ useEffect(() => {
                         {isMatchPast ? (
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20 uppercase tracking-widest">{t('matches.pastMatchBadge')}</span>
-                            {(matchDetails.goalsFor !== undefined || matchDetails.goalsAgainst !== undefined) && (
+                            {hasResult(matchDetails) ? (
                               <span className="text-sm font-bold bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-lg border border-emerald-500/20">
                                 {matchDetails.goalsFor} - {matchDetails.goalsAgainst}
                               </span>
+                            ) : (
+                              <span title={t('statistics.unrecorded')} className="text-sm font-bold bg-slate-500/10 text-slate-500 px-3 py-1 rounded-lg border border-slate-500/20">U</span>
                             )}
                           </div>
                         ) : (
@@ -564,9 +567,9 @@ useEffect(() => {
                           <div>
                             <div className="flex items-center gap-2">
                               <p className={`text-sm font-bold ${matchDetails?.id === match.id ? 'text-blue-400' : 'text-foreground'}`}>vs {match.opponent}</p>
-                              {(match.goalsFor !== undefined || match.goalsAgainst !== undefined) && showPastMatches && (
-                                <span className="text-[10px] font-bold text-emerald-500">{match.goalsFor} - {match.goalsAgainst}</span>
-                              )}
+                              {showPastMatches && (hasResult(match)
+                                ? <span className="text-[10px] font-bold text-emerald-500">{match.goalsFor} - {match.goalsAgainst}</span>
+                                : <span title={t('statistics.unrecorded')} className="text-[10px] font-bold text-slate-500">U</span>)}
                             </div>
                             <p className="text-[10px] text-muted">{formatDate(match.date)}</p>
                           </div>

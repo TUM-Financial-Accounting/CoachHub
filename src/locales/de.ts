@@ -928,6 +928,9 @@ export const de: TranslationDict = {
   },
   statistics: {
     lastResults: 'Letzte {{count}} Ergebnisse',
+    unrecorded: 'Kein Ergebnis eingetragen',
+    unrecordedCount_one: '{{count}} ohne Ergebnis (U)',
+    unrecordedCount_other: '{{count}} ohne Ergebnis (U)',
     win: 'Sieg',
     loss: 'Niederlage',
     draw: 'Unentschieden',
@@ -1123,6 +1126,8 @@ export const de: TranslationDict = {
       mostMotm: 'Meiste MVP-Titel',
     },
     unit: {
+      unrecorded_one: '{{count}} ohne Ergebnis (U), nicht gewertet',
+      unrecorded_other: '{{count}} ohne Ergebnis (U), nicht gewertet',
       topScorer_one: '{{count}} Tor',
       topScorer_other: '{{count}} Tore',
       topAssister_one: '{{count}} Vorlage',

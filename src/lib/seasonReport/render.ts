@@ -409,7 +409,8 @@ function results(ctx: Ctx) {
   const { t, r } = ctx;
   if (!r.matches.length) return;
   newPage(ctx);
-  section(ctx, t('seasonReport.sections.results'), t('seasonReport.unit.matches', { count: r.matches.length }));
+  const unrecorded = r.unrecordedMatches ? ` · ${t('seasonReport.unit.unrecorded', { count: r.unrecordedMatches })}` : '';
+  section(ctx, t('seasonReport.sections.results'), t('seasonReport.unit.matches', { count: r.matches.length }) + unrecorded);
   const names = (list: { name: string; minute: number | null }[]) =>
     list.map(g => `${(g.name.split(' ').pop() || g.name) || t('seasonReport.unknownPlayer')}${minuteMark(g.minute)}`).join(', ') || '-';
   table(ctx,

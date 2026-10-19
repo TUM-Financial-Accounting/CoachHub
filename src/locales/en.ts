@@ -926,6 +926,9 @@ export const en = {
   },
   statistics: {
     lastResults: 'Last {{count}} results',
+    unrecorded: 'No result entered',
+    unrecordedCount_one: '{{count}} without result (U)',
+    unrecordedCount_other: '{{count}} without result (U)',
     win: 'Win',
     loss: 'Loss',
     draw: 'Draw',
@@ -1121,6 +1124,8 @@ export const en = {
       mostMotm: 'Most MVPs',
     },
     unit: {
+      unrecorded_one: '{{count}} without result (U), not counted',
+      unrecorded_other: '{{count}} without result (U), not counted',
       topScorer_one: '{{count}} goal',
       topScorer_other: '{{count}} goals',
       topAssister_one: '{{count}} assist',

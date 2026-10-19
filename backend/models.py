@@ -211,8 +211,9 @@ class Match(Base):
     formation = Column(String, default=DEFAULT_FORMATION)
     
     lineup = Column(Text, nullable=True)
-    goals_for = Column(Integer, default=0)
-    goals_against = Column(Integer, default=0)
+    # Null until a result is entered, so an unplayed match is not a 0:0 draw
+    goals_for = Column(Integer, nullable=True)
+    goals_against = Column(Integer, nullable=True)
     notes = Column(Text, nullable=True)
     
     bench = Column(Text, nullable=True)  # comma-separated player ids

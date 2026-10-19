@@ -183,8 +183,8 @@ class MatchCreate(BaseModel):
     season_id: Optional[str] = None
     formation: Optional[str] = DEFAULT_FORMATION
     lineup: Optional[str] = None
-    goals_for: Optional[int] = 0
-    goals_against: Optional[int] = 0
+    goals_for: Optional[int] = None
+    goals_against: Optional[int] = None
     notes: Optional[str] = ""
     bench: Optional[str] = None
     duration: Optional[int] = Field(None, ge=1, le=150)

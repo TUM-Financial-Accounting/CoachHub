@@ -385,7 +385,7 @@ def seed_matches(db, team_id: str, season_id: str,
                 lineup=lu,
                 team_id=team_id,
                 season_id=season_id,
-                goals_for=0, goals_against=0, notes="",
+                notes="",
             )
             db.add(m)
             matches.append(m)

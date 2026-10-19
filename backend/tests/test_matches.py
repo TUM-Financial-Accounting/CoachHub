@@ -74,3 +74,52 @@ def test_suggested_formation_default_and_from_training(make_coach, db):
     res = a.get("/match/suggested-formation", params={"team_id": a.team["id"]}).json()
     assert {k: res[k] for k in ("formation", "kind", "session_date", "exercise_name")} == {
         "formation": "4-3-3", "kind": "training", "session_date": day.isoformat(), "exercise_name": "Rondo 5v2"}
+
+
+def test_new_match_has_no_result_until_stats_are_saved(make_coach):
+    a = make_coach("a@x")
+    match = a.match()
+    assert (match["goals_for"], match["goals_against"]) == (None, None)
+
+    a.put(f"/matches/{match['id']}/stats", json={"goals_for": 0, "goals_against": 0})
+    stored = next(m for m in a.get("/matches", params=a.scoped()).json() if m["id"] == match["id"])
+    assert (stored["goals_for"], stored["goals_against"]) == (0, 0)
+
+
+def test_clear_placeholder_scores_keeps_documented_matches(make_coach, db):
+    import clear_placeholder_scores
+
+    a = make_coach("a@x")
+    player = a.player()
+    placeholder, noted, rated, evented, scored = (a.match()["id"] for _ in range(5))
+    for match_id in (placeholder, noted, rated, evented):
+        a.put(f"/matches/{match_id}/stats", json={"goals_for": 0, "goals_against": 0})
+    a.put(f"/matches/{noted}/stats", json={"goals_for": 0, "goals_against": 0, "notes": "Tight game"})
+    a.put(f"/matches/{rated}/ratings/{player['id']}", json={"rating": 7})
+    res = a.post(f"/matches/{evented}/events", json={"player_id": player["id"], "event_type": "Assist", "minute": 10})
+    assert res.status_code == 200, res.text
+    a.put(f"/matches/{scored}/stats", json={"goals_for": 2, "goals_against": 0})
+
+    assert clear_placeholder_scores.clear_placeholders(db) == 1
+    db.expire_all()
+    scores = {m.id: (m.goals_for, m.goals_against) for m in db.query(models.Match).all()}
+    assert scores[placeholder] == (None, None)
+    assert scores[noted] == scores[rated] == scores[evented] == (0, 0)
+    assert scores[scored] == (2, 0)
+
+
+def test_clear_placeholder_scores_runs_before_new_columns_and_tables_exist(make_coach, db):
+    import clear_placeholder_scores
+    from sqlalchemy import text
+
+    a = make_coach("a@x")
+    match_id = a.match()["id"]
+    a.put(f"/matches/{match_id}/stats", json={"goals_for": 0, "goals_against": 0})
+    db.execute(text("ALTER TABLE matches DROP COLUMN bench"))
+    db.execute(text("ALTER TABLE matches DROP COLUMN duration"))
+    db.execute(text("DROP TABLE match_ratings"))
+    db.commit()
+
+    assert [m.id for m in clear_placeholder_scores.placeholder_matches(db)] == [match_id]
+    assert clear_placeholder_scores.clear_placeholders(db) == 1
+    assert db.execute(text("SELECT goals_for, goals_against FROM matches")).one() == (None, None)

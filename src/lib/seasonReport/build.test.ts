@@ -28,6 +28,19 @@ describe('team record', () => {
   it('accumulates points match by match', () => {
     expect(report().pointsProgression.map(p => p.points)).toEqual([3, 4, 4]);
   });
+
+  it('leaves past matches without a score out of the record and counts them as unrecorded', () => {
+    const input = sampleSeason();
+    const base = input.matches[0];
+    input.matches.push(
+      { ...base, id: 'u1', date: '2026-10-20', goalsFor: undefined, goalsAgainst: undefined },
+      { ...base, id: 'u2', date: '2026-10-21', goalsFor: 2, goalsAgainst: undefined },
+    );
+    const r = buildSeasonReport(input);
+    expect(r.record.played).toBe(3);
+    expect(r.unrecordedMatches).toBe(2);
+    expect(r.matches.map(m => m.id)).not.toContain('u1');
+  });
 });
 
 describe('players', () => {

@@ -112,6 +112,13 @@ Then log in with **`demo@coachhub.app`** / **`demo1234`**.
 > user (and, for some, teams and seasons) to already exist — use `seed.py`
 > unless you specifically want one slice of the data.
 
+> **Upgrading an existing database:** matches used to be created with a 0:0
+> score, so unplayed or unrecorded matches counted as draws. New matches now
+> have no score until one is entered, and past matches without one show as
+> **U** and stay out of every total. To clear the old placeholder 0:0 scores
+> (0:0 with no notes, events or ratings), run `python clear_placeholder_scores.py`
+> to list them and `--apply` to reset them. It writes data — check `DATABASE_URL` first.
+
 ### 4. Frontend
 
 ```bash
@@ -268,7 +275,7 @@ Tests live next to the code they cover as `*.test.ts`.
 | GET / POST | `/matches` | List / create matches |
 | GET | `/matches/latest` | Get next upcoming match |
 | PUT / DELETE | `/matches/{id}` | Update / delete a match (delete removes its events too) |
-| PUT | `/matches/{id}/stats` | Record final score and notes |
+| PUT | `/matches/{id}/stats` | Record final score and notes (a new match has no score until this is called) |
 | GET / POST | `/matches/{match_id}/events` | List / add goals and assists |
 | DELETE | `/match_events/{id}` | Delete a goal/assist event |
 | GET / POST | `/matches/{match_id}/substitutions` | List / record a substitution (`player_in_id`, optional `player_out_id`, `minute` within the match length) |
@@ -364,7 +371,7 @@ to run against anything but SQLite.
 | `tests/test_ownership.py` | Per-coach isolation: lists, reads, writes and deletes on another coach's rows → 404 |
 | `tests/test_series.py` | Recurring training/event series: creation, validation, `this` / `future` / `all` scopes |
 | `tests/test_cascade.py` | Team, season, player and match deletes with everything hanging off them |
-| `tests/test_matches.py` | Match ratings, top performers, suggested formation |
+| `tests/test_matches.py` | Match ratings, top performers, suggested formation, unrecorded scores and `clear_placeholder_scores.py` |
 | `tests/test_recurrence.py` | `recurrence.expand` patterns (weekly, biweekly, monthly n-th weekday) |
 | `tests/test_attendance.py` | Training attendance: save/replace, validation, per-coach isolation, cascade on session/player/team delete |
 | `tests/test_substitutions.py` | Match bench and length, substitutions, validation, isolation, cascade on match/player/season delete |

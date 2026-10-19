@@ -4,6 +4,7 @@ import { splitCsv } from '../csv';
 import { attendedPlayerIds, indexAttendance } from '../attendance';
 import { DEFAULT_MATCH_MINUTES, minutesPlayed } from '../minutes';
 import { parseLocalDate, toMinutes } from '../dates';
+import { hasResult } from '../matchResult';
 
 export type MatchResult = 'W' | 'D' | 'L';
 
@@ -157,6 +158,8 @@ export interface SeasonReport {
   highlights: Highlights;
   matches: MatchRow[];
   upcomingMatches: number;
+  // Past matches without an entered score (U); left out of every total
+  unrecordedMatches: number;
   pointsProgression: { date: string; opponent: string; result: MatchResult; points: number }[];
   goalTiming: { buckets: number[]; withMinute: number; recorded: number };
   formations: FormationRow[];
@@ -178,8 +181,7 @@ const pointsFor = (r: MatchResult) => (r === 'W' ? 3 : r === 'D' ? 1 : 0);
 const resultOf = (gf: number, ga: number): MatchResult => (gf > ga ? 'W' : gf < ga ? 'L' : 'D');
 
 // Same definition as the statistics page: in the past and with a recorded score.
-export const isPlayed = (m: MatchDetails, today: string) =>
-  m.date <= today && (m.goalsFor !== undefined || m.goalsAgainst !== undefined);
+export const isPlayed = (m: MatchDetails, today: string) => m.date <= today && hasResult(m);
 
 function ageOn(dob: string, on: string): number | null {
   const birth = parseLocalDate(dob);
@@ -252,6 +254,7 @@ export function buildSeasonReport(input: SeasonReportInput): SeasonReport {
 
   const played = input.matches.filter(m => isPlayed(m, today)).sort((a, b) => a.date.localeCompare(b.date));
   const upcomingMatches = input.matches.filter(m => m.date > today).length;
+  const unrecordedMatches = input.matches.filter(m => m.date < today && !hasResult(m)).length;
   const completedSessions = input.sessions.filter(s => s.date <= today);
   const plannedSessions = input.sessions.filter(s => s.date > today);
 
@@ -537,6 +540,7 @@ export function buildSeasonReport(input: SeasonReportInput): SeasonReport {
     highlights,
     matches: rows,
     upcomingMatches,
+    unrecordedMatches,
     pointsProgression,
     goalTiming: { buckets, withMinute, recorded },
     formations,
