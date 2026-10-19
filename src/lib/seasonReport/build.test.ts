@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { buildSeasonReport } from './build';
+import { buildSeasonReport, type SeasonReport, type SeasonReportInput } from './build';
 import { sampleSeason } from './fixture';
+import type { MatchRating } from '../../types/models';
 
 const report = () => buildSeasonReport(sampleSeason());
 const line = (id: string) => report().players.find(p => p.id === id)!;
@@ -93,6 +94,71 @@ describe('match ratings', () => {
     expect(r.awards.mostMotm).toBeNull();
     expect(r.matches[0].mvp).toEqual([]);
     expect(r.players.every(p => p.avgRating === null)).toBe(true);
+  });
+});
+
+describe('MVP', () => {
+  const rate = (matchId: string, playerId: string, rating: number): MatchRating => ({ matchId, playerId, rating });
+  const withRatings = (ratings: MatchRating[], extra: Partial<SeasonReportInput> = {}) =>
+    buildSeasonReport({ ...sampleSeason(), ratings, ...extra });
+  const mvpIds = (r: SeasonReport, i: number) => r.matches[i].mvp.map(m => m.playerId);
+
+  it('gives a match without ratings no MVP', () => {
+    const r = withRatings([rate('m1', 'p1', 7)]);
+    expect(mvpIds(r, 0)).toEqual(['p1']);
+    expect(mvpIds(r, 1)).toEqual([]);
+    expect(mvpIds(r, 2)).toEqual([]);
+    expect(r.ratedMatches).toBe(1);
+  });
+
+  it('ignores ratings of upcoming matches and zero ratings', () => {
+    const r = withRatings([rate('m4', 'p4', 10), rate('m1', 'p1', 0), rate('m1', 'p2', 6)]);
+    expect(mvpIds(r, 0)).toEqual(['p2']);
+    expect(r.players.find(p => p.id === 'p4')).toMatchObject({ avgRating: null, motm: 0, ratedMatches: 0 });
+    expect(r.players.find(p => p.id === 'p1')?.avgRating).toBeNull();
+  });
+
+  it('names every player on a full tie, sorted by name', () => {
+    const r = withRatings([rate('m1', 'p1', 7), rate('m1', 'p2', 7), rate('m1', 'p3', 7)]);
+    expect(r.matches[0].mvp.map(m => m.name)).toEqual(['Anton Lehmann', 'Elias Schröder', 'Jonas Berger']);
+    expect(r.players.filter(p => p.motm === 1).map(p => p.id).sort()).toEqual(['p1', 'p2', 'p3']);
+  });
+
+  it('credits a player who has left the squad', () => {
+    const r = withRatings([rate('m2', 'p9', 10), rate('m2', 'p1', 8)]);
+    expect(r.matches[1].mvp).toEqual([{ playerId: 'p9', name: 'Max Weg', rating: 10 }]);
+    expect(r.players.find(p => p.id === 'p9')).toMatchObject({ inSquad: false, motm: 1, avgRating: 10 });
+  });
+
+  it('keeps the first player in squad order when MVP counts tie', () => {
+    const r = withRatings([rate('m1', 'p3', 9), rate('m2', 'p1', 9)]);
+    expect(r.awards.mostMotm).toMatchObject({ playerId: 'p1', value: 1 });
+  });
+
+  it('rounds the average to one decimal and logs ratings in match order', () => {
+    const p1 = withRatings([rate('m3', 'p1', 5), rate('m1', 'p1', 8), rate('m2', 'p1', 6)]).players.find(p => p.id === 'p1')!;
+    expect(p1.avgRating).toBe(6.3);
+    expect(p1.ratingLog.map(l => [l.date, l.rating])).toEqual([['2026-09-05', 8], ['2026-09-12', 6], ['2026-10-03', 5]]);
+  });
+
+  it('lets a single rated match decide highest rated', () => {
+    const r = withRatings([rate('m1', 'p4', 9), rate('m1', 'p1', 6)]);
+    expect(r).toMatchObject({ ratedMatches: 1, minRatedMatches: 1 });
+    expect(r.awards.highestRated).toMatchObject({ playerId: 'p4', value: 9 });
+  });
+
+  it('needs a third of the rated matches once a season has many', () => {
+    const base = sampleSeason();
+    const template = base.matches[0];
+    const matches = Array.from({ length: 9 }, (_, i) => ({ ...template, id: `k${i}`, date: `2026-09-${String(i + 1).padStart(2, '0')}` }));
+    const ratings = [
+      ...matches.map(m => rate(m.id, 'p3', 5)),
+      rate('k0', 'p1', 7), rate('k1', 'p1', 7), rate('k2', 'p1', 7),
+      rate('k3', 'p2', 9), rate('k4', 'p2', 9),
+    ];
+    const r = withRatings(ratings, { matches, matchEvents: {} });
+    expect(r).toMatchObject({ ratedMatches: 9, minRatedMatches: 3 });
+    expect(r.awards.highestRated).toMatchObject({ playerId: 'p1', value: 7 });
   });
 });
 

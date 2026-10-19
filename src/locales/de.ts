@@ -323,6 +323,8 @@ export const de: TranslationDict = {
     removeFromSquadFailed: 'Entfernen aus dem Kader fehlgeschlagen',
     addedToSquad: 'Spieler zum Kader hinzugefügt',
     addToSquadFailed: 'Hinzufügen zum Kader fehlgeschlagen',
+    assignmentsSaved: 'Teamzuordnungen gespeichert',
+    assignmentsSaveFailed: 'Teamzuordnungen konnten nicht gespeichert werden',
     profileDeleted: 'Spielerprofil global gelöscht',
     profileDeleteFailed: 'Profil löschen fehlgeschlagen',
     imageUploadFailed: 'Bildupload fehlgeschlagen. Bitte erneut versuchen.',

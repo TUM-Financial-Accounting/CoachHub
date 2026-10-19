@@ -40,6 +40,7 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'squad' | 'pool' | 'trial'>('squad');
     const [assignmentPlayer, setAssignmentPlayer] = useState<Player | null>(null);
+    const [draftTeamIds, setDraftTeamIds] = useState<string[]>([]);
     const [duplicatePlayer, setDuplicatePlayer] = useState<Player | null>(null);
 
     type SortKey = 'jerseyNumber' | 'firstName' | 'lastName' | 'position' | 'attendance' | 'performance' | 'status' | 'teams' | 'homeClub' | 'trialRating';
@@ -237,33 +238,64 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
         }
     };
 
+    // Optimistic like removal: waiting on the request made coaches click twice.
     const handleAssignToTeam = async (playerId: string, teamId?: string) => {
         const targetTeamId = teamId || activeTeam?.id;
         if (!targetTeamId) return;
+        const teamObj = teams.find(t => t.id === targetTeamId);
+        const playerInList = players.some(p => p.id === playerId);
+        const playersBefore = players;
+        if (playerInList && teamObj) {
+            setPlayers(prev => prev.map(p =>
+                p.id === playerId && !p.teams?.some(t => t.id === targetTeamId)
+                    ? { ...p, teams: [...(p.teams || []), teamObj] }
+                    : p));
+        }
         try {
             await PlayerService.assignToTeam(playerId, targetTeamId, activeSeason?.id);
-            const teamObj = teams.find(t => t.id === targetTeamId);
-            
-            // If the player is already in our local list, update their team assignments
-            const playerInList = players.some(p => p.id === playerId);
-            if (playerInList) {
-                setPlayers(prev => prev.map(p => {
-                    if (p.id === playerId && teamObj) {
-                        const exists = p.teams?.some(t => t.id === targetTeamId);
-                        if (!exists) return { ...p, teams: [...(p.teams || []), teamObj] };
-                    }
-                    return p;
-                }));
-            } else {
-                // If they weren't in the list (e.g. adding from pool to squad), we need to refresh to see them
-                refreshData();
-            }
-            
+            // Not in the list yet (e.g. reused from another squad): fetch to show them.
+            if (!playerInList) refreshData();
             toast.success(t('team.addedToSquad'));
         } catch (e) {
+            setPlayers(playersBefore);
             toast.error(t('team.addToSquadFailed'));
-            refreshData();
             throw e; // Re-throw so callers (like handleReusePlayer) know it failed
+        }
+    };
+
+    const openAssignments = (player: Player) => {
+        setAssignmentPlayer(player);
+        setDraftTeamIds((player.teams || []).map(team => team.id));
+    };
+
+    // Toggles in the modal are a local draft; Save closes it and sends only the diff in the background.
+    const handleSaveAssignments = async () => {
+        const player = assignmentPlayer;
+        if (!player) return;
+        setAssignmentPlayer(null);
+        const before = new Set((player.teams || []).map(team => team.id));
+        const draft = new Set(draftTeamIds);
+        // The modal lists this season's teams only; assignments to other seasons' teams are kept.
+        const toAdd = teams.filter(team => draft.has(team.id) && !before.has(team.id));
+        const toRemove = teams.filter(team => !draft.has(team.id) && before.has(team.id));
+        if (!toAdd.length && !toRemove.length) return;
+
+        const removedIds = new Set(toRemove.map(team => team.id));
+        const nextTeams = [...(player.teams || []).filter(team => !removedIds.has(team.id)), ...toAdd];
+        const leavesSquad = viewMode === 'squad' && !!activeTeam && removedIds.has(activeTeam.id);
+        setPlayers(prev => prev
+            .map(p => p.id === player.id ? { ...p, teams: nextTeams } : p)
+            .filter(p => !(leavesSquad && p.id === player.id)));
+        try {
+            await Promise.all([
+                ...toAdd.map(team => PlayerService.assignToTeam(player.id, team.id, activeSeason?.id)),
+                ...toRemove.map(team => PlayerService.removeFromTeam(player.id, team.id, activeSeason?.id)),
+            ]);
+            toast.success(t('team.assignmentsSaved'));
+        } catch {
+            toast.error(t('team.assignmentsSaveFailed'));
+            // Some calls may have landed; reload instead of guessing the state.
+            refreshData();
         }
     };
 
@@ -507,7 +539,7 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                                                         </span>
                                                     )) : <span className="text-[10px] text-muted/60 font-bold uppercase tracking-wider italic">{t('team.unassigned')}</span>}
                                                     <button 
-                                                        onClick={(e) => { e.stopPropagation(); setAssignmentPlayer(player); }}
+                                                        onClick={(e) => { e.stopPropagation(); openAssignments(player); }}
                                                         className="ml-1 p-1 rounded-md border border-dashed border-border text-muted/60 hover:border-indigo-500/50 hover:text-indigo-500 transition-colors shadow-sm"
                                                         title={t('team.manageAssignments')}
                                                     >
@@ -739,21 +771,11 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                     <p className="text-[10px] font-bold text-muted uppercase tracking-widest px-1">{t('team.selectTeamPrompt')}</p>
                     <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-1">
                         {teams.map(team => {
-                            const isAssigned = assignmentPlayer?.teams?.some(t => t.id === team.id);
+                            const isAssigned = draftTeamIds.includes(team.id);
                             return (
                                 <button
                                     key={team.id}
-                                    onClick={async () => {
-                                        if (!assignmentPlayer) return;
-                                        if (isAssigned) await handleRemoveFromTeam(assignmentPlayer.id, team.id);
-                                        else await handleAssignToTeam(assignmentPlayer.id, team.id);
-                                        
-                                        // Update the local assignmentPlayer state so the modal updates immediately
-                                        const updatedTeams = isAssigned 
-                                            ? (assignmentPlayer.teams?.filter(t => t.id !== team.id) || [])
-                                            : [...(assignmentPlayer.teams || []), team];
-                                        setAssignmentPlayer({ ...assignmentPlayer, teams: updatedTeams });
-                                    }}
+                                    onClick={() => setDraftTeamIds(ids => isAssigned ? ids.filter(id => id !== team.id) : [...ids, team.id])}
                                     className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${isAssigned ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-500 shadow-lg shadow-indigo-500/5' : 'bg-surface-hover/40 border-border text-muted hover:border-indigo-500/50 hover:text-indigo-500'}`}
                                 >
                                     <div className="flex items-center gap-3">
@@ -769,8 +791,9 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
                             );
                         })}
                     </div>
-                    <div className="pt-4 border-t border-border">
-                        <Button onClick={() => setAssignmentPlayer(null)} className="w-full">{t('common.close')}</Button>
+                    <div className="pt-4 border-t border-border flex gap-3">
+                        <Button variant="secondary" onClick={() => setAssignmentPlayer(null)} className="flex-1">{t('common.close')}</Button>
+                        <Button onClick={handleSaveAssignments} className="flex-1">{t('common.save')}</Button>
                     </div>
                 </div>
             </Modal>

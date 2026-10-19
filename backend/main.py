@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 import models, schemas, database, security, email_service, google_calendar, recurrence
 from constants import DEFAULT_FORMATION, DEFAULT_SEASON_ID, EVENT_ASSIST, EVENT_GOAL, FEEDBACK_STATUS_NEW, ROLE_COACH
@@ -1432,7 +1433,8 @@ def import_playbook(data: schemas.PlaybookImport, db: Session = Depends(database
     for t in data.tactics:
         exists = db.query(models.Tactic).filter(models.Tactic.coach_id == current_user.id, models.Tactic.name == t.name).first()
         if not exists:
-            db.add(models.Tactic(**t.model_dump(), coach_id=current_user.id))
+            # The exported id belongs to the source account's row; reusing it collides.
+            db.add(models.Tactic(**t.model_dump(exclude={"id"}), coach_id=current_user.id))
             count += 1
     # Exercises
     for e in data.exercises:
@@ -1588,8 +1590,12 @@ def assign_player_to_team(player_id: str, team_id: str, season_id: Optional[str]
     
     if not assignment:
         db_player.team_assignments.append(models.TeamPlayer(team_id=team_id, season_id=target_season))
-        db.commit()
-    
+        try:
+            db.commit()
+        except IntegrityError:
+            # A concurrent identical request (double click) inserted the row first.
+            db.rollback()
+
     return {"message": "Assigned"}
 
 @app.delete("/players/{player_id}/teams/{team_id}")

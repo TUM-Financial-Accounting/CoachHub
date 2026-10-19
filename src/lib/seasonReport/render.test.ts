@@ -16,6 +16,15 @@ describe('renderSeasonReport', () => {
     expect(reportFileName(report)).toMatch(/\.pdf$/);
   });
 
+  it('prints the MVP column, the shared MVPs and the MVP award', async () => {
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: 'en', resources: { en: { translation: en } } });
+    const pdf = renderSeasonReport(buildSeasonReport(sampleSeason()), (k, o) => i18n.t(k, o as any) as string, 'en').output();
+    expect(pdf).toContain(`(${en.seasonReport.col.mvp})`);
+    expect(pdf).toContain('Lehmann, Sommer');
+    expect(pdf).toContain(en.seasonReport.award.mostMotm.toUpperCase());
+  });
+
   it('renders an empty season without throwing', async () => {
     const i18n = i18next.createInstance();
     await i18n.init({ lng: 'en', resources: { en: { translation: en } } });

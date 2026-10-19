@@ -321,6 +321,8 @@ export const en = {
     removeFromSquadFailed: 'Failed to remove from squad',
     addedToSquad: 'Player added to squad',
     addToSquadFailed: 'Failed to add to squad',
+    assignmentsSaved: 'Team assignments saved',
+    assignmentsSaveFailed: 'Failed to save team assignments',
     profileDeleted: 'Player profile deleted globally',
     profileDeleteFailed: 'Failed to delete profile',
     imageUploadFailed: 'Image upload failed. Please try again.',

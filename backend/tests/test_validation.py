@@ -39,3 +39,11 @@ def test_legacy_day_of_week_is_range_checked(make_coach):
     body = {"day_of_week": 9, "series_start_date": "2026-09-07", "occurrences": 2, "start_time": "1", "end_time": "2",
             "focus": "X", "intensity": "Low", "selected_players": "", "selected_exercises": "", **a.scoped()}
     assert a.post("/training_series", json=body).status_code == 422
+
+
+def test_feedback_list_is_per_coach(make_coach):
+    a = make_coach("a@x")
+    b = make_coach("b@x")
+    a.post("/feedback", json={"type": "bug", "title": "T", "description": "D"})
+    assert [f["title"] for f in a.get("/feedback").json()] == ["T"]
+    assert b.get("/feedback").json() == []

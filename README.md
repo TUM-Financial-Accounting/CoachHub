@@ -361,13 +361,18 @@ to run against anything but SQLite.
 | `tests/test_cascade.py` | Team, season, player and match deletes with everything hanging off them |
 | `tests/test_matches.py` | Match ratings, top performers, suggested formation |
 | `tests/test_recurrence.py` | `recurrence.expand` patterns (weekly, biweekly, monthly n-th weekday) |
-| `tests/test_validation.py`, `test_players.py`, `test_admin_feedback.py`, `test_email.py`, `test_seed.py` | Schema validation, squad view shape, admin feedback, email routing, `seed.py --reset` |
+| `tests/test_auth.py` | Register, login, logout, password reset, email verification |
+| `tests/test_library.py` | Basics, principles, tactics, exercises, custom formations, playbook export/import |
+| `tests/test_routes.py` | Match stats/events, latest match, series delete, team clone, upload, visions, Google status, admin |
+| `tests/test_validation.py`, `test_players.py`, `test_admin_feedback.py`, `test_email.py`, `test_seed.py` | Schema validation, team assignment (incl. double-submit), squad view shape, admin feedback, email routing, `seed.py --reset` |
 
 ```bash
 cd backend
 pip install -r requirements-dev.txt   # first time only
 python -m pytest
 ```
+
+Together they call 85 of the 86 API routes; only the Google OAuth callback needs a live Google account.
 
 SQLite is not Postgres: `_ensure_columns()` (Postgres-only SQL) is skipped in
 tests, so column backfills are still verified by hand on startup.
