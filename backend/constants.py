@@ -18,3 +18,9 @@ FEEDBACK_STATUS_NEW = "new"
 # MAX_SERIES_OCCURRENCES mirrors MAX_OCCURRENCES in src/lib/recurrence.ts.
 SERIES_FREQUENCIES = ("weekly", "biweekly", "monthly")
 MAX_SERIES_OCCURRENCES = 200
+
+# Same values as AttendanceStatus / AbsenceReason in src/types/models.ts.
+ATTENDANCE_STATUSES = ("present", "absent")
+ABSENCE_REASONS = ("injury", "illness", "school", "excused", "unexcused")
+
+DEFAULT_MATCH_MINUTES = 90

@@ -11,7 +11,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 import models, schemas, database, security, email_service, google_calendar, recurrence
-from constants import DEFAULT_FORMATION, DEFAULT_SEASON_ID, EVENT_ASSIST, EVENT_GOAL, FEEDBACK_STATUS_NEW, ROLE_COACH
+from constants import DEFAULT_FORMATION, DEFAULT_MATCH_MINUTES, DEFAULT_SEASON_ID, EVENT_ASSIST, EVENT_GOAL, FEEDBACK_STATUS_NEW, ROLE_COACH
 import uuid, os, shutil, secrets, logging, sys
 
 # stdout, so Railway doesn't flag every line as an error.
@@ -39,6 +39,8 @@ def _ensure_columns():
         "ALTER TABLE training_series ADD COLUMN IF NOT EXISTS frequency VARCHAR DEFAULT 'weekly'",
         "ALTER TABLE training_series ADD COLUMN IF NOT EXISTS weekdays VARCHAR",
         "ALTER TABLE events ADD COLUMN IF NOT EXISTS series_id VARCHAR REFERENCES event_series(id)",
+        "ALTER TABLE matches ADD COLUMN IF NOT EXISTS bench TEXT",
+        "ALTER TABLE matches ADD COLUMN IF NOT EXISTS duration INTEGER DEFAULT 90",
     ]
     try:
         with database.engine.begin() as conn:
@@ -1293,6 +1295,59 @@ def delete_session(
     return {"message": "Deleted"}
 
 
+def _owned_session(db: Session, user: models.User, session_id: str) -> models.TrainingSession:
+    session = db.query(models.TrainingSession).filter(
+        models.TrainingSession.id == session_id,
+        models.TrainingSession.team_id.in_(owned_team_ids(db, user)),
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return session
+
+def _require_owned_players(db: Session, user: models.User, player_ids: set) -> None:
+    owned = db.query(func.count(models.Player.id)).filter(
+        models.Player.id.in_(player_ids), models.Player.coach_id == user.id,
+    ).scalar()
+    if owned != len(player_ids):
+        raise HTTPException(status_code=404, detail="Player not found")
+
+@app.get("/training_sessions/{id}/attendance", response_model=list[schemas.TrainingAttendance])
+def get_attendance(id: str, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    _owned_session(db, current_user, id)
+    return db.query(models.TrainingAttendance).filter(models.TrainingAttendance.session_id == id).all()
+
+@app.put("/training_sessions/{id}/attendance", response_model=list[schemas.TrainingAttendance])
+def set_attendance(id: str, item: schemas.AttendanceUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    """Replaces the session's whole attendance list."""
+    _owned_session(db, current_user, id)
+    player_ids = {r.player_id for r in item.records}
+    if len(player_ids) != len(item.records):
+        raise HTTPException(status_code=400, detail="Each player can appear only once")
+    if player_ids:
+        _require_owned_players(db, current_user, player_ids)
+
+    db.query(models.TrainingAttendance).filter(models.TrainingAttendance.session_id == id).delete()
+    for r in item.records:
+        db.add(models.TrainingAttendance(
+            session_id=id, player_id=r.player_id, status=r.status,
+            reason=r.reason if r.status == "absent" else None,
+        ))
+    db.commit()
+    return db.query(models.TrainingAttendance).filter(models.TrainingAttendance.session_id == id).all()
+
+@app.get("/stats/attendance", response_model=list[schemas.TrainingAttendance])
+def get_season_attendance(team_id: str, season_id: Optional[str] = None, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    require_owned_team(db, current_user, team_id)
+    query = (
+        db.query(models.TrainingAttendance)
+        .join(models.TrainingSession, models.TrainingAttendance.session_id == models.TrainingSession.id)
+        .filter(models.TrainingSession.team_id == team_id)
+    )
+    if season_id:
+        query = query.filter(models.TrainingSession.season_id == season_id)
+    return query.all()
+
+
 # ==========================
 #  TRAINING SERIES (recurring)
 # ==========================
@@ -1636,6 +1691,8 @@ def create_match(item: schemas.MatchCreate, background: BackgroundTasks, db: Ses
         location=item.location,
         formation=item.formation,
         lineup=item.lineup, 
+        bench=item.bench,
+        duration=item.duration or DEFAULT_MATCH_MINUTES,
         team_id=item.team_id,
         season_id=item.season_id
     )
@@ -1705,6 +1762,9 @@ def update_match(match_id: str, item: schemas.MatchCreate, background: Backgroun
     db_match.location = item.location
     db_match.formation = item.formation
     db_match.lineup = item.lineup
+    db_match.bench = item.bench
+    if item.duration is not None:
+        db_match.duration = item.duration
 
     db.commit()
     db.refresh(db_match)
@@ -1797,6 +1857,61 @@ def delete_match_rating(match_id: str, player_id: str, db: Session = Depends(dat
     db.delete(db_item)
     db.commit()
     return {"message": "Deleted"}
+
+def _owned_match(db: Session, user: models.User, match_id: str) -> models.Match:
+    match = db.query(models.Match).filter(models.Match.id == match_id, models.Match.team_id.in_(owned_team_ids(db, user))).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    return match
+
+@app.get("/matches/{match_id}/substitutions", response_model=list[schemas.MatchSubstitution])
+def get_substitutions(match_id: str, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    _owned_match(db, current_user, match_id)
+    return (
+        db.query(models.MatchSubstitution)
+        .filter(models.MatchSubstitution.match_id == match_id)
+        .order_by(models.MatchSubstitution.minute)
+        .all()
+    )
+
+@app.post("/matches/{match_id}/substitutions", response_model=schemas.MatchSubstitution)
+def add_substitution(match_id: str, item: schemas.MatchSubstitutionCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    match = _owned_match(db, current_user, match_id)
+    if item.player_in_id == item.player_out_id:
+        raise HTTPException(status_code=400, detail="A player cannot replace themselves")
+    if item.minute > (match.duration or DEFAULT_MATCH_MINUTES):
+        raise HTTPException(status_code=400, detail="Minute is after the end of the match")
+    _require_owned_players(db, current_user, {item.player_in_id} | ({item.player_out_id} if item.player_out_id else set()))
+    db_item = models.MatchSubstitution(match_id=match_id, **item.model_dump())
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+@app.delete("/match_substitutions/{id}")
+def delete_substitution(id: str, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    db_item = (
+        db.query(models.MatchSubstitution)
+        .join(models.Match, models.MatchSubstitution.match_id == models.Match.id)
+        .filter(models.MatchSubstitution.id == id, models.Match.team_id.in_(owned_team_ids(db, current_user)))
+        .first()
+    )
+    if not db_item: raise HTTPException(status_code=404)
+    db.delete(db_item)
+    db.commit()
+    return {"message": "Deleted"}
+
+@app.get("/stats/substitutions", response_model=list[schemas.MatchSubstitution])
+def get_season_substitutions(team_id: str, season_id: Optional[str] = None, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    require_owned_team(db, current_user, team_id)
+    query = (
+        db.query(models.MatchSubstitution)
+        .join(models.Match, models.MatchSubstitution.match_id == models.Match.id)
+        .filter(models.Match.team_id == team_id)
+    )
+    if season_id:
+        query = query.filter(models.Match.season_id == season_id)
+    return query.order_by(models.MatchSubstitution.minute).all()
 
 @app.get("/stats/ratings", response_model=list[schemas.MatchRating])
 def get_season_ratings(team_id: str, season_id: Optional[str] = None, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):

@@ -439,7 +439,7 @@ function squadTable(ctx: Ctx) {
   newPage(ctx);
   section(ctx, t('seasonReport.sections.squad'), t('seasonReport.unit.players', { count: r.players.length }));
   table(ctx,
-    ['#', t('seasonReport.col.player'), t('seasonReport.col.position'), t('seasonReport.col.age'), t('seasonReport.col.starts'), t('seasonReport.col.goals'), t('seasonReport.col.assists'), t('seasonReport.col.contributions'), t('seasonReport.col.share'), t('seasonReport.col.attendance'), t('seasonReport.col.matchRating'), t('seasonReport.col.rating')],
+    ['#', t('seasonReport.col.player'), t('seasonReport.col.position'), t('seasonReport.col.age'), t('seasonReport.col.starts'), t('seasonReport.col.goals'), t('seasonReport.col.assists'), t('seasonReport.col.contributions'), t('seasonReport.col.share'), t('seasonReport.col.minutes'), t('seasonReport.col.attendance'), t('seasonReport.col.matchRating'), t('seasonReport.col.rating')],
     r.players.map(p => [
       p.jersey ?? '-',
       `${playerName(ctx, p)}${p.inSquad ? '' : ' *'}`,
@@ -450,6 +450,7 @@ function squadTable(ctx: Ctx) {
       p.assists,
       p.contributions,
       pct(p.goalShare),
+      p.minutes ? `${p.minutes}'` : '-',
       pct(p.attendance.rate),
       avgRating(p),
       outOf10(p.rating),
@@ -457,14 +458,16 @@ function squadTable(ctx: Ctx) {
     {
       columnStyles: {
         0: { cellWidth: 8, halign: 'center', fontStyle: 'bold' }, 1: { cellWidth: 'auto', fontStyle: 'bold', textColor: C.ink },
-        2: { cellWidth: 22 }, 3: { cellWidth: 10, halign: 'center' }, 4: { cellWidth: 13, halign: 'center' },
+        2: { cellWidth: 18 }, 3: { cellWidth: 10, halign: 'center' }, 4: { cellWidth: 11, halign: 'center' },
         5: { cellWidth: 11, halign: 'center' }, 6: { cellWidth: 11, halign: 'center' }, 7: { cellWidth: 11, halign: 'center', fontStyle: 'bold' },
-        8: { cellWidth: 13, halign: 'center' }, 9: { cellWidth: 14, halign: 'center' }, 10: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },
-        11: { cellWidth: 13, halign: 'center' },
+        8: { cellWidth: 12, halign: 'center' }, 9: { cellWidth: 12, halign: 'center' }, 10: { cellWidth: 13, halign: 'center' },
+        11: { cellWidth: 15, halign: 'center', fontStyle: 'bold' }, 12: { cellWidth: 12, halign: 'center' },
       },
     });
   ctx.y -= 3;
-  const notes = [t('seasonReport.note.starts'), t('seasonReport.note.share'), t('seasonReport.note.attendance'), t('seasonReport.note.rating'), t('seasonReport.note.mvp')];
+  const notes = [t('seasonReport.note.starts'), t('seasonReport.note.share'), t('seasonReport.note.minutes'),
+    t('seasonReport.note.attendanceRecorded', { count: r.training.recordedSessions, total: r.training.completed }),
+    t('seasonReport.note.rating'), t('seasonReport.note.mvp')];
   if (r.ratedMatches) notes.push(t('seasonReport.note.highestRated', { count: r.minRatedMatches }));
   if (r.players.some(p => !p.inSquad)) notes.push(t('seasonReport.note.former'));
   doc.setFont('helvetica', 'normal');
@@ -647,7 +650,8 @@ function playerCard(ctx: Ctx, p: PlayerLine, top: number) {
   }
 
   const stats = [
-    { label: t('seasonReport.col.starts'), value: String(p.starts) },
+    { label: t('seasonReport.col.starts'), value: p.subApps ? `${p.starts} (+${p.subApps})` : String(p.starts) },
+    { label: t('seasonReport.col.minutes'), value: p.minutes ? String(p.minutes) : '-' },
     { label: t('seasonReport.col.goals'), value: String(p.goals), color: p.goals ? C.win : C.ink },
     { label: t('seasonReport.col.assists'), value: String(p.assists), color: p.assists ? C.brand : C.ink },
     { label: t('seasonReport.col.contributions'), value: String(p.contributions) },

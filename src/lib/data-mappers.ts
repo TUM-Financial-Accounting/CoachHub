@@ -1,8 +1,9 @@
 // src/lib/data-mappers.ts
-import { Player, TrainingSession, Basic, Principle, Tactic, Exercise, Match, MatchDetails, MatchRating, SelectorItem, CalendarEvent, Feedback, AdminFeedbackItem, AdminUser, AdminStats, GoogleStatus, GoogleSyncResult, Season, Team, Vision, TopPerformer, SuggestedFormation } from '../types/models';
+import { Player, TrainingSession, Basic, Principle, Tactic, Exercise, Match, MatchDetails, MatchRating, SelectorItem, CalendarEvent, Feedback, AdminFeedbackItem, AdminUser, AdminStats, GoogleStatus, GoogleSyncResult, Season, Team, Vision, TopPerformer, SuggestedFormation, MatchSubstitution, TrainingAttendance } from '../types/models';
 import { DEFAULT_INTENSITY } from './domain';
 import { joinCsv, splitCsv } from './csv';
 import { DEFAULT_FORMATION } from './formations';
+import { DEFAULT_MATCH_MINUTES } from './minutes';
 
 /**
  * Maps a raw player object from the snake_case API response
@@ -155,6 +156,8 @@ export const mapMatchDetailsFromApi = (m: any): MatchDetails => ({
   goalsFor: m.goals_for ?? undefined,
   goalsAgainst: m.goals_against ?? undefined,
   notes: m.notes || '',
+  bench: splitCsv(m.bench),
+  duration: m.duration || DEFAULT_MATCH_MINUTES,
 });
 
 /**
@@ -277,6 +280,35 @@ export const mapMatchDetailsToApi = (m: MatchDetails) => ({
   goals_for: m.goalsFor,
   goals_against: m.goalsAgainst,
   notes: m.notes,
+  bench: m.bench ? joinCsv(m.bench) : null,
+  duration: m.duration,
+});
+
+export const mapSubstitutionFromApi = (s: any): MatchSubstitution => ({
+  id: s.id,
+  matchId: s.match_id || '',
+  playerInId: s.player_in_id || '',
+  playerOutId: s.player_out_id || null,
+  minute: Number(s.minute) || 0,
+});
+
+export const mapSubstitutionToApi = (s: Pick<MatchSubstitution, 'playerInId' | 'playerOutId' | 'minute'>) => ({
+  player_in_id: s.playerInId,
+  player_out_id: s.playerOutId || null,
+  minute: s.minute,
+});
+
+export const mapAttendanceFromApi = (a: any): TrainingAttendance => ({
+  sessionId: a.session_id || '',
+  playerId: a.player_id || '',
+  status: a.status === 'absent' ? 'absent' : 'present',
+  reason: a.reason || null,
+});
+
+export const mapAttendanceToApi = (a: Pick<TrainingAttendance, 'playerId' | 'status' | 'reason'>) => ({
+  player_id: a.playerId,
+  status: a.status,
+  reason: a.status === 'absent' ? a.reason : null,
 });
 
 /**

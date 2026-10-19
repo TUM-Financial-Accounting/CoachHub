@@ -1,6 +1,6 @@
 // src/services/training-service.ts
-import { TrainingSession } from '../types/models';
-import { mapSessionFromApi, mapSessionToApi } from '../lib/data-mappers';
+import { TrainingAttendance, TrainingSession } from '../types/models';
+import { mapAttendanceFromApi, mapAttendanceToApi, mapSessionFromApi, mapSessionToApi } from '../lib/data-mappers';
 import { SeriesPattern, SeriesScope } from '../lib/recurrence';
 import { apiClient } from './api-client';
 
@@ -11,6 +11,24 @@ export const TrainingService = {
   /**
    * Fetches all training sessions.
    */
+  async getAttendance(sessionId: string): Promise<TrainingAttendance[]> {
+    const data = await apiClient.get<any[]>(`/training_sessions/${sessionId}/attendance`);
+    return data.map(mapAttendanceFromApi);
+  },
+
+  // Replaces the session's whole list; send every player who should stay recorded.
+  async saveAttendance(sessionId: string, records: Pick<TrainingAttendance, 'playerId' | 'status' | 'reason'>[]): Promise<TrainingAttendance[]> {
+    const data = await apiClient.put<any[]>(`/training_sessions/${sessionId}/attendance`, { records: records.map(mapAttendanceToApi) });
+    return data.map(mapAttendanceFromApi);
+  },
+
+  async getSeasonAttendance(teamId: string, seasonId?: string): Promise<TrainingAttendance[]> {
+    const params = new URLSearchParams({ team_id: teamId });
+    if (seasonId) params.append('season_id', seasonId);
+    const data = await apiClient.get<any[]>(`/stats/attendance?${params.toString()}`);
+    return data.map(mapAttendanceFromApi);
+  },
+
   async getAll(teamId?: string, seasonId?: string): Promise<TrainingSession[]> {
     const params = new URLSearchParams();
     if (teamId) params.append('team_id', teamId);

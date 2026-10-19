@@ -31,6 +31,10 @@ import {
   mapVisionFromApi,
   mapTopPerformerFromApi,
   mapSuggestedFormationFromApi,
+  mapSubstitutionFromApi,
+  mapSubstitutionToApi,
+  mapAttendanceFromApi,
+  mapAttendanceToApi,
 } from './data-mappers';
 import type { Player, TrainingSession, Exercise, Tactic, MatchDetails, CalendarEvent } from '../types/models';
 
@@ -551,5 +555,30 @@ describe('mapSuggestedFormationFromApi', () => {
     expect(mapSuggestedFormationFromApi({ formation: '4-4-2', kind: 'default', source: 'Default' }).source).toEqual({ kind: 'default' });
     expect(mapSuggestedFormationFromApi({ formation: '4-2-3-1', source: 'Based on 2026-10-10 training (Rondo)' }))
       .toEqual({ formation: '4-2-3-1', source: { kind: 'default' } });
+  });
+});
+
+describe('substitution and attendance mappers', () => {
+  it('round-trips a substitution', () => {
+    const sub = mapSubstitutionFromApi({ id: 's1', match_id: 'm1', player_in_id: 'p2', player_out_id: 'p1', minute: 60 });
+    expect(sub).toEqual({ id: 's1', matchId: 'm1', playerInId: 'p2', playerOutId: 'p1', minute: 60 });
+    expect(mapSubstitutionToApi(sub)).toEqual({ player_in_id: 'p2', player_out_id: 'p1', minute: 60 });
+    expect(mapSubstitutionToApi({ ...sub, playerOutId: null }).player_out_id).toBeNull();
+  });
+
+  it('round-trips attendance and drops the reason for present players', () => {
+    const row = mapAttendanceFromApi({ session_id: 's1', player_id: 'p1', status: 'absent', reason: 'school' });
+    expect(row).toEqual({ sessionId: 's1', playerId: 'p1', status: 'absent', reason: 'school' });
+    expect(mapAttendanceToApi(row)).toEqual({ player_id: 'p1', status: 'absent', reason: 'school' });
+    expect(mapAttendanceToApi({ ...row, status: 'present' }).reason).toBeNull();
+    expect(mapAttendanceFromApi({ session_id: 's1', player_id: 'p1', status: 'present', reason: null }).reason).toBeNull();
+  });
+
+  it('maps the match bench and length', () => {
+    const match = mapMatchDetailsFromApi({ id: 'm1', bench: 'p1, p2', duration: 70 });
+    expect((({ bench, duration }) => ({ bench, duration }))(match)).toEqual({ bench: ['p1', 'p2'], duration: 70 });
+    expect(mapMatchDetailsFromApi({ id: 'm2' })).toMatchObject({ bench: [], duration: 90 });
+    expect(mapMatchDetailsToApi({ ...match, bench: ['p3'] })).toMatchObject({ bench: 'p3', duration: 70 });
+    expect(mapMatchDetailsToApi({ ...match, bench: undefined }).bench).toBeNull();
   });
 });

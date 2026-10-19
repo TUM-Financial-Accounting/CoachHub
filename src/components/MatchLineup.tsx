@@ -19,6 +19,8 @@ import { useSeason } from '../contexts/SeasonContext';
 import { Player, MatchDetails, MatchRating, PositionSlot, LineupPlayer, FormationSource } from "../types/models";
 import { PlayerService, MatchService, FormationService } from "../services";
 import CustomFormationModal from './CustomFormationModal';
+import MatchSubstitutions from './MatchSubstitutions';
+import { DEFAULT_MATCH_MINUTES } from '../lib/minutes';
 import { DEFAULT_FORMATION, FORMATIONS, FORMATION_GROUPS } from '../lib/formations';
 import { PLAYER_STATUS } from '../lib/domain';
 import { isPast, parseLocalDate, todayISO } from '../lib/dates';
@@ -87,7 +89,7 @@ export default function MatchLineup() {
   const [ratings, setRatings] = useState<MatchRating[]>([]);
   
   const [isEditingMatch, setIsEditingMatch] = useState(false);
-  const [matchForm, setMatchForm] = useState({ opponent: '', date: '', time: '', location: '' });
+  const [matchForm, setMatchForm] = useState({ opponent: '', date: '', time: '', location: '', duration: String(DEFAULT_MATCH_MINUTES) });
   const [confirmDeleteMatch, setConfirmDeleteMatch] = useState<MatchDetails | null>(null);
   const [showPastMatches, setShowPastMatches] = useState(false);
   const [showCustomFormationModal, setShowCustomFormationModal] = useState(false);
@@ -230,15 +232,17 @@ useEffect(() => {
           setLineup(new Map()); 
       }
       
-      setSubstitutes([]); 
+      setSubstitutes((matchDetails.bench ?? [])
+          .map(id => allPlayers.find(p => p.id === id))
+          .filter((p): p is Player => !!p));
 
-  }, [matchDetails, aiSuggestedFormation, aiSource]);
+  }, [matchDetails, aiSuggestedFormation, aiSource, allPlayers]);
   // --- Handlers ---
-  const handleOpenCreate = () => { setMatchForm({ opponent: '', date: '', time: '', location: '' }); setIsEditingMatch(false); setShowCreateMatchModal(true); };
+  const handleOpenCreate = () => { setMatchForm({ opponent: '', date: '', time: '', location: '', duration: String(DEFAULT_MATCH_MINUTES) }); setIsEditingMatch(false); setShowCreateMatchModal(true); };
   
   const handleOpenEdit = () => { 
       if (!matchDetails) return; 
-      setMatchForm({ opponent: matchDetails.opponent, date: matchDetails.date, time: matchDetails.time, location: matchDetails.location }); 
+      setMatchForm({ opponent: matchDetails.opponent, date: matchDetails.date, time: matchDetails.time, location: matchDetails.location, duration: String(matchDetails.duration ?? DEFAULT_MATCH_MINUTES) });  
       setIsEditingMatch(true); 
       setShowCreateMatchModal(true); 
   };
@@ -275,9 +279,10 @@ useEffect(() => {
   const handleSaveMatch = async () => {
     if (!matchForm.opponent || !matchForm.date) return toast.error(t('matches.opponentDateRequired'));
     try {
-        const matchToSave: MatchDetails = isEditingMatch && matchDetails 
-            ? { ...matchDetails, ...matchForm }
-            : { id: '', ...matchForm, formation: currentFormation };
+        const fields = { ...matchForm, duration: Number(matchForm.duration) || DEFAULT_MATCH_MINUTES };
+        const matchToSave: MatchDetails = isEditingMatch && matchDetails
+            ? { ...matchDetails, ...fields }
+            : { id: '', ...fields, formation: currentFormation };
 
         const savedMatch = isEditingMatch && matchDetails
             ? await MatchService.update(matchDetails.id, matchToSave)
@@ -435,7 +440,8 @@ useEffect(() => {
         const matchToUpdate: MatchDetails = {
             ...matchDetails,
             formation: currentFormation,
-            lineup: JSON.stringify(lineupArray)
+            lineup: JSON.stringify(lineupArray),
+            bench: substitutes.map(p => p.id),
         };
 
         const updatedMatch = await MatchService.update(matchDetails.id, matchToUpdate);
@@ -603,7 +609,8 @@ useEffect(() => {
             </div>
             <div className={`space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-2 ${isMatchPast ? 'opacity-60' : ''}`}>
               {substitutes.map(player => (
-                <DraggablePlayer key={player.id} player={player} isSubstitute={true} />
+                <DraggablePlayer key={player.id} player={player} isSubstitute={true}
+                  onClick={() => !isMatchPast && setSubstitutes(prev => prev.filter(p => p.id !== player.id))} />
               ))}
             </div>
           </Card>
@@ -626,6 +633,16 @@ useEffect(() => {
               <p className="text-xl font-bold text-white">{t('matches.startersCount', { count: lineup.size, total: activeSlots.length })}</p>
             </div>
           </div>
+          {isMatchPast && matchDetails && (
+            <div className="mt-6">
+              <MatchSubstitutions
+                match={matchDetails}
+                starterIds={Array.from(lineup.values()).map(p => p.id)}
+                players={allPlayers}
+                onRatePlayer={p => { setSelectedPlayer({ ...p, positionSlot: '', isStarter: false }); setSelectedPlayerPerformance(getMatchRating(matchDetails.id, p.id)); }}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -763,6 +780,7 @@ useEffect(() => {
                 <TimePicker label={t('matches.kickoffTime')} value={matchForm.time} onChange={time => setMatchForm({...matchForm, time})} />
                 <Input label={t('matches.location')} value={matchForm.location} onChange={e => setMatchForm({...matchForm, location: e.target.value})} placeholder={t('matches.locationPlaceholder')} />
             </div>
+            <Input label={t('matches.durationLabel')} type="number" min={1} max={150} value={matchForm.duration} onChange={e => setMatchForm({...matchForm, duration: e.target.value})} />
         </div>
       </Modal>
 

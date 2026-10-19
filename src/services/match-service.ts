@@ -1,6 +1,6 @@
 // src/services/match-service.ts
-import { Match, MatchDetails, MatchEvent, MatchRating, SuggestedFormation, TopPerformer } from '../types/models';
-import { mapMatchFromApi, mapMatchDetailsFromApi, mapMatchDetailsToApi, mapMatchEventFromApi, mapMatchRatingFromApi, mapSuggestedFormationFromApi, mapTopPerformerFromApi } from '../lib/data-mappers';
+import { Match, MatchDetails, MatchEvent, MatchRating, MatchSubstitution, SuggestedFormation, TopPerformer } from '../types/models';
+import { mapMatchFromApi, mapMatchDetailsFromApi, mapMatchDetailsToApi, mapMatchEventFromApi, mapMatchRatingFromApi, mapSubstitutionFromApi, mapSubstitutionToApi, mapSuggestedFormationFromApi, mapTopPerformerFromApi } from '../lib/data-mappers';
 import { apiClient } from './api-client';
 
 /**
@@ -141,6 +141,26 @@ export const MatchService = {
     if (seasonId) params.append('season_id', seasonId);
     const data = await apiClient.get<any[]>(`/stats/ratings?${params.toString()}`);
     return data.map(mapMatchRatingFromApi);
+  },
+
+  async getSubstitutions(matchId: string): Promise<MatchSubstitution[]> {
+    const data = await apiClient.get<any[]>(`/matches/${matchId}/substitutions`);
+    return data.map(mapSubstitutionFromApi);
+  },
+
+  async addSubstitution(matchId: string, sub: Pick<MatchSubstitution, 'playerInId' | 'playerOutId' | 'minute'>): Promise<MatchSubstitution> {
+    return mapSubstitutionFromApi(await apiClient.post<any>(`/matches/${matchId}/substitutions`, mapSubstitutionToApi(sub)));
+  },
+
+  async deleteSubstitution(id: string): Promise<void> {
+    await apiClient.delete(`/match_substitutions/${id}`);
+  },
+
+  async getSeasonSubstitutions(teamId: string, seasonId?: string): Promise<MatchSubstitution[]> {
+    const params = new URLSearchParams({ team_id: teamId });
+    if (seasonId) params.append('season_id', seasonId);
+    const data = await apiClient.get<any[]>(`/stats/substitutions?${params.toString()}`);
+    return data.map(mapSubstitutionFromApi);
   },
 
   /**

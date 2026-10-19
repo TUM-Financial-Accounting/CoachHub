@@ -1,6 +1,8 @@
-import type { CalendarEvent, Exercise, MatchDetails, MatchEvent, MatchRating, Player, TrainingSession } from '../../types/models';
+import type { CalendarEvent, Exercise, MatchDetails, MatchEvent, MatchRating, MatchSubstitution, Player, TrainingAttendance, TrainingSession } from '../../types/models';
 import { MATCH_EVENT } from '../domain';
 import { splitCsv } from '../csv';
+import { attendedPlayerIds, indexAttendance } from '../attendance';
+import { DEFAULT_MATCH_MINUTES, minutesPlayed } from '../minutes';
 import { parseLocalDate, toMinutes } from '../dates';
 
 export type MatchResult = 'W' | 'D' | 'L';
@@ -14,6 +16,8 @@ export interface SeasonReportInput {
   matches: MatchDetails[];
   matchEvents: Record<string, MatchEvent[]>;
   ratings: MatchRating[];
+  substitutions: MatchSubstitution[];
+  attendance: TrainingAttendance[];
   sessions: TrainingSession[];
   exercises: Exercise[];
   calendarEvents: CalendarEvent[];
@@ -85,6 +89,8 @@ export interface PlayerLine {
   avgRating: number | null;
   ratedMatches: number;
   motm: number;
+  subApps: number;
+  minutes: number;
   ratingLog: { date: string; opponent: string; rating: number }[];
   attendance: Attendance;
   goalLog: { date: string; opponent: string; minute: number | null; kind: 'goal' | 'assist' }[];
@@ -110,6 +116,7 @@ export interface TrainingSummary {
   hours: number;
   avgMinutes: number;
   avgAttendance: number | null;
+  recordedSessions: number;
   intensity: { Low: number; Medium: number; High: number };
   topFocus: CountRow[];
   topExercises: { name: string; category: string; count: number }[];
@@ -257,7 +264,7 @@ export function buildSeasonReport(input: SeasonReportInput): SeasonReport {
     id, firstName: first, lastName: last, name: `${first} ${last}`.trim(),
     jersey: null, position: '', age: null, strongFoot: '', height: 0, status: '', inSquad: false,
     starts: 0, goals: 0, assists: 0, contributions: 0, goalShare: null, rating: null,
-    avgRating: null, ratedMatches: 0, motm: 0, ratingLog: [],
+    avgRating: null, ratedMatches: 0, motm: 0, ratingLog: [], subApps: 0, minutes: 0,
     attendance: { attended: 0, total: 0, rate: null }, goalLog: [], ...extra,
   });
   for (const p of input.players) {
@@ -317,6 +324,17 @@ export function buildSeasonReport(input: SeasonReportInput): SeasonReport {
   });
 
   for (const m of played) for (const s of lineupOf(m)) lineFor(s.id).starts++;
+
+  // Minutes only for matches with a saved lineup; without one there is nothing to count from.
+  const subsByMatch = new Map<string, MatchSubstitution[]>();
+  for (const s of input.substitutions) subsByMatch.set(s.matchId, [...(subsByMatch.get(s.matchId) ?? []), s]);
+  for (const m of played) {
+    const starters = lineupOf(m).map(s => s.id);
+    const subs = subsByMatch.get(m.id) ?? [];
+    if (!starters.length) continue;
+    for (const id of new Set(subs.map(s => s.playerInId))) if (!starters.includes(id)) lineFor(id).subApps++;
+    for (const [id, mins] of minutesPlayed(starters, subs, m.duration || DEFAULT_MATCH_MINUTES)) lineFor(id).minutes += mins;
+  }
   for (const row of rows) {
     for (const g of row.scorers) {
       const line = lineFor(g.playerId);
@@ -413,7 +431,8 @@ export function buildSeasonReport(input: SeasonReportInput): SeasonReport {
 
   // --- training ---
   const totalSessions = completedSessions.length;
-  for (const s of completedSessions) for (const id of new Set(splitCsv(s.selectedPlayers))) {
+  const attendanceIndex = indexAttendance(input.attendance);
+  for (const s of completedSessions) for (const id of attendedPlayerIds(s, attendanceIndex)) {
     if (lines.has(id)) lines.get(id)!.attendance.attended++;
   }
   for (const line of lines.values()) {
@@ -453,6 +472,7 @@ export function buildSeasonReport(input: SeasonReportInput): SeasonReport {
     hours: round1(minutes / 60),
     avgMinutes: timed ? Math.round(minutes / timed) : 0,
     avgAttendance: rates.length ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : null,
+    recordedSessions: completedSessions.filter(s => attendanceIndex.has(s.id)).length,
     intensity,
     topFocus: topCounts(completedSessions.map(s => s.focus), 6),
     topExercises: usedExercises
@@ -474,7 +494,7 @@ export function buildSeasonReport(input: SeasonReportInput): SeasonReport {
     line.goalLog.sort((a, b) => a.date.localeCompare(b.date) || (a.minute ?? 999) - (b.minute ?? 999));
   }
   const players = [...lines.values()]
-    .filter(l => l.inSquad || l.starts > 0 || l.contributions > 0 || l.ratedMatches > 0)
+    .filter(l => l.inSquad || l.starts > 0 || l.subApps > 0 || l.contributions > 0 || l.ratedMatches > 0)
     .sort((a, b) => Number(b.inSquad) - Number(a.inSquad)
       || (a.jersey ?? 999) - (b.jersey ?? 999)
       || a.lastName.localeCompare(b.lastName));

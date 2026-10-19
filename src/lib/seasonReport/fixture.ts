@@ -1,5 +1,5 @@
 import type { SeasonReportInput } from './build';
-import type { MatchDetails, MatchEvent, MatchRating, Player, TrainingSession, Exercise } from '../../types/models';
+import type { MatchDetails, MatchEvent, MatchRating, MatchSubstitution, Player, TrainingAttendance, TrainingSession, Exercise } from '../../types/models';
 import { emptyExercise, emptyPlayer } from '../domain';
 
 const player = (id: string, first: string, last: string, jersey: number, position: string, extra: Partial<Player> = {}): Player => ({
@@ -19,6 +19,10 @@ const match = (id: string, date: string, opponent: string, gf: number | undefine
 const ev = (id: string, matchId: string, playerId: string, eventType: 'Goal' | 'Assist', minute?: number): MatchEvent => ({ id, matchId, playerId, eventType, minute });
 
 const rating = (matchId: string, playerId: string, value: number): MatchRating => ({ matchId, playerId, rating: value });
+
+const sub = (id: string, matchId: string, playerInId: string, playerOutId: string | null, minute: number): MatchSubstitution => ({ id, matchId, playerInId, playerOutId, minute });
+
+const present = (sessionId: string, playerId: string): TrainingAttendance => ({ sessionId, playerId, status: 'present', reason: null });
 
 const session = (id: string, date: string, players: string[], exercises: string[], intensity = 'Medium', focus = 'Pressing'): TrainingSession => ({
   id, date, startTime: '17:00', endTime: '18:30', focus, intensity, selectedPlayers: players.join(','), selectedExercises: exercises.join(','),
@@ -61,6 +65,10 @@ export function sampleSeason(): SeasonReportInput {
       rating('m3', 'p1', 5), rating('m3', 'p3', 8),
       rating('m4', 'p4', 10),
     ],
+    // m1: the former player p9 comes on for p4; m3: p2 comes on for p3.
+    substitutions: [sub('sub1', 'm1', 'p9', 'p4', 60), sub('sub2', 'm3', 'p2', 'p3', 70)],
+    // s1 was recorded: p2 was planned but missed it injured.
+    attendance: [present('s1', 'p1'), { sessionId: 's1', playerId: 'p2', status: 'absent', reason: 'injury' }, present('s1', 'p3'), present('s1', 'p4')],
     sessions: [
       session('s1', '2026-09-01', ['p1', 'p2', 'p3', 'p4'], ['x1', 'x2'], 'High'),
       session('s2', '2026-09-08', ['p1', 'p3', ' p4 '], ['x1'], 'Medium', 'Rondos'),

@@ -22,7 +22,7 @@ import { useTeam } from '../contexts/TeamContext';
 import { useSeason } from '../contexts/SeasonContext';
 import { uuid } from '../lib/uuid';
 import { PLAYER_POSITIONS, PLAYER_STATUSES, emptyPlayer, perfStyle, statusStyle } from '../lib/domain';
-import { splitCsv } from '../lib/csv';
+import { attendanceRates, indexAttendance } from '../lib/attendance';
 import { emitAppEvent } from '../lib/appEvents';
 
 export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page) => void }) {
@@ -84,24 +84,11 @@ export default function TeamManagement({ onNavigate }: { onNavigate: (page: Page
 
         // Compute real attendance from training sessions (only if team is active)
         if (activeTeam && activeSeason) {
-            TrainingService.getAll(activeTeam.id, activeSeason.id)
-                .then((sessions) => {
-                    if (sessions.length === 0) {
-                        setComputedAttendance({});
-                        return;
-                    }
-                    const countMap: Record<string, number> = {};
-                    sessions.forEach(s => {
-                        splitCsv(s.selectedPlayers).forEach(id => {
-                            countMap[id] = (countMap[id] || 0) + 1;
-                        });
-                    });
-                    const pctMap: Record<string, number> = {};
-                    Object.entries(countMap).forEach(([id, count]) => {
-                        pctMap[id] = Math.round((count / sessions.length) * 100);
-                    });
-                    setComputedAttendance(pctMap);
-                })
+            Promise.all([
+                TrainingService.getAll(activeTeam.id, activeSeason.id),
+                TrainingService.getSeasonAttendance(activeTeam.id, activeSeason.id).catch(() => []),
+            ])
+                .then(([sessions, records]) => setComputedAttendance(attendanceRates(sessions, indexAttendance(records))))
                 .catch(() => {});
         }
     };

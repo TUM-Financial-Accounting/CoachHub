@@ -77,6 +77,26 @@ export interface MatchDetails {
   goalsFor?: number;
   goalsAgainst?: number;
   notes?: string;
+  bench?: string[];
+  duration?: number; // minutes
+}
+
+export interface MatchSubstitution {
+  id: string;
+  matchId: string;
+  playerInId: string;
+  playerOutId: string | null; // null = came on without replacing anyone (e.g. extra player)
+  minute: number;
+}
+
+export type AttendanceStatus = 'present' | 'absent';
+export type AbsenceReason = 'injury' | 'illness' | 'school' | 'excused' | 'unexcused';
+
+export interface TrainingAttendance {
+  sessionId: string;
+  playerId: string;
+  status: AttendanceStatus;
+  reason: AbsenceReason | null;
 }
 
 export interface MatchEvent {

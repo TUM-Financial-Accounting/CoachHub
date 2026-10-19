@@ -162,6 +162,42 @@ describe('MVP', () => {
   });
 });
 
+describe('minutes and substitutes', () => {
+  it('adds up minutes from lineups and substitutions', () => {
+    expect([line('p1'), line('p2'), line('p3'), line('p4')].map(p => p.minutes)).toEqual([270, 200, 250, 150]);
+  });
+
+  it('counts appearances off the bench apart from starts', () => {
+    expect(line('p2')).toMatchObject({ starts: 2, subApps: 1 });
+    expect(line('p9')).toMatchObject({ inSquad: false, starts: 1, subApps: 1, minutes: 120 });
+  });
+
+  it('lets a substitute be the MVP', () => {
+    const r = buildSeasonReport({ ...sampleSeason(), ratings: [{ matchId: 'm3', playerId: 'p2', rating: 9 }, { matchId: 'm3', playerId: 'p1', rating: 6 }] });
+    expect(r.matches[2].mvp.map(m => m.playerId)).toEqual(['p2']);
+    expect(r.players.find(p => p.id === 'p2')).toMatchObject({ motm: 1, subApps: 1 });
+  });
+
+  it('gives no minutes for a match without a saved lineup', () => {
+    const base = sampleSeason();
+    const r = buildSeasonReport({ ...base, matches: base.matches.map(m => ({ ...m, lineup: undefined })) });
+    expect(r.players.every(p => p.minutes === 0 && p.subApps === 0)).toBe(true);
+  });
+});
+
+describe('recorded attendance', () => {
+  it('uses the recorded list where attendance was taken', () => {
+    expect(line('p2').attendance).toEqual({ attended: 0, total: 4, rate: 0 });
+    expect(report().training.recordedSessions).toBe(1);
+  });
+
+  it('falls back to the planned squad without records', () => {
+    const r = buildSeasonReport({ ...sampleSeason(), attendance: [] });
+    expect(r.players.find(p => p.id === 'p2')!.attendance.rate).toBe(25);
+    expect(r.training.recordedSessions).toBe(0);
+  });
+});
+
 describe('analysis', () => {
   it('buckets goals by minute and reports how many had one', () => {
     const { goalTiming } = report();

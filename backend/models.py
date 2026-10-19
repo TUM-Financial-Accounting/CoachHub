@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, Integer, Float, Text, Boolean, Date, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from database import Base
-from constants import DEFAULT_FORMATION, FEEDBACK_STATUS_NEW, ROLE_COACH
+from constants import DEFAULT_FORMATION, DEFAULT_MATCH_MINUTES, FEEDBACK_STATUS_NEW, ROLE_COACH
 import uuid
 import datetime
 from sqlalchemy import DateTime
@@ -215,6 +215,9 @@ class Match(Base):
     goals_against = Column(Integer, default=0)
     notes = Column(Text, nullable=True)
     
+    bench = Column(Text, nullable=True)  # comma-separated player ids
+    duration = Column(Integer, default=DEFAULT_MATCH_MINUTES)
+
     events = relationship("MatchEvent", back_populates="match", cascade="all, delete-orphan")
     ratings = relationship("MatchRating", back_populates="match", cascade="all, delete-orphan")
 
@@ -228,6 +231,25 @@ class MatchEvent(Base):
     
     match = relationship("Match", back_populates="events")
     player = relationship("Player")
+
+# ON DELETE CASCADE (not the usual Python-side cascade): sessions and matches are
+# bulk-deleted from many paths, and the database keeps all of them in step.
+class TrainingAttendance(Base):
+    __tablename__ = "training_attendance"
+    session_id = Column(String, ForeignKey("training_sessions.id", ondelete="CASCADE"), primary_key=True)
+    player_id = Column(String, ForeignKey("players.id", ondelete="CASCADE"), primary_key=True)
+    status = Column(String, nullable=False)  # one of ATTENDANCE_STATUSES
+    reason = Column(String, nullable=True)  # one of ABSENCE_REASONS, absences only
+
+
+class MatchSubstitution(Base):
+    __tablename__ = "match_substitutions"
+    id = Column(String, primary_key=True, default=generate_uuid)
+    match_id = Column(String, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False)
+    player_in_id = Column(String, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
+    player_out_id = Column(String, ForeignKey("players.id", ondelete="CASCADE"), nullable=True)
+    minute = Column(Integer, nullable=False)
+
 
 class MatchRating(Base):
     # Per-match coach rating. Separate from TeamPlayer.performance, which is the season rating.

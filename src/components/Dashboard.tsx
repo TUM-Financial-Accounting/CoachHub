@@ -21,7 +21,7 @@ import WeekCalendar, { CalendarItem } from './WeekCalendar';
 import DeleteTeamModal from './DeleteTeamModal';
 import { PLAYER_STATUS } from '../lib/domain';
 import { addMinutes, formatDate, parseLocalDate, todayISO } from '../lib/dates';
-import { splitCsv } from '../lib/csv';
+import { attendedPlayerIds, indexAttendance, type AttendanceIndex } from '../lib/attendance';
 import { emitAppEvent } from '../lib/appEvents';
 
 interface DashboardProps {
@@ -35,6 +35,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const { settings } = useSettings();
   const [players, setPlayers] = useState<Player[]>([]);
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
+  const [attendanceIndex, setAttendanceIndex] = useState<AttendanceIndex>(new Map());
   const [matches, setMatches] = useState<Match[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [attendanceData, setAttendanceData] = useState<any[]>([]);
@@ -42,14 +43,13 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [showDeleteTeam, setShowDeleteTeam] = useState(false);
 
   // Calculate attendance rate based on training session participation
-  const calculateAttendance = (playerList: Player[], sessionList: TrainingSession[]) => {
+  const calculateAttendance = (playerList: Player[], sessionList: TrainingSession[], index: AttendanceIndex) => {
     if (sessionList.length === 0 || playerList.length === 0) return 0;
 
     const playerAttendanceCount: { [key: string]: number } = {};
     
-    // Count how many sessions each player was selected for
     sessionList.forEach(session => {
-      const playerIds = splitCsv(session.selectedPlayers);
+      const playerIds = attendedPlayerIds(session, index);
       
       playerIds.forEach(playerId => {
         playerAttendanceCount[playerId] = (playerAttendanceCount[playerId] || 0) + 1;
@@ -80,12 +80,15 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
     const fetchData = async () => {
       try {
-        const [playersData, sessionsData, matchesData, eventsData] = await Promise.all([
+        const [playersData, sessionsData, matchesData, eventsData, attendanceData] = await Promise.all([
           PlayerService.getAll(activeTeam.id, activeSeason?.id),
           TrainingService.getAll(activeTeam.id, activeSeason?.id),
           MatchService.getAll(activeTeam.id, activeSeason?.id),
-          EventService.getAll(activeTeam.id, activeSeason?.id)
+          EventService.getAll(activeTeam.id, activeSeason?.id),
+          TrainingService.getSeasonAttendance(activeTeam.id, activeSeason?.id).catch(() => []),
         ]);
+        const index = indexAttendance(attendanceData);
+        setAttendanceIndex(index);
 
         setPlayers(playersData);
         setSessions(sessionsData);
@@ -95,7 +98,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         // Calculate attendance from training session participation.
         // Always set it so switching to a team without sessions doesn't
         // keep showing the previous team's rate.
-        setCalculatedAttendance(calculateAttendance(playersData, sessionsData));
+        setCalculatedAttendance(calculateAttendance(playersData, sessionsData, index));
 
         // Calculate attendance data from training sessions grouped by month.
         // Group on YYYY-MM so a season spanning a year change (e.g. Aug–May)
@@ -110,8 +113,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               monthMap[yearMonth] = { total: 0, count: 0 };
             }
 
-            // Count selected players for this session
-            const playerIds = splitCsv(session.selectedPlayers);
+            const playerIds = attendedPlayerIds(session, index);
 
             const sessionAttendance = (playerIds.length / playersData.length) * 100;
             monthMap[yearMonth].total += sessionAttendance;
@@ -170,7 +172,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     const avgAttendanceForGroup = (group: TrainingSession[]) => {
       if (group.length === 0 || players.length === 0) return 0;
       const total = group.reduce((sum, s) => {
-        const count = splitCsv(s.selectedPlayers).length;
+        const count = attendedPlayerIds(s, attendanceIndex).length;
         return sum + (count / players.length) * 100;
       }, 0);
       return total / group.length;
@@ -178,7 +180,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     const thisMonthAvg = avgAttendanceForGroup(sessions.filter(s => s.date.slice(0, 7) === thisMonth));
     const lastMonthAvg = avgAttendanceForGroup(sessions.filter(s => s.date.slice(0, 7) === lastMonth));
     return lastMonthAvg > 0 ? Math.round(thisMonthAvg - lastMonthAvg) : null;
-  }, [sessions, players]);
+  }, [sessions, players, attendanceIndex]);
 
   const weekStart = useMemo(
     () => weekStartOf(new Date(), settings.weekStartsOn),

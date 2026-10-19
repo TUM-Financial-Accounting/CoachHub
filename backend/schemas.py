@@ -8,6 +8,8 @@ FeedbackType = Literal["bug", "feature", "question"]  # constants.FEEDBACK_TYPES
 FeedbackStatus = Literal["new", "in_progress", "resolved"]  # constants.FEEDBACK_STATUSES
 MatchEventType = Literal["Goal", "Assist"]  # constants.EVENT_GOAL / EVENT_ASSIST
 SeriesScope = Literal["this", "future", "all"]
+AttendanceStatus = Literal["present", "absent"]  # constants.ATTENDANCE_STATUSES
+AbsenceReason = Literal["injury", "illness", "school", "excused", "unexcused"]  # constants.ABSENCE_REASONS
 
 # ==========================
 #         SEASONS
@@ -184,6 +186,8 @@ class MatchCreate(BaseModel):
     goals_for: Optional[int] = 0
     goals_against: Optional[int] = 0
     notes: Optional[str] = ""
+    bench: Optional[str] = None
+    duration: Optional[int] = Field(None, ge=1, le=150)
 
 class MatchStatsUpdate(BaseModel):
     goals_for: int
@@ -202,6 +206,28 @@ class MatchEvent(MatchEventCreate):
 
 class MatchRatingUpdate(BaseModel):
     rating: int = Field(ge=1, le=10)
+
+class AttendanceRecord(BaseModel):
+    player_id: str
+    status: AttendanceStatus
+    reason: Optional[AbsenceReason] = None
+
+class AttendanceUpdate(BaseModel):
+    records: List[AttendanceRecord]
+
+class TrainingAttendance(AttendanceRecord):
+    session_id: str
+    model_config = ConfigDict(from_attributes=True)
+
+class MatchSubstitutionCreate(BaseModel):
+    player_in_id: str
+    player_out_id: Optional[str] = None
+    minute: int = Field(ge=0, le=150)
+
+class MatchSubstitution(MatchSubstitutionCreate):
+    id: str
+    match_id: str
+    model_config = ConfigDict(from_attributes=True)
 
 class MatchRating(BaseModel):
     match_id: str

@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Edit2, Trash2, Download, Calendar, Clock, Users, Activity, Dumbbell, Zap, BookOpen, Layers, Target, Image as ImageIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { formatDate } from '../../lib/dates';
+import { formatDate, todayISO } from '../../lib/dates';
+import AttendanceEditor from '../AttendanceEditor';
 import { getMediaType, resolveMediaUrl } from '../../lib/media';
 import { Exercise } from '../../types/models';
 
@@ -197,8 +198,10 @@ export default function SessionSlideOver({
                                 </div>
                             )}
 
-                            {/* Players */}
-                            {players.length > 0 && (
+                            {/* Attendance can be taken from the day of the session on. */}
+                            {session.date <= todayISO() ? (
+                                <AttendanceEditor session={session} allPlayers={allPlayers} />
+                            ) : players.length > 0 && (
                                 <div>
                                     <p className="text-[10px] font-semibold text-muted uppercase tracking-wider mb-3 flex items-center gap-1.5">
                                         <Users size={10} /> {t('training.attendingPlayersLabel')}

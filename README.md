@@ -9,13 +9,13 @@ A modern, coach-centric web dashboard for managing sports teams, training sessio
 - Team Management - Player profiles, photos, roster management, and per-team performance ratings
 - Trial Players - Track trialists ("Probespieler") with home club, star rating, and scouting notes; sign them to the squad with one click
 - Exercises Library - Create and manage reusable training exercises with media and categories (technique, tactical, athletic, game form, …). An exercise without an uploaded picture can be sketched in a built-in drill editor (cones, players, coach, poles, balls, zones, goals, text, and run / dribble / pass / shot arrows on a blank, full or half pitch); the sketch is stored as JSON on the exercise
-- Training Manager - Build and schedule training sessions (incl. weekly recurring series) with PDF export. The export opens with a printable session sheet: an info column (ISO calendar week, date, focus, times, numbered squad, colour key) next to one card per drill. A drill shows the picture uploaded under its Visualisierungen when it has one, otherwise the diagram drawn in the exercise's drill editor (rendered to PNG at export time), and only as a last resort an auto-generated pitch diagram derived from its title/setup (see `Uebungsbenennung.md`). The written detail table follows
+- Training Manager - Take attendance after a session (present / absent with a reason); recorded sessions drive the attendance rates on the dashboard, squad and season report, unrecorded ones still count the planned squad. Build and schedule training sessions (incl. weekly recurring series) with PDF export. The export opens with a printable session sheet: an info column (ISO calendar week, date, focus, times, numbered squad, colour key) next to one card per drill. A drill shows the picture uploaded under its Visualisierungen when it has one, otherwise the diagram drawn in the exercise's drill editor (rendered to PNG at export time), and only as a last resort an auto-generated pitch diagram derived from its title/setup (see `Uebungsbenennung.md`). The written detail table follows
 - Calendar - Week view combining trainings, matches, and custom team events; drag & drop to reschedule (15-minute snapping, duration preserved)
 - Settings - Personalisation: theme, language, which item types the calendar draws, player birthdays as all-day entries, first day of the week, visible hours, and the start page (stored per account in the browser)
 - Google Calendar - Each coach connects their own Google account from Settings. CoachHub creates a "CoachHub" calendar and keeps trainings, matches and events in it, pushing on every change and pulling dates/times back from Google. Setup and behaviour: `GOOGLE_CALENDAR.md`
 - Libraries - Manage Basics, Principles (with media upload), and Tactics
 - Match & Lineup - Visual drag-and-drop field positioning, lineup builder, and custom formations; supports 11v11 plus 7v7 / 9v9 youth formats
-- Match Stats & Statistics - Record results, goals, assists, and per-match player ratings (1-10, separate from the season rating on the squad page); season statistics with charts and leaderboards
+- Match Stats & Statistics - Record results, goals, assists, the bench and substitutions (minutes played; matches carry their own length, default 90), and per-match player ratings (1-10, separate from the season rating on the squad page); season statistics with charts and leaderboards
 - Season Report - One-click PDF (EN/DE) from the Statistics page: results with match MVPs (highest match rating, ties shared), squad stats with match-rating averages, awards, goal timing, formations, training load, and per-player profiles. Generated in the browser (`src/lib/seasonReport/`), no backend endpoint
 - Playbook - Export/import Basics, Principles, Tactics, and Exercises as JSON to share between accounts
 - Command Palette - Quick navigation and global search with Ctrl+K / Cmd+K
@@ -260,6 +260,8 @@ Tests live next to the code they cover as `*.test.ts`.
 | PUT / DELETE | `/training_sessions/{id}` | Update / delete a session (`?scope=this\|future\|all` for series; series-wide updates keep dates) |
 | POST | `/training_series` | Create a recurring series (`frequency`: weekly / biweekly / monthly, `weekdays`: 0=Mon..6=Sun, ends on `series_end_date` or after `occurrences`, max 200) |
 | DELETE | `/training_series/{id}` | Delete a series and its occurrences |
+| GET / PUT | `/training_sessions/{id}/attendance` | Who actually came: read / replace the whole list (`status` present\|absent, `reason` injury\|illness\|school\|excused\|unexcused for absences) |
+| GET | `/stats/attendance` | All recorded attendance of a team (`?team_id=&season_id=`) |
 | GET / POST | `/events` | List / create calendar events |
 | PUT / DELETE | `/events/{id}` | Update / delete a calendar event (`?scope=this\|future\|all` for series; series-wide updates keep dates) |
 | POST | `/event_series` | Create a recurring calendar event series (same pattern fields as training series) |
@@ -269,6 +271,9 @@ Tests live next to the code they cover as `*.test.ts`.
 | PUT | `/matches/{id}/stats` | Record final score and notes |
 | GET / POST | `/matches/{match_id}/events` | List / add goals and assists |
 | DELETE | `/match_events/{id}` | Delete a goal/assist event |
+| GET / POST | `/matches/{match_id}/substitutions` | List / record a substitution (`player_in_id`, optional `player_out_id`, `minute` within the match length) |
+| DELETE | `/match_substitutions/{id}` | Delete a substitution |
+| GET | `/stats/substitutions` | All substitutions of a team (`?team_id=&season_id=`) |
 | GET | `/matches/{match_id}/ratings` | List the per-match player ratings |
 | PUT / DELETE | `/matches/{match_id}/ratings/{player_id}` | Set (upsert, body `{rating: 1-10}`) / clear a player's match rating |
 | GET | `/stats/ratings` | All match ratings of a team (`?team_id=&season_id=`) |
@@ -361,6 +366,8 @@ to run against anything but SQLite.
 | `tests/test_cascade.py` | Team, season, player and match deletes with everything hanging off them |
 | `tests/test_matches.py` | Match ratings, top performers, suggested formation |
 | `tests/test_recurrence.py` | `recurrence.expand` patterns (weekly, biweekly, monthly n-th weekday) |
+| `tests/test_attendance.py` | Training attendance: save/replace, validation, per-coach isolation, cascade on session/player/team delete |
+| `tests/test_substitutions.py` | Match bench and length, substitutions, validation, isolation, cascade on match/player/season delete |
 | `tests/test_auth.py` | Register, login, logout, password reset, email verification |
 | `tests/test_library.py` | Basics, principles, tactics, exercises, custom formations, playbook export/import |
 | `tests/test_routes.py` | Match stats/events, latest match, series delete, team clone, upload, visions, Google status, admin |
@@ -372,7 +379,7 @@ pip install -r requirements-dev.txt   # first time only
 python -m pytest
 ```
 
-Together they call 85 of the 86 API routes; only the Google OAuth callback needs a live Google account.
+Together they call 92 of the 93 API routes; only the Google OAuth callback needs a live Google account.
 
 SQLite is not Postgres: `_ensure_columns()` (Postgres-only SQL) is skipped in
 tests, so column backfills are still verified by hand on startup.
