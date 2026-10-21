@@ -7,15 +7,20 @@ matches with goals/assists (so the statistics views have real data), upcoming
 fixtures, and calendar events.
 
     cd backend
-    python seed.py            # seed (refuses if the demo account already exists)
-    python seed.py --reset    # delete the demo coach's data first, then re-seed
+    python seed.py                        # seed the demo account
+    python seed.py --reset                # delete the demo coach's data first, then re-seed
+    python seed.py --email me@test.com    # seed another account (created if missing)
 
---reset only ever touches rows belonging to the demo account. It never drops
-tables and never touches other users' data.
+An existing account is only seeded while it has no seasons; with data in it,
+--reset is required and, for any account but the demo one, the email must be
+typed again to confirm. --reset only ever touches rows belonging to that
+account. It never drops tables and never touches other users' data.
 
-Login after seeding:  demo@coachhub.app  /  demo1234
+Login after seeding:  demo@coachhub.app  /  demo1234  (other accounts keep their password)
 """
 
+import argparse
+import getpass
 import os
 import random
 import sys
@@ -24,6 +29,7 @@ from datetime import date, timedelta
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from passlib.context import CryptContext  # noqa: E402
+from sqlalchemy import func  # noqa: E402
 
 import database  # noqa: E402
 from constants import EVENT_ASSIST, EVENT_GOAL  # noqa: E402
@@ -240,25 +246,43 @@ def materialise_series(db, series, team_id, season_id, player_ids, exercise_ids)
     return created
 
 
-def seed(reset=False):
+def _new_password(email):
+    if email == DEMO_EMAIL:
+        return DEMO_PASSWORD
+    password = getpass.getpass(f"Password for the new account {email}: ")
+    if len(password) < 8 or password != getpass.getpass("Repeat the password: "):
+        sys.exit("Passwords must match and be at least 8 characters. Nothing was changed.")
+    return password
+
+
+def seed(reset=False, email=DEMO_EMAIL, confirm=input):
+    email = email.strip()
     models.Base.metadata.create_all(bind=database.engine)
     db = database.SessionLocal()
 
     try:
-        user = db.query(models.User).filter(models.User.email == DEMO_EMAIL).first()
+        # Registration keeps the email as typed, so match it the way people type it.
+        user = db.query(models.User).filter(func.lower(models.User.email) == email.lower()).first()
+        if user:
+            email = user.email
+        has_data = bool(user) and db.query(models.Season).filter(models.Season.coach_id == user.id).count() > 0
 
-        if user and not reset:
-            print(f"Demo account {DEMO_EMAIL} already exists.")
-            print("Run 'python seed.py --reset' to wipe its data and re-seed.")
+        if has_data and not reset:
+            print(f"Account {email} already has data.")
+            print(f"Run 'python seed.py --email {email} --reset' to wipe its data and re-seed.")
             return
 
-        if user:
-            print(f"Resetting data for {DEMO_EMAIL}...")
+        if has_data:
+            # A real account loses everything it holds, so it takes a second, explicit yes.
+            if email != DEMO_EMAIL and confirm(f"This deletes ALL data of {email}. Type the email to confirm: ").strip().lower() != email.lower():
+                print("Aborted. Nothing was changed.")
+                return
+            print(f"Resetting data for {email}...")
             wipe_demo_data(db, user)
-        else:
+        elif not user:
             user = models.User(
-                email=DEMO_EMAIL, password=pwd_context.hash(DEMO_PASSWORD),
-                full_name=DEMO_NAME, is_verified=True,
+                email=email, password=pwd_context.hash(_new_password(email)),
+                full_name=DEMO_NAME if email == DEMO_EMAIL else email.split("@")[0], is_verified=True,
             )
             db.add(user)
             db.flush()
@@ -396,7 +420,7 @@ def seed(reset=False):
         db.commit()
 
         print("\nSeeded successfully.\n")
-        print(f"  Login          {DEMO_EMAIL} / {DEMO_PASSWORD}")
+        print(f"  Login          {email} / {DEMO_PASSWORD if email == DEMO_EMAIL else 'your password'}")
         print(f"  Seasons        {CURRENT_SEASON} (current), {PREVIOUS_SEASON}")
         print(f"  Teams          U15 ({len(u15_players)}), U17 ({len(u17_players)}), U15 {PREVIOUS_SEASON}")
         print(f"  Trialists      {len(TRIALISTS)}")
@@ -413,4 +437,8 @@ def seed(reset=False):
 
 
 if __name__ == "__main__":
-    seed(reset="--reset" in sys.argv)
+    parser = argparse.ArgumentParser(description="Seed demo data into a CoachHub account.")
+    parser.add_argument("--email", default=DEMO_EMAIL, help=f"account to seed (default {DEMO_EMAIL}); created if missing")
+    parser.add_argument("--reset", action="store_true", help="delete the account's existing data first")
+    args = parser.parse_args()
+    seed(reset=args.reset, email=args.email)

@@ -98,14 +98,18 @@ calendar events. Run it from inside `backend/`:
 
 ```bash
 cd backend
-python seed.py           # refuses to run if the demo account already exists
-python seed.py --reset   # delete the demo coach's data first, then re-seed
+python seed.py                                # refuses to run if the demo account already has data
+python seed.py --reset                        # delete the demo coach's data first, then re-seed
+python seed.py --email me@example.com         # seed another account; created (password prompt) if missing
+python seed.py --email me@example.com --reset # wipe that account's data and re-seed (asks you to type the email)
 ```
 
-`--reset` only ever touches rows belonging to the demo account. It never drops
-tables and never touches other users' data.
+An existing account is seeded only while it has no seasons; with data in it,
+`--reset` is required. `--reset` only ever touches rows belonging to that
+account. It never drops tables and never touches other users' data.
 
-Then log in with **`demo@coachhub.app`** / **`demo1234`**.
+Then log in with **`demo@coachhub.app`** / **`demo1234`**, or with your own
+account and its password.
 
 > `seed_libraries.py`, `seed_players.py`, and `seed_past_matches.py` are the
 > building blocks `seed.py` imports. Running them standalone requires the demo
