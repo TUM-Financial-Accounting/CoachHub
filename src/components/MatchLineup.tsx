@@ -595,10 +595,11 @@ useEffect(() => {
         <div className="grid grid-cols-12 gap-6 flex-shrink-0">
           <div className="col-span-12 lg:col-span-3 space-y-6">
             <Card className="p-4 flex flex-col h-[250px]">
-              <div className="flex gap-2 mb-4">
+              {/* Between lg and 2xl the column is too narrow for the two tabs side by side */}
+              <div className="grid grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2 gap-2 mb-4">
                 <button
                   onClick={() => { setShowPastMatches(false); if (upcomingMatches.length > 0) setMatchDetails(upcomingMatches[0]); }}
-                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors ${
+                  className={`min-w-0 px-2 py-2 rounded-lg text-xs leading-tight font-bold whitespace-nowrap transition-colors ${
                     !showPastMatches
                       ? 'bg-blue-600/20 text-blue-400 border border-blue-500/50'
                       : 'bg-surface text-muted border border-border'
@@ -608,7 +609,7 @@ useEffect(() => {
                 </button>
                 <button
                   onClick={() => { setShowPastMatches(true); if (pastMatches.length > 0) setMatchDetails(pastMatches[0]); }}
-                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors ${
+                  className={`min-w-0 px-2 py-2 rounded-lg text-xs leading-tight font-bold whitespace-nowrap transition-colors ${
                     showPastMatches
                       ? 'bg-blue-600/20 text-blue-400 border border-blue-500/50'
                       : 'bg-surface text-muted border border-border'
@@ -621,17 +622,19 @@ useEffect(() => {
                   {(!showPastMatches ? upcomingMatches : pastMatches).length > 0 ? (
                     (!showPastMatches ? upcomingMatches : pastMatches).map(match => (
                       <div key={match.id} onClick={() => setMatchDetails(match)} className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between group ${matchDetails?.id === match.id ? 'bg-blue-600/10 border-blue-500/50' : 'bg-surface border-border hover:border-border'}`}>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className={`text-sm font-bold ${matchDetails?.id === match.id ? 'text-blue-400' : 'text-foreground'}`}>vs {match.opponent}</p>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <p title={match.opponent} className={`min-w-0 truncate text-sm font-bold ${matchDetails?.id === match.id ? 'text-blue-400' : 'text-foreground'}`}>vs {match.opponent}</p>
                               {match.locked && <Lock size={11} className="text-muted shrink-0" aria-label={t('matches.lockedBadge')} />}
-                              {showPastMatches && (hasResult(match)
-                                ? <span className="text-[10px] font-bold text-emerald-500">{match.goalsFor} - {match.goalsAgainst}</span>
-                                : <span title={t('statistics.unrecorded')} className="text-[10px] font-bold text-slate-500">{t('statistics.unrecordedShort')}</span>)}
                             </div>
-                            <p className="text-[10px] text-muted">{formatDate(match.date)}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-[10px] text-muted">{formatDate(match.date)}</p>
+                              {showPastMatches && (hasResult(match)
+                                ? <span className="shrink-0 whitespace-nowrap text-[10px] font-bold text-emerald-500">{match.goalsFor} - {match.goalsAgainst}</span>
+                                : <span title={t('statistics.unrecorded')} className="shrink-0 text-[10px] font-bold text-slate-500">{t('statistics.unrecordedShort')}</span>)}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1">
+                          <div className="flex shrink-0 items-center gap-1">
                             <button
                               onClick={e => { e.stopPropagation(); setConfirmDeleteMatch(match); }}
                               className="p-1.5 rounded-lg text-muted/50 hover:text-rose-500 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-all"

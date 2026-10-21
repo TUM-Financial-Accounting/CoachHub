@@ -236,13 +236,13 @@ export default function StatisticsView() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="p-5">
               <p className="text-xs text-muted font-medium mb-4">{t('statistics.seasonRecord')}</p>
-              <div className="flex justify-between gap-1.5">
+              <div className="flex justify-around gap-1.5">
                 {([
                   [stats.wins, 'text-emerald-500', t('statistics.wins')],
                   [stats.draws, 'text-amber-500', t('statistics.draws')],
                   [stats.losses, 'text-rose-500', t('statistics.losses')],
                 ] as const).map(([value, color, label]) => (
-                  <div key={label} className="shrink-0">
+                  <div key={label} className="shrink-0 text-center">
                     <p className={`text-3xl font-black ${color}`}>{value}</p>
                     <p className="text-[10px] sm:text-[11px] text-muted font-medium mt-1">{label}</p>
                   </div>
