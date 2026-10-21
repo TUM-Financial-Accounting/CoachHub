@@ -158,6 +158,7 @@ export const mapMatchDetailsFromApi = (m: any): MatchDetails => ({
   notes: m.notes || '',
   bench: splitCsv(m.bench),
   duration: m.duration || DEFAULT_MATCH_MINUTES,
+  locked: !!m.locked,
 });
 
 /**

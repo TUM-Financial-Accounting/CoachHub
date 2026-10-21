@@ -123,3 +123,38 @@ def test_clear_placeholder_scores_runs_before_new_columns_and_tables_exist(make_
     assert [m.id for m in clear_placeholder_scores.placeholder_matches(db)] == [match_id]
     assert clear_placeholder_scores.clear_placeholders(db) == 1
     assert db.execute(text("SELECT goals_for, goals_against FROM matches")).one() == (None, None)
+
+
+def test_confirmed_match_rejects_every_edit_until_unlocked(make_coach):
+    a = make_coach("a@x")
+    player = a.player()
+    match = a.match()
+    mid = match["id"]
+    assert match["locked"] is False
+    event_id = a.post(f"/matches/{mid}/events", json={"player_id": player["id"], "event_type": "Goal", "minute": 5}).json()["id"]
+    a.put(f"/matches/{mid}/ratings/{player['id']}", json={"rating": 7})
+    sub_id = a.post(f"/matches/{mid}/substitutions", json={"player_in_id": player["id"], "minute": 50}).json()["id"]
+
+    assert a.put(f"/matches/{mid}/lock", json={"locked": True}).json()["locked"] is True
+    blocked = [
+        a.put(f"/matches/{mid}", json={**match, "opponent": "Changed"}),
+        a.put(f"/matches/{mid}/stats", json={"goals_for": 1, "goals_against": 0}),
+        a.post(f"/matches/{mid}/events", json={"player_id": player["id"], "event_type": "Goal"}),
+        a.delete(f"/match_events/{event_id}"),
+        a.put(f"/matches/{mid}/ratings/{player['id']}", json={"rating": 9}),
+        a.delete(f"/matches/{mid}/ratings/{player['id']}"),
+        a.post(f"/matches/{mid}/substitutions", json={"player_in_id": player["id"], "minute": 60}),
+        a.delete(f"/match_substitutions/{sub_id}"),
+    ]
+    assert [r.status_code for r in blocked] == [409] * len(blocked)
+    assert a.get(f"/matches/{mid}/ratings").json()[0]["rating"] == 7
+
+    a.put(f"/matches/{mid}/lock", json={"locked": False})
+    assert a.put(f"/matches/{mid}/stats", json={"goals_for": 1, "goals_against": 0}).status_code == 200
+
+
+def test_only_the_owner_can_confirm_a_match(make_coach):
+    a, b = make_coach("a@x"), make_coach("b@x")
+    mid = a.match()["id"]
+    assert b.put(f"/matches/{mid}/lock", json={"locked": True}).status_code == 404
+    assert next(m for m in a.get("/matches", params=a.scoped()).json() if m["id"] == mid)["locked"] is False

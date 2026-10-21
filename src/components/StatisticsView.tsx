@@ -236,19 +236,17 @@ export default function StatisticsView() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="p-5">
               <p className="text-xs text-muted font-medium mb-4">{t('statistics.seasonRecord')}</p>
-              <div className="flex items-end gap-4">
-                <div>
-                  <p className="text-3xl font-black text-emerald-500">{stats.wins}</p>
-                  <p className="text-[11px] text-muted font-medium mt-1">{t('statistics.wins')}</p>
-                </div>
-                <div>
-                  <p className="text-3xl font-black text-amber-500">{stats.draws}</p>
-                  <p className="text-[11px] text-muted font-medium mt-1">{t('statistics.draws')}</p>
-                </div>
-                <div>
-                  <p className="text-3xl font-black text-rose-500">{stats.losses}</p>
-                  <p className="text-[11px] text-muted font-medium mt-1">{t('statistics.losses')}</p>
-                </div>
+              <div className="flex justify-between gap-1.5">
+                {([
+                  [stats.wins, 'text-emerald-500', t('statistics.wins')],
+                  [stats.draws, 'text-amber-500', t('statistics.draws')],
+                  [stats.losses, 'text-rose-500', t('statistics.losses')],
+                ] as const).map(([value, color, label]) => (
+                  <div key={label} className="shrink-0">
+                    <p className={`text-3xl font-black ${color}`}>{value}</p>
+                    <p className="text-[10px] sm:text-[11px] text-muted font-medium mt-1">{label}</p>
+                  </div>
+                ))}
               </div>
               <p className="text-xs text-muted mt-4 pt-4 border-t border-border/40">
                 {t('statistics.matchesPlayedCount', { count: stats.total })}

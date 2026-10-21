@@ -15,9 +15,10 @@ interface Props {
   starterIds: string[];
   players: Player[];
   onRatePlayer: (player: Player) => void;
+  readOnly?: boolean;
 }
 
-export default function MatchSubstitutions({ match, starterIds, players, onRatePlayer }: Props) {
+export default function MatchSubstitutions({ match, starterIds, players, onRatePlayer, readOnly = false }: Props) {
   const { t } = useTranslation();
   const [subs, setSubs] = useState<MatchSubstitution[]>([]);
   const [playerIn, setPlayerIn] = useState('');
@@ -97,15 +98,17 @@ export default function MatchSubstitutions({ match, starterIds, players, onRateP
                 <ArrowUp size={14} /> {name(s.playerInId)}
               </button>
               {s.playerOutId && <span className="flex items-center gap-1 text-rose-500"><ArrowDown size={14} /> {name(s.playerOutId)}</span>}
-              <button type="button" onClick={() => remove(s.id)} className="ml-auto text-muted hover:text-rose-500" aria-label={t('common.delete')}>
-                <Trash2 size={14} />
-              </button>
+              {!readOnly && (
+                <button type="button" onClick={() => remove(s.id)} className="ml-auto text-muted hover:text-rose-500" aria-label={t('common.delete')}>
+                  <Trash2 size={14} />
+                </button>
+              )}
             </li>
           ))}
         </ul>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+      {!readOnly && <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
         <Select label={t('substitutions.playerIn')} value={playerIn} placeholder={t('substitutions.choose')}
           onChange={v => setPlayerIn(String(v))}
           options={inOptions.map(p => ({ value: p.id, label: `${p.firstName} ${p.lastName}` }))} />
@@ -114,7 +117,7 @@ export default function MatchSubstitutions({ match, starterIds, players, onRateP
           options={[{ value: '', label: t('substitutions.nobody') }, ...onPitch.map(id => ({ value: id, label: name(id) }))]} />
         <Input label={t('substitutions.minute')} type="number" min={0} max={duration} value={minute} onChange={e => setMinute(e.target.value)} />
         <Button onClick={add}>{t('substitutions.add')}</Button>
-      </div>
+      </div>}
 
       {minutes.size > 0 && (
         <div>

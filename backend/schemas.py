@@ -235,9 +235,13 @@ class MatchRating(BaseModel):
     rating: int
     model_config = ConfigDict(from_attributes=True)
 
+class MatchLockUpdate(BaseModel):
+    locked: bool
+
 class Match(MatchCreate):
     id: str
     date : date
+    locked: bool = False
     model_config = ConfigDict(from_attributes=True)
 
 # ==========================

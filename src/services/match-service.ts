@@ -84,6 +84,14 @@ export const MatchService = {
   },
 
   /**
+   * Confirms (locks) or unlocks a match. A confirmed match rejects every edit.
+   */
+  async setLocked(id: string, locked: boolean): Promise<MatchDetails> {
+    const data = await apiClient.put<any>(`/matches/${id}/lock`, { locked });
+    return mapMatchDetailsFromApi(data);
+  },
+
+  /**
    * Fetches all events for a match.
    */
   async getEvents(matchId: string): Promise<MatchEvent[]> {

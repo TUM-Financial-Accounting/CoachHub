@@ -79,6 +79,7 @@ export interface MatchDetails {
   notes?: string;
   bench?: string[];
   duration?: number; // minutes
+  locked?: boolean; // confirmed by the coach; read-only until unlocked
 }
 
 export interface MatchSubstitution {

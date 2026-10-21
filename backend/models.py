@@ -218,6 +218,8 @@ class Match(Base):
     
     bench = Column(Text, nullable=True)  # comma-separated player ids
     duration = Column(Integer, default=DEFAULT_MATCH_MINUTES)
+    # Set by the coach confirming the match; until then everything stays editable, past or not
+    locked = Column(Boolean, nullable=False, default=False, server_default="0")
 
     events = relationship("MatchEvent", back_populates="match", cascade="all, delete-orphan")
     ratings = relationship("MatchRating", back_populates="match", cascade="all, delete-orphan")

@@ -280,6 +280,7 @@ Tests live next to the code they cover as `*.test.ts`.
 | GET | `/matches/latest` | Get next upcoming match |
 | PUT / DELETE | `/matches/{id}` | Update / delete a match (delete removes its events too) |
 | PUT | `/matches/{id}/stats` | Record final score and notes (a new match has no score until this is called) |
+| PUT | `/matches/{match_id}/lock` | Confirm (`{"locked": true}`) or unlock a match. A confirmed match answers 409 to every edit of its details, lineup, score, events, ratings and substitutions |
 | GET / POST | `/matches/{match_id}/events` | List / add goals and assists |
 | DELETE | `/match_events/{id}` | Delete a goal/assist event |
 | GET / POST | `/matches/{match_id}/substitutions` | List / record a substitution (`player_in_id`, optional `player_out_id`, `minute` within the match length) |
@@ -390,7 +391,7 @@ pip install -r requirements-dev.txt   # first time only
 python -m pytest
 ```
 
-Together they call 92 of the 93 API routes; only the Google OAuth callback needs a live Google account.
+Together they call 93 of the 94 API routes; only the Google OAuth callback needs a live Google account.
 
 SQLite is not Postgres: `_ensure_columns()` (Postgres-only SQL) is skipped in
 tests, so column backfills are still verified by hand on startup.

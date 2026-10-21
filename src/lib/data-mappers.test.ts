@@ -581,4 +581,10 @@ describe('substitution and attendance mappers', () => {
     expect(mapMatchDetailsToApi({ ...match, bench: ['p3'] })).toMatchObject({ bench: 'p3', duration: 70 });
     expect(mapMatchDetailsToApi({ ...match, bench: undefined }).bench).toBeNull();
   });
+
+  it('reads the confirmed flag but never sends it with an ordinary update', () => {
+    expect(mapMatchDetailsFromApi({ id: 'm1', locked: true }).locked).toBe(true);
+    expect(mapMatchDetailsFromApi({ id: 'm1' }).locked).toBe(false);
+    expect(mapMatchDetailsToApi(mapMatchDetailsFromApi({ id: 'm1', locked: true }))).not.toHaveProperty('locked');
+  });
 });

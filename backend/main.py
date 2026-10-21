@@ -41,6 +41,7 @@ def _ensure_columns():
         "ALTER TABLE events ADD COLUMN IF NOT EXISTS series_id VARCHAR REFERENCES event_series(id)",
         "ALTER TABLE matches ADD COLUMN IF NOT EXISTS bench TEXT",
         "ALTER TABLE matches ADD COLUMN IF NOT EXISTS duration INTEGER DEFAULT 90",
+        "ALTER TABLE matches ADD COLUMN IF NOT EXISTS locked BOOLEAN NOT NULL DEFAULT FALSE",
     ]
     try:
         with database.engine.begin() as conn:
@@ -1753,6 +1754,7 @@ def update_match(match_id: str, item: schemas.MatchCreate, background: Backgroun
     db_match = db.query(models.Match).filter(models.Match.id == match_id, models.Match.team_id.in_(owned_team_ids(db, current_user))).first()
     if not db_match:
         raise HTTPException(status_code=404, detail="Match not found")
+    _require_unlocked(db_match)
 
     date_obj = parse_iso_date(item.date)
 
@@ -1776,6 +1778,7 @@ def update_match(match_id: str, item: schemas.MatchCreate, background: Backgroun
 def update_match_stats(id: str, stats: schemas.MatchStatsUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
     db_item = db.query(models.Match).filter(models.Match.id == id, models.Match.team_id.in_(owned_team_ids(db, current_user))).first()
     if not db_item: raise HTTPException(status_code=404)
+    _require_unlocked(db_item)
     db_item.goals_for = stats.goals_for
     db_item.goals_against = stats.goals_against
     db_item.notes = stats.notes
@@ -1792,6 +1795,7 @@ def get_match_events(match_id: str, db: Session = Depends(database.get_db), curr
 def create_match_event(match_id: str, event: schemas.MatchEventCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
     db_match = db.query(models.Match).filter(models.Match.id == match_id, models.Match.team_id.in_(owned_team_ids(db, current_user))).first()
     if not db_match: raise HTTPException(status_code=404, detail="Match not found")
+    _require_unlocked(db_match)
 
     db_player = db.query(models.Player).filter(models.Player.id == event.player_id, models.Player.coach_id == current_user.id).first()
     if not db_player: raise HTTPException(status_code=404, detail="Player not found")
@@ -1814,6 +1818,7 @@ def delete_match_event(id: str, db: Session = Depends(database.get_db), current_
         .first()
     )
     if not db_event: raise HTTPException(status_code=404)
+    _require_unlocked(db.get(models.Match, db_event.match_id))
     db.delete(db_event)
     db.commit()
     return {"message": "Deleted"}
@@ -1828,6 +1833,7 @@ def get_match_ratings(match_id: str, db: Session = Depends(database.get_db), cur
 def set_match_rating(match_id: str, player_id: str, item: schemas.MatchRatingUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
     db_match = db.query(models.Match).filter(models.Match.id == match_id, models.Match.team_id.in_(owned_team_ids(db, current_user))).first()
     if not db_match: raise HTTPException(status_code=404, detail="Match not found")
+    _require_unlocked(db_match)
     db_player = db.query(models.Player).filter(models.Player.id == player_id, models.Player.coach_id == current_user.id).first()
     if not db_player: raise HTTPException(status_code=404, detail="Player not found")
 
@@ -1854,9 +1860,23 @@ def delete_match_rating(match_id: str, player_id: str, db: Session = Depends(dat
         .first()
     )
     if not db_item: raise HTTPException(status_code=404)
+    _require_unlocked(db.get(models.Match, match_id))
     db.delete(db_item)
     db.commit()
     return {"message": "Deleted"}
+
+def _require_unlocked(match: models.Match):
+    # 409, not 404: the match is the coach's own, it is just confirmed.
+    if match.locked:
+        raise HTTPException(status_code=409, detail="Match is confirmed; unlock it to edit")
+
+@app.put("/matches/{match_id}/lock", response_model=schemas.Match)
+def set_match_lock(match_id: str, item: schemas.MatchLockUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    match = _owned_match(db, current_user, match_id)
+    match.locked = item.locked
+    db.commit()
+    db.refresh(match)
+    return match
 
 def _owned_match(db: Session, user: models.User, match_id: str) -> models.Match:
     match = db.query(models.Match).filter(models.Match.id == match_id, models.Match.team_id.in_(owned_team_ids(db, user))).first()
@@ -1877,6 +1897,7 @@ def get_substitutions(match_id: str, db: Session = Depends(database.get_db), cur
 @app.post("/matches/{match_id}/substitutions", response_model=schemas.MatchSubstitution)
 def add_substitution(match_id: str, item: schemas.MatchSubstitutionCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
     match = _owned_match(db, current_user, match_id)
+    _require_unlocked(match)
     if item.player_in_id == item.player_out_id:
         raise HTTPException(status_code=400, detail="A player cannot replace themselves")
     if item.minute > (match.duration or DEFAULT_MATCH_MINUTES):
@@ -1897,6 +1918,7 @@ def delete_substitution(id: str, db: Session = Depends(database.get_db), current
         .first()
     )
     if not db_item: raise HTTPException(status_code=404)
+    _require_unlocked(db.get(models.Match, db_item.match_id))
     db.delete(db_item)
     db.commit()
     return {"message": "Deleted"}

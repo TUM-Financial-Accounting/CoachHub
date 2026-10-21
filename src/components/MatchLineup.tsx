@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Save, X, Calendar, MapPin, Users, Plus, Trophy, Edit2, ChevronRight, ChevronDown, Trash2 } from 'lucide-react';
+import { Save, X, Calendar, MapPin, Users, Plus, Trophy, Edit2, ChevronRight, ChevronDown, Trash2, Lock, Unlock } from 'lucide-react';
 import { useDrag, useDrop } from 'react-dnd';
 import { toast } from 'sonner';
 import { formatDate } from '../lib/dates';
@@ -62,7 +62,7 @@ function PlayerDropZone({ onDrop, disabled, className, children }: { onDrop: (it
   return <div ref={drop} className={`${className ?? ''} rounded-lg transition-colors ${isOver ? 'bg-blue-500/10 ring-2 ring-blue-500/40' : ''}`}>{children}</div>;
 }
 
-function PositionSlotComponent({ slot, player, onDrop, onRemove, onClick, isMatchPast }: { slot: PositionSlot; player: LineupPlayer | null; onDrop: (p: DragItem, s: string) => void; onRemove: (s: string) => void; onClick: () => void; isMatchPast: boolean; }) {
+function PositionSlotComponent({ slot, player, onDrop, onRemove, onClick, readOnly }: { slot: PositionSlot; player: LineupPlayer | null; onDrop: (p: DragItem, s: string) => void; onRemove: (s: string) => void; onClick: () => void; readOnly: boolean; }) {
   const [{ isOver }, drop] = useDrop(() => ({
       accept: 'player',
       drop: (item: DragItem) => onDrop(item, slot.id),
@@ -71,9 +71,9 @@ function PositionSlotComponent({ slot, player, onDrop, onRemove, onClick, isMatc
   const [{ isDragging }, drag] = useDrag(() => ({
       type: 'player',
       item: () => ({ ...player, source: 'field' }) as DragItem,
-      canDrag: !!player && !isMatchPast,
+      canDrag: !!player && !readOnly,
       collect: (monitor) => ({ isDragging: !!monitor.isDragging() })
-  }), [player, isMatchPast]);
+  }), [player, readOnly]);
 
   return (
     <div ref={drop} style={{ left: `${slot.x}%`, top: `${slot.y}%` }} className="absolute -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-110">
@@ -81,7 +81,7 @@ function PositionSlotComponent({ slot, player, onDrop, onRemove, onClick, isMatc
         <div ref={drag} onClick={onClick} className={`relative group cursor-pointer ${isDragging ? 'opacity-50' : ''}`}>
           <div className="w-14 h-14 bg-primary rounded-full flex items-center justify-center text-white shadow-[0_0_15px_rgba(37,99,235,0.5)] border-2 border-primary/40"><span className="text-lg font-bold">{player.jerseyNumber}</span></div>
           <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-center whitespace-nowrap"><p className="text-[10px] font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{player.firstName}</p></div>
-          {!isMatchPast && <button onClick={(e) => { e.stopPropagation(); onRemove(slot.id); }} className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"><X className="w-3 h-3" /></button>}
+          {!readOnly && <button onClick={(e) => { e.stopPropagation(); onRemove(slot.id); }} className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"><X className="w-3 h-3" /></button>}
         </div>
       ) : (
         <div className={`w-14 h-14 border-2 border-dashed rounded-full flex items-center justify-center text-xs font-bold transition-colors ${isOver ? 'border-blue-400 bg-blue-500/20 text-white' : 'border-white/20 bg-white/5 text-slate-400'}`}>{slot.position}</div>
@@ -102,6 +102,7 @@ export default function MatchLineup() {
   const [selectedPlayer, setSelectedPlayer] = useState<LineupPlayer | null>(null);
   
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [confirmLock, setConfirmLock] = useState<boolean | null>(null);
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [showCreateMatchModal, setShowCreateMatchModal] = useState(false);
 
@@ -277,25 +278,16 @@ useEffect(() => {
 
   const handleChangeFormation = (formation: string) => {
     if (formation === currentFormation) return;
+    if (isLocked) {
+      toast.error(t('matches.matchLocked'));
+      return;
+    }
     if (lineup.size > 0) {
       if (!window.confirm(t('matches.switchFormationConfirm', { formation }))) return;
     }
     setCurrentFormation(formation);
     setFormationSource({ kind: 'manual' });
     setLineup(new Map());
-
-    // Past matches have no "save lineup" step, so a retroactive formation
-    // correction is persisted immediately. Any stored lineup is cleared —
-    // its slots belong to the old formation (the confirm above covers this).
-    if (isMatchPast && matchDetails) {
-      MatchService.update(matchDetails.id, { ...matchDetails, formation, lineup: undefined })
-        .then(saved => {
-          setMatches(prev => prev.map(m => m.id === saved.id ? saved : m));
-          setMatchDetails(saved);
-          toast.success(t('matches.formationSaved', { formation }));
-        })
-        .catch(() => toast.error(t('matches.matchSaveFailed')));
-    }
   };
 
   const handleSaveMatch = async () => {
@@ -356,6 +348,20 @@ useEffect(() => {
 
   // Check if currently viewing a past match
   const isMatchPast = useMemo(() => !!matchDetails && isPast(matchDetails.date), [matchDetails]);
+  // Read-only only once the coach confirms the match, not as soon as its date passes.
+  const isLocked = !!matchDetails?.locked;
+
+  const handleSetLocked = async (locked: boolean) => {
+    if (!matchDetails) return;
+    try {
+      const saved = await MatchService.setLocked(matchDetails.id, locked);
+      setMatches(prev => prev.map(m => m.id === saved.id ? saved : m));
+      setMatchDetails(saved);
+      toast.success(t(locked ? 'matches.matchConfirmed' : 'matches.matchUnlocked'));
+    } catch {
+      toast.error(t('matches.matchSaveFailed'));
+    }
+  };
 
   const activeSlots = useMemo(() => {
     if (FORMATIONS[currentFormation]) return FORMATIONS[currentFormation];
@@ -413,8 +419,8 @@ useEffect(() => {
   const slotOf = (playerId: string) => Array.from(lineup.entries()).find(([, p]) => p.id === playerId)?.[0];
 
   const handleDropToField = (item: DragItem, slotId: string) => {
-    if (isMatchPast) {
-      toast.error(t('matches.cannotEditPast'));
+    if (isLocked) {
+      toast.error(t('matches.matchLocked'));
       return;
     }
     const player = plainPlayer(item);
@@ -508,12 +514,19 @@ useEffect(() => {
               <p className="text-sm text-muted mt-0.5">{t('page.matchesSubtitle')}</p>
             </div>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
             <Button onClick={handleOpenCreate} variant="secondary" icon={<Plus size={18} />}>{t('matches.createMatch')}</Button>
-            {isMatchPast ? (
+            {isMatchPast && !isLocked && (
               <Button onClick={() => setShowStatsModal(true)} variant="secondary" icon={<Trophy size={18} />}>{t('matches.recordStats')}</Button>
-            ) : (
+            )}
+            {!isLocked && (
               <Button onClick={() => setShowSaveModal(true)} disabled={lineup.size < activeSlots.length} icon={<Save size={18} />}>{t('matches.saveLineup')}</Button>
+            )}
+            {isMatchPast && !isLocked && (
+              <Button onClick={() => setConfirmLock(true)} variant="secondary" icon={<Lock size={18} />}>{t('matches.confirmMatch')}</Button>
+            )}
+            {isLocked && (
+              <Button onClick={() => setConfirmLock(false)} variant="ghost" icon={<Unlock size={18} />}>{t('matches.unlockMatch')}</Button>
             )}
         </div>
       </div>
@@ -525,7 +538,7 @@ useEffect(() => {
                 <>
                     <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-2xl font-bold text-foreground flex items-center gap-3"><span className="text-muted text-lg">VS</span> {matchDetails.opponent}</h3>
-                        {isMatchPast ? (
+                        {isMatchPast && (
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20 uppercase tracking-widest">{t('matches.pastMatchBadge')}</span>
                             {hasResult(matchDetails) ? (
@@ -536,8 +549,11 @@ useEffect(() => {
                               <span title={t('statistics.unrecorded')} className="text-sm font-bold bg-slate-500/10 text-slate-500 px-3 py-1 rounded-lg border border-slate-500/20">{t('statistics.unrecordedShort')}</span>
                             )}
                           </div>
+                        )}
+                        {isLocked ? (
+                          <span className="flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-500/10 px-2 py-1 rounded border border-slate-500/20 uppercase tracking-widest"><Lock size={11} /> {t('matches.lockedBadge')}</span>
                         ) : (
-                            <button onClick={handleOpenEdit} className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-surface-hover transition-colors"><Edit2 size={16} /></button>
+                          <button onClick={handleOpenEdit} className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-surface-hover transition-colors"><Edit2 size={16} /></button>
                         )}
                     </div>
                     <div className="flex flex-wrap gap-6 text-sm text-muted font-medium">
@@ -608,6 +624,7 @@ useEffect(() => {
                           <div>
                             <div className="flex items-center gap-2">
                               <p className={`text-sm font-bold ${matchDetails?.id === match.id ? 'text-blue-400' : 'text-foreground'}`}>vs {match.opponent}</p>
+                              {match.locked && <Lock size={11} className="text-muted shrink-0" aria-label={t('matches.lockedBadge')} />}
                               {showPastMatches && (hasResult(match)
                                 ? <span className="text-[10px] font-bold text-emerald-500">{match.goalsFor} - {match.goalsAgainst}</span>
                                 : <span title={t('statistics.unrecorded')} className="text-[10px] font-bold text-slate-500">{t('statistics.unrecordedShort')}</span>)}
@@ -635,26 +652,26 @@ useEffect(() => {
             </Card>
 
           <Card className="p-4 h-[350px] flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-muted uppercase tracking-widest">{t('matches.availablePlayers')}</h3>
-              {isMatchPast && <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">{t('matches.viewOnly')}</span>}
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <h3 className="min-w-0 break-words text-sm font-bold text-muted uppercase tracking-widest">{t('matches.availablePlayers')}</h3>
+              {isLocked && <span className="shrink-0 whitespace-nowrap text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">{t('matches.viewOnly')}</span>}
             </div>
-            <PlayerDropZone onDrop={handleDropToAvailable} disabled={isMatchPast} className={`space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-2 ${isMatchPast ? 'opacity-60 pointer-events-none' : ''}`}>
+            <PlayerDropZone onDrop={handleDropToAvailable} disabled={isLocked} className={`space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-2 ${isLocked ? 'opacity-60 pointer-events-none' : ''}`}>
               {availablePlayers.length > 0 ? availablePlayers.map(player =>
-                <DraggablePlayer key={player.id} player={player} disabled={isMatchPast} onClick={() => !isMatchPast && handleAddSubstitute(player)} />
+                <DraggablePlayer key={player.id} player={player} disabled={isLocked} onClick={() => !isLocked && handleAddSubstitute(player)} />
               ) : <p className="text-xs text-muted italic text-center mt-10">{t('matches.noActivePlayers')}</p>}
             </PlayerDropZone>
           </Card>
 
           <Card className="p-4 h-[200px] flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-muted uppercase tracking-widest">{t('matches.bench')}</h3>
-              {isMatchPast && <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">{t('matches.viewOnly')}</span>}
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <h3 className="min-w-0 break-words text-sm font-bold text-muted uppercase tracking-widest">{t('matches.bench')}</h3>
+              {isLocked && <span className="shrink-0 whitespace-nowrap text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">{t('matches.viewOnly')}</span>}
             </div>
-            <PlayerDropZone onDrop={handleDropToBench} disabled={isMatchPast} className={`space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-2 ${isMatchPast ? 'opacity-60' : ''}`}>
+            <PlayerDropZone onDrop={handleDropToBench} disabled={isLocked} className={`space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-2 ${isLocked ? 'opacity-60' : ''}`}>
               {substitutes.map(player => (
-                <DraggablePlayer key={player.id} player={player} isSubstitute={true} disabled={isMatchPast}
-                  onClick={() => !isMatchPast && setSubstitutes(prev => prev.filter(p => p.id !== player.id))} />
+                <DraggablePlayer key={player.id} player={player} isSubstitute={true} disabled={isLocked}
+                  onClick={() => !isLocked && setSubstitutes(prev => prev.filter(p => p.id !== player.id))} />
               ))}
             </PlayerDropZone>
           </Card>
@@ -670,7 +687,7 @@ useEffect(() => {
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 border-2 border-emerald-400/20 rounded-full"></div>
             </div>
             <div className="absolute inset-8">
-              {activeSlots.map((slot: PositionSlot) => <PositionSlotComponent key={slot.id} slot={slot} player={lineup.get(slot.id) || null} onDrop={handleDropToField} onRemove={handleRemoveFromField} onClick={() => { const p = lineup.get(slot.id); if (p && matchDetails) { setSelectedPlayer(p); setSelectedPlayerPerformance(getMatchRating(matchDetails.id, p.id)); } }} isMatchPast={isMatchPast} />)}
+              {activeSlots.map((slot: PositionSlot) => <PositionSlotComponent key={slot.id} slot={slot} player={lineup.get(slot.id) || null} onDrop={handleDropToField} onRemove={handleRemoveFromField} onClick={() => { const p = lineup.get(slot.id); if (p && matchDetails) { setSelectedPlayer(p); setSelectedPlayerPerformance(getMatchRating(matchDetails.id, p.id)); } }} readOnly={isLocked} />)}
             </div>
             <div className="absolute top-6 right-6 bg-black/40 backdrop-blur-md rounded-lg px-4 py-2 border border-white/10">
               <p className="text-[10px] text-white/50 uppercase tracking-widest">{t('matches.starters')}</p>
@@ -684,6 +701,7 @@ useEffect(() => {
                 starterIds={Array.from(lineup.values()).map(p => p.id)}
                 players={allPlayers}
                 onRatePlayer={p => { setSelectedPlayer({ ...p, positionSlot: '', isStarter: false }); setSelectedPlayerPerformance(getMatchRating(matchDetails.id, p.id)); }}
+                readOnly={isLocked}
               />
             </div>
           )}
@@ -709,6 +727,7 @@ useEffect(() => {
                             min="0"
                             max="10"
                             value={selectedPlayerPerformance}
+                            disabled={isLocked}
                             onChange={(e) => setSelectedPlayerPerformance(Number(e.target.value))}
                             className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400 transition-colors"
                           />
@@ -801,15 +820,15 @@ useEffect(() => {
                 
                 <Button 
                   onClick={async () => {
-                    if (isMatchPast && matchDetails) {
+                    if (isMatchPast && !isLocked && matchDetails) {
                       await handleSaveRating(matchDetails.id, selectedPlayer.id, selectedPlayerPerformance);
                     }
                     setSelectedPlayer(null);
                   }}
-                  disabled={!isMatchPast}
+                  disabled={!isMatchPast || isLocked}
                   className="w-full"
                 >
-                  {isMatchPast ? t('matches.savePerformance') : t('matches.upcomingMatchViewOnly')}
+                  {!isMatchPast ? t('matches.upcomingMatchViewOnly') : isLocked ? t('matches.viewOnly') : t('matches.savePerformance')}
                 </Button>
             </div>
         )}
@@ -903,6 +922,15 @@ useEffect(() => {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={confirmLock !== null}
+        title={t(confirmLock ? 'matches.confirmMatchTitle' : 'matches.unlockMatchTitle')}
+        message={t(confirmLock ? 'matches.confirmMatchMsg' : 'matches.unlockMatchMsg', { opponent: matchDetails?.opponent ?? '' })}
+        confirmLabel={t(confirmLock ? 'matches.confirmMatch' : 'matches.unlockMatch')}
+        onConfirm={() => { if (confirmLock !== null) handleSetLocked(confirmLock); setConfirmLock(null); }}
+        onCancel={() => setConfirmLock(null)}
+      />
 
       <ConfirmDialog
         isOpen={confirmDeleteMatch !== null}
