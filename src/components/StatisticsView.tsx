@@ -234,49 +234,49 @@ export default function StatisticsView() {
         <div className="space-y-6 pb-8">
           {/* Hero stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="p-5">
+            <Card className="p-5 flex flex-col">
               <p className="text-xs text-muted font-medium mb-4">{t('statistics.seasonRecord')}</p>
-              <div className="flex justify-around gap-1.5">
+              <div className="flex justify-between gap-1.5 mb-4">
                 {([
                   [stats.wins, 'text-emerald-500', t('statistics.wins')],
                   [stats.draws, 'text-amber-500', t('statistics.draws')],
                   [stats.losses, 'text-rose-500', t('statistics.losses')],
                 ] as const).map(([value, color, label]) => (
-                  <div key={label} className="shrink-0 text-center">
+                  <div key={label} className="shrink-0">
                     <p className={`text-3xl font-black ${color}`}>{value}</p>
                     <p className="text-[10px] sm:text-[11px] text-muted font-medium mt-1">{label}</p>
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-muted mt-4 pt-4 border-t border-border/40">
+              <p className="text-xs leading-4 text-muted mt-auto pt-4 min-h-[49px] border-t border-border/40">
                 {t('statistics.matchesPlayedCount', { count: stats.total })}
                 {unrecorded.length > 0 && <> · {t('statistics.unrecordedCount', { count: unrecorded.length })}</>}
               </p>
             </Card>
 
-            <Card className="p-5">
+            <Card className="p-5 flex flex-col">
               <p className="text-xs text-muted font-medium mb-4">{t('statistics.points')}</p>
-              <p className="text-4xl font-black text-foreground">{stats.points}</p>
-              <p className="text-xs text-muted mt-4 pt-4 border-t border-border/40">
+              <p className="text-4xl font-black text-foreground mb-4">{stats.points}</p>
+              <p className="text-xs leading-4 text-muted mt-auto pt-4 min-h-[49px] border-t border-border/40">
                 {t('statistics.pointsSub', { ptsPerGame: stats.ptsPerGame, winRate: stats.winRate })}
               </p>
             </Card>
 
-            <Card className="p-5">
+            <Card className="p-5 flex flex-col">
               <p className="text-xs text-muted font-medium mb-4">{t('statistics.goals')}</p>
-              <div className="flex items-baseline gap-2">
+              <div className="flex items-baseline gap-2 mb-4">
                 <p className="text-4xl font-black text-foreground">{stats.goalsFor}</p>
                 <span className="text-sm text-muted">{t('statistics.goalsScored')}</span>
               </div>
-              <p className="text-xs text-muted mt-4 pt-4 border-t border-border/40">
+              <p className="text-xs leading-4 text-muted mt-auto pt-4 min-h-[49px] border-t border-border/40">
                 {t('statistics.goalsSub', { goalsAgainst: stats.goalsAgainst, goalDiffPrefix: stats.goalDiff > 0 ? '+' : '', goalDiff: stats.goalDiff })}
               </p>
             </Card>
 
-            <Card className="p-5">
+            <Card className="p-5 flex flex-col">
               <p className="text-xs text-muted font-medium mb-4">{t('statistics.cleanSheets')}</p>
-              <p className="text-4xl font-black text-foreground">{stats.cleanSheets}</p>
-              <p className="text-xs text-muted mt-4 pt-4 border-t border-border/40">
+              <p className="text-4xl font-black text-foreground mb-4">{stats.cleanSheets}</p>
+              <p className="text-xs leading-4 text-muted mt-auto pt-4 min-h-[49px] border-t border-border/40">
                 {t('statistics.cleanSheetsSub', { pct: stats.total > 0 ? Math.round((stats.cleanSheets / stats.total) * 100) : 0 })}
               </p>
             </Card>
