@@ -28,13 +28,17 @@ import { isPast, parseLocalDate, todayISO } from '../lib/dates';
 
 // --- Sub-Components ---
 
-function DraggablePlayer({ player, onClick, isSubstitute = false }: { player: Player; onClick?: () => void; isSubstitute?: boolean }) {
+type PlayerSource = 'available' | 'bench' | 'field';
+type DragItem = Player & { source: PlayerSource };
+
+function DraggablePlayer({ player, onClick, isSubstitute = false, disabled = false }: { player: Player; onClick?: () => void; isSubstitute?: boolean; disabled?: boolean }) {
   const { t } = useTranslation();
-  const [{ isDragging }, drag] = useDrag(() => ({ 
-      type: 'player', 
-      item: { ...player, fromBench: isSubstitute }, 
-      collect: (monitor) => ({ isDragging: !!monitor.isDragging() }) 
-  }));
+  const [{ isDragging }, drag] = useDrag(() => ({
+      type: 'player',
+      item: { ...player, source: isSubstitute ? 'bench' : 'available' } as DragItem,
+      canDrag: !disabled,
+      collect: (monitor) => ({ isDragging: !!monitor.isDragging() })
+  }), [player, isSubstitute, disabled]);
   
   return (
     <div ref={drag} onClick={onClick} className={`bg-surface border border-border rounded-xl p-3 cursor-pointer hover:border-blue-500/50 hover:bg-surface-hover transition-all flex items-center gap-3 ${isDragging ? 'opacity-50' : ''}`}>
@@ -47,17 +51,34 @@ function DraggablePlayer({ player, onClick, isSubstitute = false }: { player: Pl
   );
 }
 
-function PositionSlotComponent({ slot, player, onDrop, onRemove, onClick, isMatchPast }: { slot: PositionSlot; player: LineupPlayer | null; onDrop: (p: any, s: string) => void; onRemove: (s: string) => void; onClick: () => void; isMatchPast: boolean; }) {
-  const [{ isOver }, drop] = useDrop(() => ({ 
-      accept: 'player', 
-      drop: (item: any) => onDrop(item, slot.id), 
-      collect: (monitor) => ({ isOver: !!monitor.isOver() }) 
+// A drop area for players dragged from the pitch or another list.
+function PlayerDropZone({ onDrop, disabled, className, children }: { onDrop: (item: DragItem) => void; disabled: boolean; className?: string; children: React.ReactNode }) {
+  const [{ isOver }, drop] = useDrop(() => ({
+      accept: 'player',
+      canDrop: () => !disabled,
+      drop: (item: DragItem) => onDrop(item),
+      collect: (monitor) => ({ isOver: monitor.isOver() && monitor.canDrop() })
+  }), [onDrop, disabled]);
+  return <div ref={drop} className={`${className ?? ''} rounded-lg transition-colors ${isOver ? 'bg-blue-500/10 ring-2 ring-blue-500/40' : ''}`}>{children}</div>;
+}
+
+function PositionSlotComponent({ slot, player, onDrop, onRemove, onClick, isMatchPast }: { slot: PositionSlot; player: LineupPlayer | null; onDrop: (p: DragItem, s: string) => void; onRemove: (s: string) => void; onClick: () => void; isMatchPast: boolean; }) {
+  const [{ isOver }, drop] = useDrop(() => ({
+      accept: 'player',
+      drop: (item: DragItem) => onDrop(item, slot.id),
+      collect: (monitor) => ({ isOver: !!monitor.isOver() })
   }), [onDrop, slot.id]);
+  const [{ isDragging }, drag] = useDrag(() => ({
+      type: 'player',
+      item: () => ({ ...player, source: 'field' }) as DragItem,
+      canDrag: !!player && !isMatchPast,
+      collect: (monitor) => ({ isDragging: !!monitor.isDragging() })
+  }), [player, isMatchPast]);
 
   return (
     <div ref={drop} style={{ left: `${slot.x}%`, top: `${slot.y}%` }} className="absolute -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-110">
       {player ? (
-        <div onClick={onClick} className="relative group cursor-pointer">
+        <div ref={drag} onClick={onClick} className={`relative group cursor-pointer ${isDragging ? 'opacity-50' : ''}`}>
           <div className="w-14 h-14 bg-primary rounded-full flex items-center justify-center text-white shadow-[0_0_15px_rgba(37,99,235,0.5)] border-2 border-primary/40"><span className="text-lg font-bold">{player.jerseyNumber}</span></div>
           <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-center whitespace-nowrap"><p className="text-[10px] font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{player.firstName}</p></div>
           {!isMatchPast && <button onClick={(e) => { e.stopPropagation(); onRemove(slot.id); }} className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"><X className="w-3 h-3" /></button>}
@@ -387,30 +408,33 @@ useEffect(() => {
     }
   };
 
-  const handleDropToField = (item: any, slotId: string) => {
+  // Drag items carry extra fields (source, slot); lists store the plain player.
+  const plainPlayer = (p: Player): Player => allPlayers.find(a => a.id === p.id) ?? p;
+  const slotOf = (playerId: string) => Array.from(lineup.entries()).find(([, p]) => p.id === playerId)?.[0];
+
+  const handleDropToField = (item: DragItem, slotId: string) => {
     if (isMatchPast) {
       toast.error(t('matches.cannotEditPast'));
       return;
     }
-    const player = item as Player;
-    const fromBench = item.fromBench;
+    const player = plainPlayer(item);
+    const next = new Map(lineup);
+    const fromSlot = slotOf(player.id);
+    if (fromSlot === slotId) return;
+    if (fromSlot) next.delete(fromSlot);
 
-    if (fromBench) {
-        setSubstitutes(prev => prev.filter(p => p.id !== player.id));
+    // An occupied slot swaps with the pitch, or sends its player to the bench for a bench player.
+    const displaced = next.get(slotId);
+    if (displaced && fromSlot) next.set(fromSlot, { ...displaced, positionSlot: fromSlot });
+    next.set(slotId, { ...player, positionSlot: slotId, isStarter: true });
+    setLineup(next);
+
+    if (item.source === 'bench') {
+      setSubstitutes(prev => {
+        const rest = prev.filter(p => p.id !== player.id);
+        return displaced ? [...rest, plainPlayer(displaced)] : rest;
+      });
     }
-
-    setLineup(prevLineup => {
-        const newLineup = new Map(prevLineup);
-        for (const [key, val] of newLineup.entries()) {
-            if (val.id === player.id) {
-                newLineup.delete(key);
-                break;
-            }
-        }
-        newLineup.set(slotId, { ...player, positionSlot: slotId, isStarter: true });
-        return newLineup;
-    });
-    
     toast.success(t('matches.playerSet', { name: player.firstName }));
   };
 
@@ -420,6 +444,23 @@ useEffect(() => {
         newMap.delete(slotId);
         return newMap;
     });
+  };
+
+  const removeFromField = (playerId: string) => {
+    const slot = slotOf(playerId);
+    if (slot) handleRemoveFromField(slot);
+  };
+
+  const handleDropToBench = (item: DragItem) => {
+    if (item.source === 'bench') return;
+    if (item.source === 'field') removeFromField(item.id);
+    const player = plainPlayer(item);
+    setSubstitutes(prev => (prev.some(p => p.id === player.id) ? prev : [...prev, player]));
+  };
+
+  const handleDropToAvailable = (item: DragItem) => {
+    if (item.source === 'bench') setSubstitutes(prev => prev.filter(p => p.id !== item.id));
+    if (item.source === 'field') removeFromField(item.id);
   };
 
   const handleAddSubstitute = (player: Player) => {
@@ -598,11 +639,11 @@ useEffect(() => {
               <h3 className="text-sm font-bold text-muted uppercase tracking-widest">{t('matches.availablePlayers')}</h3>
               {isMatchPast && <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">{t('matches.viewOnly')}</span>}
             </div>
-            <div className={`space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-2 ${isMatchPast ? 'opacity-60 pointer-events-none' : ''}`}>
-              {availablePlayers.length > 0 ? availablePlayers.map(player => 
-                <DraggablePlayer key={player.id} player={player} onClick={() => !isMatchPast && handleAddSubstitute(player)} />
+            <PlayerDropZone onDrop={handleDropToAvailable} disabled={isMatchPast} className={`space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-2 ${isMatchPast ? 'opacity-60 pointer-events-none' : ''}`}>
+              {availablePlayers.length > 0 ? availablePlayers.map(player =>
+                <DraggablePlayer key={player.id} player={player} disabled={isMatchPast} onClick={() => !isMatchPast && handleAddSubstitute(player)} />
               ) : <p className="text-xs text-muted italic text-center mt-10">{t('matches.noActivePlayers')}</p>}
-            </div>
+            </PlayerDropZone>
           </Card>
 
           <Card className="p-4 h-[200px] flex flex-col">
@@ -610,12 +651,12 @@ useEffect(() => {
               <h3 className="text-sm font-bold text-muted uppercase tracking-widest">{t('matches.bench')}</h3>
               {isMatchPast && <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">{t('matches.viewOnly')}</span>}
             </div>
-            <div className={`space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-2 ${isMatchPast ? 'opacity-60' : ''}`}>
+            <PlayerDropZone onDrop={handleDropToBench} disabled={isMatchPast} className={`space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-2 ${isMatchPast ? 'opacity-60' : ''}`}>
               {substitutes.map(player => (
-                <DraggablePlayer key={player.id} player={player} isSubstitute={true}
+                <DraggablePlayer key={player.id} player={player} isSubstitute={true} disabled={isMatchPast}
                   onClick={() => !isMatchPast && setSubstitutes(prev => prev.filter(p => p.id !== player.id))} />
               ))}
-            </div>
+            </PlayerDropZone>
           </Card>
         </div>
 
