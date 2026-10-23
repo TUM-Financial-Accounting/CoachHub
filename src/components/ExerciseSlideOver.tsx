@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Edit2, Trash2, FileText, Video as VideoIcon, Dumbbell, Users, Layers, BookOpen, Target, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useEquipmentLabel } from '../lib/useEquipmentLabel';
 import {ExerciseSlideOverProps} from "../types/ui"
 import { getMediaType, resolveMediaUrl } from '../lib/media';
 import { getCategoryStyles } from '../lib/exerciseCategories';
@@ -14,6 +15,7 @@ import { intensityMeta } from '../lib/domain';
 
 export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete }: ExerciseSlideOverProps) {
     const { t } = useTranslation();
+    const equipmentLabel = useEquipmentLabel();
     const intensity = exercise ? intensityMeta(exercise.intensity) : null;
     const drawing = exercise && !exercise.mediaUrl ? parseDrawing(exercise.drawing) : null;
 
@@ -158,7 +160,7 @@ export default function ExerciseSlideOver({ exercise, onClose, onEdit, onDelete 
                                     <div className="flex flex-wrap gap-2">
                                         {exercise.equipment.map(item => (
                                             <span key={item} className="px-2.5 py-1 rounded-lg text-xs font-medium bg-surface-raised border border-border text-foreground/80">
-                                                {item}
+                                                {equipmentLabel(item)}
                                             </span>
                                         ))}
                                     </div>

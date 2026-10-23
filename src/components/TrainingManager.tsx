@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useEquipmentLabel } from '../lib/useEquipmentLabel';
 import { Plus, X, Calendar, Clock, Trash2, Edit2, User, Activity, Download, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { AnimatePresence } from 'framer-motion';
@@ -34,6 +35,7 @@ import SeriesScopePicker from './SeriesScopePicker';
 
 export default function TrainingManager() {
     const { t, i18n } = useTranslation();
+    const equipmentLabel = useEquipmentLabel();
     const { activeTeam } = useTeam();
     const { activeSeason } = useSeason();
     const [sessions, setSessions] = useState<TrainingSession[]>([]);
@@ -394,7 +396,7 @@ export default function TrainingManager() {
                         ex.setup || '-',
                         ex.description || '-',
                         ex.coachingPoints || '-',
-                        ex.equipment?.join(', ') || '-',
+                        ex.equipment?.map(equipmentLabel).join(', ') || '-',
                         related || '-'
                     ];
                 }),

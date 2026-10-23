@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Edit2, Trash2, Download, Calendar, Clock, Users, Activity, Dumbbell, Zap, BookOpen, Layers, Target, Image as ImageIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useEquipmentLabel } from '../../lib/useEquipmentLabel';
 import { formatDate, todayISO } from '../../lib/dates';
 import AttendanceEditor from '../AttendanceEditor';
 import { getMediaType, resolveMediaUrl } from '../../lib/media';
@@ -16,6 +17,7 @@ export default function SessionSlideOver({
     session, allPlayers, allExercises, isPast, onClose, onEdit, onDelete, onExportPDF,
 }: SessionSlideOverProps) {
     const { t } = useTranslation();
+    const equipmentLabel = useEquipmentLabel();
 
     // All derived values are null-safe so the component can keep rendering
     // while AnimatePresence plays the exit animation after `session` clears.
@@ -167,7 +169,7 @@ export default function SessionSlideOver({
                                                                 </span>
                                                             )}
                                                             {ex.equipment && ex.equipment.length > 0 && ex.equipment[0] !== '' && (
-                                                                <p className="text-[10px] text-dimmed mt-1 truncate">{ex.equipment.slice(0, 3).join(', ')}</p>
+                                                                <p className="text-[10px] text-dimmed mt-1 truncate">{ex.equipment.slice(0, 3).map(equipmentLabel).join(', ')}</p>
                                                             )}
                                                         </div>
                                                     </div>

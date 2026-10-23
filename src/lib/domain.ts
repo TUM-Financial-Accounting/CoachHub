@@ -123,6 +123,16 @@ export const phaseLabelKeys = (phase: string) =>
 
 export const EQUIPMENT_OPTIONS = ['Balls', 'Cones', 'Bibs/Vests', 'Goals', 'Hurdles', 'Poles', 'Agility Ladder', 'Markers', 'Mannequins', 'Mini Goals'] as const;
 
+// Stored values stay the English names above; this maps them (and older hand-typed spellings) to equipment.* keys.
+const EQUIPMENT_KEYS: Record<string, string> = {
+  balls: 'balls', ball: 'balls', cones: 'cones', cone: 'cones', 'bibs/vests': 'bibs', bibs: 'bibs', vests: 'bibs',
+  goals: 'goals', hurdles: 'hurdles', poles: 'poles', 'agility ladder': 'agilityLadder', markers: 'markers',
+  mannequins: 'mannequins', 'mini goals': 'miniGoals',
+};
+
+// null for free text the app does not know; show that as typed.
+export const equipmentKey = (item: string): string | null => EQUIPMENT_KEYS[item.trim().toLowerCase()] ?? null;
+
 export const emptyPlayer = (): Player => ({
   id: '', firstName: '', lastName: '', dateOfBirth: '', position: DEFAULT_POSITION, jerseyNumber: 0,
   status: PLAYER_STATUS.Active, playerPhone: '', height: 0, weight: 0, clothingSize: '', strongFoot: '',

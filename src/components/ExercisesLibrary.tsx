@@ -26,11 +26,13 @@ import { parseDrawing, hasDrawing } from '../lib/drillDrawing';
 import { DrillCanvas } from './drill/DrillCanvas';
 import DrillEditor from './drill/DrillEditor';
 import { EQUIPMENT_OPTIONS, INTENSITIES, emptyExercise, intensityMeta } from '../lib/domain';
+import { useEquipmentLabel } from '../lib/useEquipmentLabel';
 
 // --- Helpers ---
 
 export default function ExercisesLibrary() {
     const { t } = useTranslation();
+    const equipmentLabel = useEquipmentLabel();
     const [exercises, setExercises] = useState<Exercise[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeIntensity, setActiveIntensity] = useState<string>('All');
@@ -125,7 +127,7 @@ export default function ExercisesLibrary() {
         const selectedBefore = selectedExercise;
         setExercises(prev => prev.filter(ex => ex.id !== id));
         setSelectedExercise(null);
-        toast.success(t('training.deleted'));
+        toast.success(t('libraries.exerciseDeleted'));
         try {
             await ExerciseService.delete(id);
         } catch (e) {
@@ -327,7 +329,7 @@ export default function ExercisesLibrary() {
                 <Input icon={<Search size={18} />} placeholder={t('libraries.searchExercises')} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-2 pb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 auto-rows-max content-start gap-6 flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-2 pb-6">
                 <AnimatePresence>
                     {filteredExercises.map((ex, idx) => (
                         <Card key={ex.id} animate delay={idx * 0.05} onClick={() => setSelectedExercise(ex)} className="p-6 cursor-pointer hover:border-primary/50 flex flex-col h-full group">
@@ -360,7 +362,7 @@ export default function ExercisesLibrary() {
 
                             <p className="text-sm text-muted line-clamp-2 mb-5 leading-relaxed">{ex.description}</p>
                             <div className="flex flex-wrap gap-2 mt-auto">
-                                {ex.equipment.slice(0, 3).map((e, i) => <span key={i} className="text-[10px] bg-surface text-muted px-2 py-1 rounded border border-border">{e}</span>)}
+                                {ex.equipment.slice(0, 3).map((e, i) => <span key={i} className="text-[10px] bg-surface text-muted px-2 py-1 rounded border border-border">{equipmentLabel(e)}</span>)}
                                 {ex.equipment.length > 3 && <span className="text-[10px] text-muted pt-1">+{ex.equipment.length - 3}</span>}
                             </div>
                         </Card>
@@ -464,7 +466,7 @@ export default function ExercisesLibrary() {
                             {EQUIPMENT_OPTIONS.map(item => (
                                 <button key={item} type="button" onClick={() => toggleSelection('equipment', item)}
                                     className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${formData.equipment.includes(item) ? 'bg-primary border-primary text-white' : 'bg-surface-raised border-border text-muted hover:border-border-subtle'}`}>
-                                    {item}
+                                    {equipmentLabel(item)}
                                 </button>
                             ))}
                         </div>

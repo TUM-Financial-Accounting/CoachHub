@@ -111,9 +111,9 @@ export default function VisionLibrary() {
             </div>
 
             {/* Master / Detail */}
-            <div className="grid grid-cols-12 gap-6 lg:flex-1 lg:min-h-0">
+            <div className="grid grid-cols-12 gap-6 lg:flex-1 lg:min-h-0 lg:grid-rows-[minmax(0,1fr)]">
                 {/* LEFT: List */}
-                <div className="col-span-12 lg:col-span-4 flex flex-col gap-3">
+                <div className="col-span-12 lg:col-span-4 flex flex-col gap-3 lg:min-h-0">
                     <div className="space-y-2 lg:overflow-y-auto custom-scrollbar pr-1 lg:flex-1 lg:min-h-0">
                         <AnimatePresence>
                             {visions.length === 0 && (

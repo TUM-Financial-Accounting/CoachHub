@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { intensityMeta, statusStyle, perfStyle, phaseLabelKeys, emptyPlayer, emptyExercise } from './domain';
+import { intensityMeta, statusStyle, perfStyle, phaseLabelKeys, emptyPlayer, emptyExercise, EQUIPMENT_OPTIONS, equipmentKey } from './domain';
 import { ALL_FORMATIONS, FORMATIONS, DEFAULT_FORMATION } from './formations';
 
 describe('intensityMeta', () => {
@@ -50,5 +50,16 @@ describe('formations', () => {
     for (const name of ALL_FORMATIONS) expect(FORMATIONS[name], name).toBeDefined();
     expect(Object.keys(FORMATIONS).sort()).toEqual([...ALL_FORMATIONS].sort());
     expect(ALL_FORMATIONS).toContain(DEFAULT_FORMATION);
+  });
+});
+
+describe('equipmentKey', () => {
+  it('maps every offered option and older hand-typed spellings to a translation key', () => {
+    expect(EQUIPMENT_OPTIONS.map(equipmentKey).every(Boolean)).toBe(true);
+    expect(['cones', ' Bibs ', 'balls'].map(equipmentKey)).toEqual(['cones', 'bibs', 'balls']);
+  });
+
+  it('leaves unknown equipment untranslated', () => {
+    expect(equipmentKey('Tennis balls')).toBeNull();
   });
 });
